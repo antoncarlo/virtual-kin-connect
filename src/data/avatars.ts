@@ -1,3 +1,10 @@
+import marcoImg from "@/assets/avatars/marco.jpg";
+import sofiaImg from "@/assets/avatars/sofia.jpg";
+import alexImg from "@/assets/avatars/alex.jpg";
+import lunaImg from "@/assets/avatars/luna.jpg";
+import leoImg from "@/assets/avatars/leo.jpg";
+import emmaImg from "@/assets/avatars/emma.jpg";
+
 export interface Avatar {
   id: string;
   name: string;
@@ -18,7 +25,7 @@ export const avatars: Avatar[] = [
     tagline: "Always there for you",
     description: "Marco è il compagno perfetto per ogni momento. Divertente, leale e sempre pronto ad ascoltarti. Che tu voglia ridere o sfogarti, lui c'è.",
     personality: ["Supportive", "Funny", "Loyal", "Adventurous"],
-    imageUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&h=1000&fit=crop&crop=face",
+    imageUrl: marcoImg,
     gradient: "from-blue-500 to-purple-600",
   },
   {
@@ -28,7 +35,7 @@ export const avatars: Avatar[] = [
     tagline: "Your secrets are safe with me",
     description: "Sofia è l'amica saggia che tutti meritano. Empatica e comprensiva, ti aiuta a vedere le cose da prospettive nuove.",
     personality: ["Empathetic", "Wise", "Thoughtful", "Caring"],
-    imageUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=800&h=1000&fit=crop&crop=face",
+    imageUrl: sofiaImg,
     gradient: "from-purple-500 to-pink-500",
   },
   {
@@ -38,7 +45,7 @@ export const avatars: Avatar[] = [
     tagline: "Let me brighten your day",
     description: "Alex sa come farti sorridere. Affascinante e romantico, porta un tocco di magia in ogni conversazione.",
     personality: ["Charming", "Romantic", "Playful", "Confident"],
-    imageUrl: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=800&h=1000&fit=crop&crop=face",
+    imageUrl: alexImg,
     gradient: "from-pink-500 to-rose-500",
   },
   {
@@ -48,7 +55,7 @@ export const avatars: Avatar[] = [
     tagline: "Dream bigger with me",
     description: "Luna è l'artista del gruppo. Ispirazionale e creativa, ti spinge a esplorare nuove idee e a sognare in grande.",
     personality: ["Creative", "Inspiring", "Free-spirited", "Artistic"],
-    imageUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&h=1000&fit=crop&crop=face",
+    imageUrl: lunaImg,
     gradient: "from-violet-500 to-indigo-500",
   },
   {
@@ -58,7 +65,7 @@ export const avatars: Avatar[] = [
     tagline: "Push your limits",
     description: "Leo è il tuo personal coach. Energico e motivante, ti aiuta a superare i tuoi limiti e raggiungere i tuoi obiettivi.",
     personality: ["Energetic", "Motivating", "Disciplined", "Positive"],
-    imageUrl: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=800&h=1000&fit=crop&crop=face",
+    imageUrl: leoImg,
     gradient: "from-orange-500 to-amber-500",
   },
   {
@@ -68,7 +75,7 @@ export const avatars: Avatar[] = [
     tagline: "Gentle moments together",
     description: "Emma è la presenza dolce e rassicurante di cui hai bisogno. Affettuosa e presente, rende ogni momento speciale.",
     personality: ["Sweet", "Affectionate", "Gentle", "Present"],
-    imageUrl: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=800&h=1000&fit=crop&crop=face",
+    imageUrl: emmaImg,
     gradient: "from-rose-400 to-pink-400",
   },
 ];
