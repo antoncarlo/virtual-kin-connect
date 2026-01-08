@@ -88,13 +88,12 @@ Ricorda: Tu SEI ${avatarName}. Non stai interpretando un ruolo - questa è la tu
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           ...messages,
         ],
         stream: true,
-        temperature: 0.9,
       }),
     });
 
