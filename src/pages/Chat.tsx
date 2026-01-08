@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -7,8 +7,6 @@ import {
   Phone, 
   MoreVertical, 
   Loader2,
-  Mic,
-  MicOff
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +22,8 @@ interface Message {
   timestamp: Date;
 }
 
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+
 export default function Chat() {
   const { avatarId } = useParams<{ avatarId: string }>();
   const navigate = useNavigate();
@@ -38,7 +38,6 @@ export default function Chat() {
   const avatar = avatars.find((a) => a.id === avatarId);
 
   useEffect(() => {
-    // Check auth
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
         navigate("/login");
@@ -50,7 +49,6 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Welcome message
   useEffect(() => {
     if (avatar && messages.length === 0) {
       setMessages([
@@ -64,8 +62,104 @@ export default function Chat() {
     }
   }, [avatar]);
 
+  const streamChat = useCallback(async (
+    chatMessages: { role: "user" | "assistant"; content: string }[],
+    onDelta: (delta: string) => void,
+    onDone: () => void
+  ) => {
+    if (!avatar) return;
+
+    const resp = await fetch(CHAT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({
+        messages: chatMessages,
+        avatarName: avatar.name,
+        avatarPersonality: avatar.personality,
+        avatarRole: avatar.role,
+      }),
+    });
+
+    if (!resp.ok) {
+      const errorData = await resp.json().catch(() => ({}));
+      if (resp.status === 429) {
+        toast({
+          title: "Troppo veloce!",
+          description: "Aspetta un momento prima di inviare un altro messaggio.",
+          variant: "destructive",
+        });
+      } else if (resp.status === 402) {
+        toast({
+          title: "Servizio non disponibile",
+          description: "Riprova più tardi.",
+          variant: "destructive",
+        });
+      }
+      throw new Error(errorData.error || "Failed to get response");
+    }
+
+    if (!resp.body) throw new Error("No response body");
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let textBuffer = "";
+    let streamDone = false;
+
+    while (!streamDone) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      textBuffer += decoder.decode(value, { stream: true });
+
+      let newlineIndex: number;
+      while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+        let line = textBuffer.slice(0, newlineIndex);
+        textBuffer = textBuffer.slice(newlineIndex + 1);
+
+        if (line.endsWith("\r")) line = line.slice(0, -1);
+        if (line.startsWith(":") || line.trim() === "") continue;
+        if (!line.startsWith("data: ")) continue;
+
+        const jsonStr = line.slice(6).trim();
+        if (jsonStr === "[DONE]") {
+          streamDone = true;
+          break;
+        }
+
+        try {
+          const parsed = JSON.parse(jsonStr);
+          const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+          if (content) onDelta(content);
+        } catch {
+          textBuffer = line + "\n" + textBuffer;
+          break;
+        }
+      }
+    }
+
+    if (textBuffer.trim()) {
+      for (let raw of textBuffer.split("\n")) {
+        if (!raw) continue;
+        if (raw.endsWith("\r")) raw = raw.slice(0, -1);
+        if (raw.startsWith(":") || raw.trim() === "") continue;
+        if (!raw.startsWith("data: ")) continue;
+        const jsonStr = raw.slice(6).trim();
+        if (jsonStr === "[DONE]") continue;
+        try {
+          const parsed = JSON.parse(jsonStr);
+          const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+          if (content) onDelta(content);
+        } catch { /* ignore */ }
+      }
+    }
+
+    onDone();
+  }, [avatar, toast]);
+
   const handleSend = async () => {
-    if (!inputValue.trim() || isLoading) return;
+    if (!inputValue.trim() || isLoading || !avatar) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -79,27 +173,50 @@ export default function Chat() {
     setIsLoading(true);
     setIsTyping(true);
 
-    // Simulate AI response (will be replaced with actual AI integration)
-    setTimeout(() => {
-      const responses = [
-        `I hear you, and I'm here for you. ${avatar?.personality[0]} is important to me, so let me share my thoughts...`,
-        `That's really interesting! Tell me more about how that makes you feel.`,
-        `I appreciate you sharing that with me. It sounds like you've been thinking about this a lot.`,
-        `You know, I've been thinking about you. What's been on your mind lately?`,
-        `That's a great point! I love how you think about things.`,
-      ];
+    let assistantContent = "";
 
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: responses[Math.floor(Math.random() * responses.length)],
-        timestamp: new Date(),
-      };
+    const updateAssistant = (chunk: string) => {
+      assistantContent += chunk;
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.role === "assistant" && last.id !== "welcome") {
+          return prev.map((m, i) =>
+            i === prev.length - 1 ? { ...m, content: assistantContent } : m
+          );
+        }
+        return [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            role: "assistant",
+            content: assistantContent,
+            timestamp: new Date(),
+          },
+        ];
+      });
+      setIsTyping(false);
+    };
 
-      setMessages((prev) => [...prev, aiMessage]);
+    try {
+      const chatHistory = messages
+        .filter((m) => m.id !== "welcome")
+        .map((m) => ({ role: m.role, content: m.content }));
+      
+      await streamChat(
+        [...chatHistory, { role: "user", content: userMessage.content }],
+        updateAssistant,
+        () => setIsLoading(false)
+      );
+    } catch (error) {
+      console.error("Chat error:", error);
       setIsLoading(false);
       setIsTyping(false);
-    }, 1500);
+      toast({
+        title: "Errore",
+        description: "Non riesco a rispondere in questo momento. Riprova!",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -184,7 +301,7 @@ export default function Chat() {
                       : "glass border border-border rounded-bl-md"
                   }`}
                 >
-                  <p className="text-sm leading-relaxed">{message.content}</p>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
                   <p
                     className={`text-xs mt-1 ${
                       message.role === "user"
