@@ -80,6 +80,8 @@ export default function Chat() {
         avatarName: avatar.name,
         avatarPersonality: avatar.personality,
         avatarRole: avatar.role,
+        avatarTagline: avatar.tagline,
+        avatarDescription: avatar.description,
       }),
     });
 
