@@ -5,8 +5,11 @@ import {
   ArrowLeft, 
   Send, 
   Phone, 
+  PhoneOff,
   MoreVertical, 
   Loader2,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +17,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { avatars } from "@/data/avatars";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useVoiceCall } from "@/hooks/useVoiceCall";
 
 interface Message {
   id: string;
@@ -36,6 +40,9 @@ export default function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const avatar = avatars.find((a) => a.id === avatarId);
+  const { isPlaying, isLoading: isVoiceLoading, playMessage, stopPlayback } = useVoiceCall({ 
+    voiceId: avatar?.voiceId || "" 
+  });
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -262,19 +269,35 @@ export default function Chat() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-primary hover:bg-primary/10"
-              onClick={() => {
-                toast({
-                  title: "Voice Call",
-                  description: "Voice calls coming soon! Stay tuned.",
-                });
-              }}
-            >
-              <Phone className="w-5 h-5" />
-            </Button>
+            {isPlaying ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-destructive hover:bg-destructive/10"
+                onClick={stopPlayback}
+              >
+                <VolumeX className="w-5 h-5" />
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-primary hover:bg-primary/10"
+                disabled={isVoiceLoading || messages.length === 0}
+                onClick={() => {
+                  const lastAssistantMessage = [...messages].reverse().find(m => m.role === "assistant");
+                  if (lastAssistantMessage) {
+                    playMessage(lastAssistantMessage.content);
+                  }
+                }}
+              >
+                {isVoiceLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Volume2 className="w-5 h-5" />
+                )}
+              </Button>
+            )}
             <Button variant="ghost" size="icon">
               <MoreVertical className="w-5 h-5" />
             </Button>
