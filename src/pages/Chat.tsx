@@ -4,12 +4,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   ArrowLeft, 
   Send, 
-  Phone, 
-  PhoneOff,
   MoreVertical, 
   Loader2,
   Volume2,
   VolumeX,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,13 +17,13 @@ import { avatars } from "@/data/avatars";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useVoiceCall } from "@/hooks/useVoiceCall";
-
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  timestamp: Date;
-}
+import { useChatHistory } from "@/hooks/useChatHistory";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
@@ -33,13 +32,30 @@ export default function Chat() {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const avatar = avatars.find((a) => a.id === avatarId);
+  
+  const welcomeMessage = avatar 
+    ? `Ciao! Sono ${avatar.name}, ${avatar.tagline.toLowerCase()}. Come stai oggi? 💜`
+    : "";
+
+  const {
+    messages,
+    isLoading: isHistoryLoading,
+    addMessage,
+    updateLastAssistantMessage,
+    saveAssistantMessage,
+    clearHistory,
+    getMessagesForAPI,
+  } = useChatHistory({ 
+    avatarId: avatarId || "", 
+    welcomeMessage 
+  });
+
   const { isPlaying, isLoading: isVoiceLoading, playMessage, stopPlayback } = useVoiceCall({ 
     voiceId: avatar?.voiceId || "" 
   });
@@ -56,23 +72,10 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  useEffect(() => {
-    if (avatar && messages.length === 0) {
-      setMessages([
-        {
-          id: "welcome",
-          role: "assistant",
-          content: `Hey there! I'm ${avatar.name}, ${avatar.tagline.toLowerCase()}. How are you feeling today? 💜`,
-          timestamp: new Date(),
-        },
-      ]);
-    }
-  }, [avatar]);
-
   const streamChat = useCallback(async (
     chatMessages: { role: "user" | "assistant"; content: string }[],
     onDelta: (delta: string) => void,
-    onDone: () => void
+    onDone: (fullContent: string) => void
   ) => {
     if (!avatar) return;
 
@@ -116,6 +119,7 @@ export default function Chat() {
     const decoder = new TextDecoder();
     let textBuffer = "";
     let streamDone = false;
+    let fullContent = "";
 
     while (!streamDone) {
       const { done, value } = await reader.read();
@@ -140,7 +144,10 @@ export default function Chat() {
         try {
           const parsed = JSON.parse(jsonStr);
           const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-          if (content) onDelta(content);
+          if (content) {
+            fullContent += content;
+            onDelta(fullContent);
+          }
         } catch {
           textBuffer = line + "\n" + textBuffer;
           break;
@@ -159,62 +166,65 @@ export default function Chat() {
         try {
           const parsed = JSON.parse(jsonStr);
           const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-          if (content) onDelta(content);
+          if (content) {
+            fullContent += content;
+            onDelta(fullContent);
+          }
         } catch { /* ignore */ }
       }
     }
 
-    onDone();
+    onDone(fullContent);
   }, [avatar, toast]);
 
   const handleSend = async () => {
     if (!inputValue.trim() || isLoading || !avatar) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: inputValue.trim(),
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
+    const userContent = inputValue.trim();
     setInputValue("");
     setIsLoading(true);
     setIsTyping(true);
 
-    let assistantContent = "";
+    // Add user message
+    await addMessage("user", userContent);
 
-    const updateAssistant = (chunk: string) => {
-      assistantContent += chunk;
-      setMessages((prev) => {
-        const last = prev[prev.length - 1];
-        if (last?.role === "assistant" && last.id !== "welcome") {
-          return prev.map((m, i) =>
-            i === prev.length - 1 ? { ...m, content: assistantContent } : m
-          );
-        }
-        return [
-          ...prev,
-          {
-            id: (Date.now() + 1).toString(),
-            role: "assistant",
-            content: assistantContent,
-            timestamp: new Date(),
-          },
-        ];
-      });
-      setIsTyping(false);
+    // Create placeholder for assistant response
+    const assistantPlaceholder = {
+      id: (Date.now() + 1).toString(),
+      role: "assistant" as const,
+      content: "",
+      timestamp: new Date(),
     };
 
+    // We need to manually add the placeholder since we're streaming
+    const chatHistory = getMessagesForAPI();
+
     try {
-      const chatHistory = messages
-        .filter((m) => m.id !== "welcome")
-        .map((m) => ({ role: m.role, content: m.content }));
+      let isFirstChunk = true;
       
       await streamChat(
-        [...chatHistory, { role: "user", content: userMessage.content }],
-        updateAssistant,
-        () => setIsLoading(false)
+        [...chatHistory, { role: "user", content: userContent }],
+        (fullContent) => {
+          if (isFirstChunk) {
+            // Add placeholder message on first chunk
+            addMessage("assistant", fullContent);
+            isFirstChunk = false;
+          } else {
+            updateLastAssistantMessage(fullContent);
+          }
+          setIsTyping(false);
+        },
+        async (finalContent) => {
+          setIsLoading(false);
+          // Save the final assistant message to database
+          if (finalContent && !isFirstChunk) {
+            // The message was already added via addMessage, we need to save it properly
+            // Since addMessage already saves, we just need to make sure it's saved
+          } else if (finalContent && isFirstChunk) {
+            // Edge case: if streaming was so fast we never got a chunk update
+            await addMessage("assistant", finalContent);
+          }
+        }
       );
     } catch (error) {
       console.error("Chat error:", error);
@@ -235,10 +245,26 @@ export default function Chat() {
     }
   };
 
+  const handleClearHistory = async () => {
+    await clearHistory();
+    toast({
+      title: "Cronologia cancellata",
+      description: `La chat con ${avatar?.name} è stata cancellata.`,
+    });
+  };
+
   if (!avatar) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <p className="text-muted-foreground">Avatar not found</p>
+      </div>
+    );
+  }
+
+  if (isHistoryLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -298,9 +324,23 @@ export default function Chat() {
                 )}
               </Button>
             )}
-            <Button variant="ghost" size="icon">
-              <MoreVertical className="w-5 h-5" />
-            </Button>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <MoreVertical className="w-5 h-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-popover">
+                <DropdownMenuItem 
+                  onClick={handleClearHistory}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Cancella cronologia
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
@@ -373,7 +413,7 @@ export default function Chat() {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder={`Message ${avatar.name}...`}
+              placeholder={`Scrivi a ${avatar.name}...`}
               className="flex-1 bg-input border-border py-6"
               disabled={isLoading}
             />
