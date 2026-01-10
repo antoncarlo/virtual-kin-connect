@@ -15,6 +15,7 @@ export interface Avatar {
   imageUrl: string;
   voicePreviewUrl?: string;
   voiceId: string;
+  agentId?: string; // ElevenLabs Conversational AI Agent ID
   gradient: string;
 }
 
