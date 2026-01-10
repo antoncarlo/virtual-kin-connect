@@ -18,6 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useVoiceCall } from "@/hooks/useVoiceCall";
 import { useChatHistory } from "@/hooks/useChatHistory";
+import { VoiceCallButton } from "@/components/VoiceCallButton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -295,6 +296,19 @@ export default function Chat() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Voice Call Button */}
+            <VoiceCallButton 
+              agentId={avatar.agentId} 
+              avatarName={avatar.name}
+              onUserTranscript={async (transcript) => {
+                await addMessage("user", transcript);
+              }}
+              onAgentResponse={async (response) => {
+                await addMessage("assistant", response);
+              }}
+            />
+            
+            {/* TTS Playback Button */}
             {isPlaying ? (
               <Button
                 variant="ghost"
