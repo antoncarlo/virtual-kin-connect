@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useVoiceCall } from "@/hooks/useVoiceCall";
 import { useChatHistory } from "@/hooks/useChatHistory";
 import { VoiceCallButton, VoiceCallButtonRef } from "@/components/VoiceCallButton";
+import { IncomingCallModal } from "@/components/IncomingCallModal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,6 +37,8 @@ export default function Chat() {
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const [showIncomingCall, setShowIncomingCall] = useState(false);
+  const [pendingCallRequest, setPendingCallRequest] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const voiceCallRef = useRef<VoiceCallButtonRef>(null);
 
@@ -196,25 +199,44 @@ export default function Chat() {
     return callPatterns.some(pattern => pattern.test(text));
   };
 
-  // Handle initiating a call when requested
+  // Handle initiating a call when requested - show incoming call modal
   const initiateCallIfRequested = async (userMessage: string, agentResponse: string) => {
     if (!voiceCallRef.current || voiceCallRef.current.isConnected) return;
     
     // Check if user asked to be called
     if (detectCallRequest(userMessage)) {
-      // Small delay to let the chat response appear first
-      setTimeout(async () => {
-        try {
-          await voiceCallRef.current?.startCall();
-          toast({
-            title: "📞 Chiamata in arrivo!",
-            description: `${avatar?.name} ti sta chiamando...`,
-          });
-        } catch (error) {
-          console.error("Failed to initiate call:", error);
-        }
+      // Small delay to let the chat response appear first, then show incoming call modal
+      setTimeout(() => {
+        setShowIncomingCall(true);
+        setPendingCallRequest(true);
       }, 1500);
     }
+  };
+
+  // Handle accepting the incoming call
+  const handleAcceptCall = async () => {
+    setShowIncomingCall(false);
+    setPendingCallRequest(false);
+    try {
+      await voiceCallRef.current?.startCall();
+    } catch (error) {
+      console.error("Failed to start call:", error);
+      toast({
+        variant: "destructive",
+        title: "Errore",
+        description: "Impossibile avviare la chiamata. Riprova.",
+      });
+    }
+  };
+
+  // Handle rejecting the incoming call
+  const handleRejectCall = () => {
+    setShowIncomingCall(false);
+    setPendingCallRequest(false);
+    toast({
+      title: "Chiamata rifiutata",
+      description: `Hai rifiutato la chiamata di ${avatar?.name}.`,
+    });
   };
 
   const handleSend = async () => {
@@ -313,7 +335,17 @@ export default function Chat() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <>
+      {/* Incoming Call Modal */}
+      <IncomingCallModal
+        isOpen={showIncomingCall}
+        avatarName={avatar.name}
+        avatarImage={avatar.imageUrl}
+        onAccept={handleAcceptCall}
+        onReject={handleRejectCall}
+      />
+      
+      <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="glass border-b border-border sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
@@ -488,6 +520,7 @@ export default function Chat() {
           </div>
         </div>
       </footer>
-    </div>
+      </div>
+    </>
   );
 }
