@@ -18,7 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useVoiceCall } from "@/hooks/useVoiceCall";
 import { useChatHistory } from "@/hooks/useChatHistory";
-import { VoiceCallButton } from "@/components/VoiceCallButton";
+import { VoiceCallButton, VoiceCallButtonRef } from "@/components/VoiceCallButton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,6 +37,7 @@ export default function Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const voiceCallRef = useRef<VoiceCallButtonRef>(null);
 
   const avatar = avatars.find((a) => a.id === avatarId);
   
@@ -178,6 +179,44 @@ export default function Chat() {
     onDone(fullContent);
   }, [avatar, toast]);
 
+  // Detect call request patterns in text
+  const detectCallRequest = (text: string): boolean => {
+    const callPatterns = [
+      /chiamami/i,
+      /puoi chiamarmi/i,
+      /fammi una chiamata/i,
+      /voglio parlarti/i,
+      /parlami a voce/i,
+      /usa la voce/i,
+      /chiamata vocale/i,
+      /sentiamoci/i,
+      /mi chiami/i,
+      /call me/i,
+    ];
+    return callPatterns.some(pattern => pattern.test(text));
+  };
+
+  // Handle initiating a call when requested
+  const initiateCallIfRequested = async (userMessage: string, agentResponse: string) => {
+    if (!voiceCallRef.current || voiceCallRef.current.isConnected) return;
+    
+    // Check if user asked to be called
+    if (detectCallRequest(userMessage)) {
+      // Small delay to let the chat response appear first
+      setTimeout(async () => {
+        try {
+          await voiceCallRef.current?.startCall();
+          toast({
+            title: "📞 Chiamata in arrivo!",
+            description: `${avatar?.name} ti sta chiamando...`,
+          });
+        } catch (error) {
+          console.error("Failed to initiate call:", error);
+        }
+      }, 1500);
+    }
+  };
+
   const handleSend = async () => {
     if (!inputValue.trim() || isLoading || !avatar) return;
 
@@ -225,6 +264,9 @@ export default function Chat() {
             // Edge case: if streaming was so fast we never got a chunk update
             await addMessage("assistant", finalContent);
           }
+          
+          // Check if user requested a call and initiate it
+          await initiateCallIfRequested(userContent, finalContent);
         }
       );
     } catch (error) {
@@ -298,6 +340,7 @@ export default function Chat() {
           <div className="flex items-center gap-2">
             {/* Voice Call Button */}
             <VoiceCallButton 
+              ref={voiceCallRef}
               agentId={avatar.agentId} 
               avatarName={avatar.name}
               onUserTranscript={async (transcript) => {

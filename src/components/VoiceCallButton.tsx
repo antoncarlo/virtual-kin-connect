@@ -2,6 +2,13 @@ import { Phone, PhoneOff, Loader2, Mic, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { useConversationAI } from "@/hooks/useConversationAI";
+import { forwardRef, useImperativeHandle } from "react";
+
+export interface VoiceCallButtonRef {
+  startCall: () => Promise<void>;
+  endCall: () => Promise<void>;
+  isConnected: boolean;
+}
 
 interface VoiceCallButtonProps {
   agentId?: string;
@@ -53,12 +60,12 @@ function PulsingRing({ color }: { color: string }) {
   );
 }
 
-export function VoiceCallButton({ 
+export const VoiceCallButton = forwardRef<VoiceCallButtonRef, VoiceCallButtonProps>(({ 
   agentId, 
   avatarName,
   onUserTranscript,
   onAgentResponse,
-}: VoiceCallButtonProps) {
+}, ref) => {
   const { 
     isConnecting, 
     status, 
@@ -73,6 +80,13 @@ export function VoiceCallButton({
 
   const isConnected = status === 'connected';
   const isListening = isConnected && !isSpeaking;
+
+  // Expose methods to parent component
+  useImperativeHandle(ref, () => ({
+    startCall,
+    endCall,
+    isConnected,
+  }), [startCall, endCall, isConnected]);
 
   if (!agentId) {
     return null;
@@ -180,4 +194,6 @@ export function VoiceCallButton({
       </AnimatePresence>
     </div>
   );
-}
+});
+
+VoiceCallButton.displayName = "VoiceCallButton";
