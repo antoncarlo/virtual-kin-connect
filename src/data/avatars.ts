@@ -29,7 +29,8 @@ export const avatars: Avatar[] = [
     description: "Marco è il compagno perfetto per ogni momento. Divertente, leale e sempre pronto ad ascoltarti. Che tu voglia ridere o sfogarti, lui c'è.",
     personality: ["Supportive", "Funny", "Loyal", "Adventurous"],
     imageUrl: marcoImg,
-    voiceId: "ChJuCmdw5W6I2qZbzwVl", // Luigi - Young Italian male with warm voice
+    voiceId: "ChJuCmdw5W6I2qZbzwVl",
+    agentId: "agent_1501kepe0n1mf4yafr5mqxpx0ne5",
     gradient: "from-blue-500 to-purple-600",
   },
   {
