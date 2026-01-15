@@ -372,6 +372,7 @@ export default function Chat() {
         avatarName={avatar.name}
         avatarImage={avatar.imageUrl}
         avatarModelUrl={avatar.rpmAvatarUrl}
+        vapiAssistantId={avatar.vapiAssistantId}
       />
       
       <div className="min-h-screen bg-background flex flex-col">
