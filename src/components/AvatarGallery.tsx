@@ -1,20 +1,11 @@
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion } from "framer-motion";
 import { AvatarCard } from "./AvatarCard";
 import { avatars, type Avatar } from "@/data/avatars";
 import { useNavigate } from "react-router-dom";
-import { useRef } from "react";
 import { Sparkles, Heart, MessageCircle, Zap } from "lucide-react";
 
 export function AvatarGallery() {
   const navigate = useNavigate();
-  const sectionRef = useRef<HTMLElement>(null);
-  
-  const { scrollYProgress } = useScroll({
-    target: sectionRef,
-    offset: ["start end", "end start"]
-  });
-  
-  const backgroundY = useTransform(scrollYProgress, [0, 1], [0, -150]);
 
   const handleSelectAvatar = (avatar: Avatar) => {
     navigate(`/signup?avatar=${avatar.id}`);
@@ -25,12 +16,9 @@ export function AvatarGallery() {
   const regularAvatars = avatars.slice(2);
 
   return (
-    <section id="avatars" ref={sectionRef} className="py-32 relative overflow-hidden bg-background">
+    <section id="avatars" className="py-32 relative overflow-hidden bg-background">
       {/* Premium background effects */}
-      <motion.div 
-        className="absolute inset-0 pointer-events-none"
-        style={{ y: backgroundY }}
-      >
+      <div className="absolute inset-0 pointer-events-none">
         {/* Large ambient orbs */}
         <motion.div
           className="absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full"
@@ -77,7 +65,7 @@ export function AvatarGallery() {
             }}
           />
         ))}
-      </motion.div>
+      </div>
 
       {/* Gradient mesh overlay */}
       <div className="absolute inset-0 opacity-30">
