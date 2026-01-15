@@ -1,9 +1,9 @@
-import marcoImg from "@/assets/avatars/marco.jpg";
-import sofiaImg from "@/assets/avatars/sofia.jpg";
-import alexImg from "@/assets/avatars/alex.jpg";
-import lunaImg from "@/assets/avatars/luna.jpg";
-import leoImg from "@/assets/avatars/leo.jpg";
-import emmaImg from "@/assets/avatars/emma.jpg";
+import marcoImg from "@/assets/avatars/marco-new.jpg";
+import sofiaImg from "@/assets/avatars/sofia-new.jpg";
+import alexImg from "@/assets/avatars/alex-new.jpg";
+import lunaImg from "@/assets/avatars/luna-new.jpg";
+import leoImg from "@/assets/avatars/leo-new.jpg";
+import emmaImg from "@/assets/avatars/emma-new.jpg";
 
 export interface Avatar {
   id: string;
