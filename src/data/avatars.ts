@@ -33,8 +33,8 @@ export const avatars: Avatar[] = [
     imageUrl: marcoImg,
     voiceId: "ChJuCmdw5W6I2qZbzwVl",
     agentId: "agent_1501kepe0n1mf4yafr5mqxpx0ne5",
-    vapiAssistantId: "your-vapi-assistant-id-marco", // Sostituisci con il tuo Vapi Assistant ID
-    rpmAvatarUrl: "https://models.readyplayer.me/64bfa15f0e72c63d7c3934a6.glb", // Avatar maschile default
+    // vapiAssistantId: undefined - Da configurare su dashboard.vapi.ai
+    rpmAvatarUrl: "https://models.readyplayer.me/64bfa15f0e72c63d7c3934a6.glb",
     gradient: "from-blue-500 to-purple-600",
   },
   {
@@ -46,8 +46,8 @@ export const avatars: Avatar[] = [
     personality: ["Empathetic", "Wise", "Thoughtful", "Caring"],
     imageUrl: sofiaImg,
     voiceId: "YQ36DZjvxVXPUHeSwvFK",
-    vapiAssistantId: "your-vapi-assistant-id-sofia", // Sostituisci con il tuo Vapi Assistant ID
-    rpmAvatarUrl: "https://models.readyplayer.me/64c06c2f0e72c63d7c3934b2.glb", // Avatar femminile default
+    // vapiAssistantId: undefined - Da configurare su dashboard.vapi.ai
+    rpmAvatarUrl: "https://models.readyplayer.me/64c06c2f0e72c63d7c3934b2.glb",
     gradient: "from-purple-500 to-pink-500",
   },
   {
@@ -59,8 +59,8 @@ export const avatars: Avatar[] = [
     personality: ["Charming", "Romantic", "Playful", "Confident"],
     imageUrl: alexImg,
     voiceId: "G1QO6RfZl0zS1DpKDReq",
-    vapiAssistantId: "your-vapi-assistant-id-alex", // Sostituisci con il tuo Vapi Assistant ID
-    rpmAvatarUrl: "https://models.readyplayer.me/64bfa15f0e72c63d7c3934a6.glb", // Avatar maschile default
+    // vapiAssistantId: undefined - Da configurare su dashboard.vapi.ai
+    rpmAvatarUrl: "https://models.readyplayer.me/64bfa15f0e72c63d7c3934a6.glb",
     gradient: "from-pink-500 to-rose-500",
   },
   {
@@ -72,8 +72,8 @@ export const avatars: Avatar[] = [
     personality: ["Creative", "Inspiring", "Free-spirited", "Artistic"],
     imageUrl: lunaImg,
     voiceId: "MLpDWJvrjFIdb63xbJp8",
-    vapiAssistantId: "your-vapi-assistant-id-luna", // Sostituisci con il tuo Vapi Assistant ID
-    rpmAvatarUrl: "https://models.readyplayer.me/64c06c2f0e72c63d7c3934b2.glb", // Avatar femminile default
+    // vapiAssistantId: undefined - Da configurare su dashboard.vapi.ai
+    rpmAvatarUrl: "https://models.readyplayer.me/64c06c2f0e72c63d7c3934b2.glb",
     gradient: "from-violet-500 to-indigo-500",
   },
   {
@@ -85,8 +85,8 @@ export const avatars: Avatar[] = [
     personality: ["Energetic", "Motivating", "Disciplined", "Positive"],
     imageUrl: leoImg,
     voiceId: "sl57jAImqa2LsggCVUXt",
-    vapiAssistantId: "your-vapi-assistant-id-leo", // Sostituisci con il tuo Vapi Assistant ID
-    rpmAvatarUrl: "https://models.readyplayer.me/64bfa15f0e72c63d7c3934a6.glb", // Avatar maschile default
+    // vapiAssistantId: undefined - Da configurare su dashboard.vapi.ai
+    rpmAvatarUrl: "https://models.readyplayer.me/64bfa15f0e72c63d7c3934a6.glb",
     gradient: "from-orange-500 to-amber-500",
   },
   {
@@ -98,8 +98,8 @@ export const avatars: Avatar[] = [
     personality: ["Sweet", "Affectionate", "Gentle", "Present"],
     imageUrl: emmaImg,
     voiceId: "gfKKsLN1k0oYYN9n2dXX",
-    vapiAssistantId: "your-vapi-assistant-id-emma", // Sostituisci con il tuo Vapi Assistant ID
-    rpmAvatarUrl: "https://models.readyplayer.me/64c06c2f0e72c63d7c3934b2.glb", // Avatar femminile default
+    // vapiAssistantId: undefined - Da configurare su dashboard.vapi.ai
+    rpmAvatarUrl: "https://models.readyplayer.me/64c06c2f0e72c63d7c3934b2.glb",
     gradient: "from-rose-400 to-pink-400",
   },
 ];
