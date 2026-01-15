@@ -1,6 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { lazy, Suspense, useState } from "react";
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
+
+// Lazy load the 3D canvas to avoid initialization issues
+const Avatar3DCanvas = lazy(() => import("./Avatar3DCanvas"));
 
 interface Avatar3DViewerProps {
   avatarUrl?: string;
@@ -15,30 +18,11 @@ export function Avatar3DViewer({
   className = "", 
   isSpeaking = false 
 }: Avatar3DViewerProps) {
-  const [isLoading, setIsLoading] = useState(true);
-  const [useIframe, setUseIframe] = useState(true);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [hasError, setHasError] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  // Reset loading state when URL changes
-  useEffect(() => {
-    if (avatarUrl) {
-      setIsLoading(true);
-    }
-  }, [avatarUrl]);
-
-  // Generate avatar ID from URL
-  const getAvatarId = (url: string) => {
-    const match = url.match(/\/([a-f0-9-]+)\.glb$/i);
-    return match ? match[1] : null;
-  };
-
-  const avatarId = avatarUrl ? getAvatarId(avatarUrl) : null;
-  const rpmViewerUrl = avatarId 
-    ? `https://models.readyplayer.me/${avatarId}.glb?morphTargets=ARKit,Oculus Visemes&textureAtlas=1024`
-    : null;
-
-  // Fallback to animated image if no 3D avatar
-  if (!avatarUrl && avatarImage) {
+  // Fallback to animated image if error or no 3D avatar
+  if (hasError || (!avatarUrl && avatarImage)) {
     return (
       <motion.div
         initial={{ opacity: 0 }}
@@ -118,66 +102,60 @@ export function Avatar3DViewer({
   return (
     <motion.div
       initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+      animate={{ opacity: isLoaded ? 1 : 0 }}
       className={`relative ${className}`}
+      style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)' }}
     >
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 z-10">
+      {/* Loading state */}
+      {!isLoaded && (
+        <div className="absolute inset-0 flex items-center justify-center z-10">
           <div className="text-center">
             <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">Caricamento avatar...</p>
+            <p className="text-sm text-muted-foreground">Caricamento avatar 3D...</p>
           </div>
         </div>
       )}
-      
-      {/* Use Ready Player Me iframe viewer */}
-      <iframe
-        ref={iframeRef}
-        src={`https://readyplayer.me/avatar/${avatarId}?background=transparent`}
-        className="w-full h-full border-0"
-        style={{ 
-          background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-        }}
-        allow="camera *; microphone *"
-        onLoad={() => setIsLoading(false)}
-        onError={() => {
-          setIsLoading(false);
-          setUseIframe(false);
-        }}
-      />
-      
-      {/* Speaking overlay effect */}
-      {isSpeaking && !isLoading && (
-        <div className="absolute inset-0 pointer-events-none">
-          <motion.div
-            animate={{
-              opacity: [0.1, 0.3, 0.1],
-            }}
-            transition={{
-              duration: 1,
-              repeat: Infinity,
-            }}
-            className="absolute inset-0 bg-primary/10"
-          />
-          
-          {/* Audio wave indicator */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1">
-            {[...Array(7)].map((_, i) => (
-              <motion.div
-                key={i}
-                animate={{
-                  height: [6, 20, 6],
-                }}
-                transition={{
-                  duration: 0.4,
-                  repeat: Infinity,
-                  delay: i * 0.08,
-                }}
-                className="w-1 bg-primary rounded-full"
-                style={{ minHeight: 6 }}
-              />
-            ))}
+
+      <Suspense
+        fallback={
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Loader2 className="w-10 h-10 animate-spin text-primary" />
           </div>
+        }
+      >
+        <Avatar3DCanvas 
+          avatarUrl={avatarUrl} 
+          isSpeaking={isSpeaking}
+          onLoaded={() => setIsLoaded(true)}
+          onError={() => setHasError(true)}
+        />
+      </Suspense>
+      
+      {/* Speaking indicator overlay */}
+      {isSpeaking && isLoaded && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 pointer-events-none">
+          {[...Array(7)].map((_, i) => (
+            <motion.div
+              key={i}
+              animate={{
+                height: [6, 20, 6],
+              }}
+              transition={{
+                duration: 0.4,
+                repeat: Infinity,
+                delay: i * 0.08,
+              }}
+              className="w-1 bg-primary rounded-full"
+              style={{ minHeight: 6 }}
+            />
+          ))}
+        </div>
+      )}
+      
+      {/* Instructions */}
+      {isLoaded && (
+        <div className="absolute bottom-2 left-2 right-2 text-center pointer-events-none">
+          <p className="text-xs text-white/30">Trascina per ruotare • Scroll per zoom</p>
         </div>
       )}
     </motion.div>
