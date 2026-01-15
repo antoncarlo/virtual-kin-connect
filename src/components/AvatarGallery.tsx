@@ -11,10 +11,6 @@ export function AvatarGallery() {
     navigate(`/signup?avatar=${avatar.id}`);
   };
 
-  // Reorganize avatars for featured layout - first 2 are featured
-  const featuredAvatars = avatars.slice(0, 2);
-  const regularAvatars = avatars.slice(2);
-
   return (
     <section id="avatars" className="py-32 relative overflow-hidden bg-background">
       {/* Premium background effects */}
@@ -74,125 +70,55 @@ export function AvatarGallery() {
       </div>
 
       <div className="container mx-auto px-4 relative z-10">
-        {/* Section Header - Premium magazine style */}
+        {/* Section Header */}
         <motion.div
-          initial={{ opacity: 0, y: 40 }}
+          initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
-          className="text-center max-w-4xl mx-auto mb-20"
+          transition={{ duration: 0.6 }}
+          className="text-center max-w-3xl mx-auto mb-12"
         >
-          {/* Eyebrow text */}
-          <motion.div 
-            className="inline-flex items-center gap-3 mb-8"
-            initial={{ opacity: 0, scale: 0.8 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.2 }}
-          >
-            <span className="h-px w-12 bg-gradient-to-r from-transparent to-primary/50" />
-            <span className="text-sm font-semibold tracking-[0.3em] uppercase text-primary">
-              Incontra i tuoi
-            </span>
-            <span className="h-px w-12 bg-gradient-to-l from-transparent to-primary/50" />
-          </motion.div>
+          <span className="text-sm font-semibold tracking-widest uppercase text-primary mb-4 block">
+            Meet Your
+          </span>
           
-          {/* Main headline */}
-          <h2 className="text-5xl md:text-6xl lg:text-7xl font-display font-bold mb-8 leading-[1.1]">
-            <motion.span 
-              className="block text-foreground"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-            >
-              Compagni
-            </motion.span>
-            <motion.span 
-              className="block bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent bg-[length:200%_auto]"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              animate={{ backgroundPosition: ["0% center", "200% center"] }}
-              style={{ 
-                WebkitBackgroundClip: "text",
-                animationDuration: "4s",
-                animationIterationCount: "infinite",
-              }}
-            >
-              Straordinari
-            </motion.span>
+          <h2 className="text-4xl md:text-5xl font-display font-bold mb-4">
+            <span className="text-foreground">AI </span>
+            <span className="text-gradient">Companions</span>
           </h2>
           
-          <motion.p 
-            className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-2xl mx-auto"
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-          >
-            Sei compagni AI unici, ognuno con la propria personalità e stile.
-            <span className="text-foreground font-medium"> Scegli chi ti fa battere il cuore.</span>
-          </motion.p>
+          <p className="text-muted-foreground">
+            Six unique AI companions, each with their own personality. 
+            <span className="text-foreground font-medium"> Choose who speaks to your heart.</span>
+          </p>
         </motion.div>
 
-        {/* Featured avatars - Large showcase */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 mb-8">
-          {featuredAvatars.map((avatar, index) => (
+        {/* Avatar Grid - Compact 6 columns on large screens */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          {avatars.map((avatar, index) => (
             <AvatarCard
               key={avatar.id}
               avatar={avatar}
               index={index}
               onSelect={handleSelectAvatar}
-              featured
-            />
-          ))}
-        </div>
-
-        {/* Regular avatars grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
-          {regularAvatars.map((avatar, index) => (
-            <AvatarCard
-              key={avatar.id}
-              avatar={avatar}
-              index={index + 2}
-              onSelect={handleSelectAvatar}
             />
           ))}
         </div>
         
-        {/* Bottom features strip */}
-        <motion.div 
-          className="mt-20 pt-12 border-t border-border/30"
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
-        >
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {[
-              { icon: Sparkles, label: "AI Avanzata", desc: "Conversazioni naturali" },
-              { icon: Heart, label: "Emotivamente Intelligenti", desc: "Ti capiscono davvero" },
-              { icon: MessageCircle, label: "Sempre Disponibili", desc: "24/7 per te" },
-              { icon: Zap, label: "Risposte Istantanee", desc: "Mai un'attesa" },
-            ].map((item, i) => (
-              <motion.div
-                key={item.label}
-                className="text-center group"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.9 + i * 0.1 }}
-                whileHover={{ y: -5 }}
-              >
-                <motion.div 
-                  className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-primary/10 mb-4 group-hover:bg-primary/20 transition-colors"
-                  whileHover={{ rotate: [0, -10, 10, 0] }}
-                  transition={{ duration: 0.5 }}
-                >
-                  <item.icon className="w-5 h-5 text-primary" />
-                </motion.div>
-                <h4 className="font-semibold text-foreground mb-1">{item.label}</h4>
-                <p className="text-sm text-muted-foreground">{item.desc}</p>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
+        {/* Bottom features */}
+        <div className="mt-12 flex flex-wrap justify-center gap-6 text-sm text-muted-foreground">
+          {[
+            { icon: Sparkles, label: "Advanced AI" },
+            { icon: Heart, label: "Emotionally Intelligent" },
+            { icon: MessageCircle, label: "Always Available" },
+            { icon: Zap, label: "Instant Responses" },
+          ].map((item) => (
+            <div key={item.label} className="flex items-center gap-2">
+              <item.icon className="w-4 h-4 text-primary" />
+              <span>{item.label}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );
