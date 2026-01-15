@@ -192,6 +192,7 @@ export function VideoCallModal({
                 <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-background/30 backdrop-blur-sm border-l border-white/10">
                   <Avatar3DViewer
                     avatarUrl={avatarModelUrl}
+                    avatarImage={avatarImage}
                     className="w-full h-full rounded-none"
                     isSpeaking={isConnected}
                   />
