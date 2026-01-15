@@ -21,6 +21,7 @@ import { useChatHistory } from "@/hooks/useChatHistory";
 import { useVapiCall } from "@/hooks/useVapiCall";
 import { IncomingCallModal } from "@/components/IncomingCallModal";
 import { VideoCallModal } from "@/components/VideoCallModal";
+import { HeyGenVideoCall } from "@/components/HeyGenVideoCall";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -365,15 +366,27 @@ export default function Chat() {
         onReject={handleRejectCall}
       />
       
-      {/* Video Call Modal */}
-      <VideoCallModal
-        isOpen={showVideoCall}
-        onClose={() => setShowVideoCall(false)}
-        avatarName={avatar.name}
-        avatarImage={avatar.imageUrl}
-        avatarModelUrl={avatar.rpmAvatarUrl}
-        vapiAssistantId={avatar.vapiAssistantId}
-      />
+      {/* Video Call Modal - Use HeyGen if available, otherwise fallback */}
+      {avatar.heygenAvatarId ? (
+        <HeyGenVideoCall
+          isOpen={showVideoCall}
+          onClose={() => setShowVideoCall(false)}
+          avatarName={avatar.name}
+          avatarImage={avatar.imageUrl}
+          heygenAvatarId={avatar.heygenAvatarId}
+          heygenVoiceId={avatar.heygenVoiceId}
+          vapiAssistantId={avatar.vapiAssistantId}
+        />
+      ) : (
+        <VideoCallModal
+          isOpen={showVideoCall}
+          onClose={() => setShowVideoCall(false)}
+          avatarName={avatar.name}
+          avatarImage={avatar.imageUrl}
+          avatarModelUrl={avatar.rpmAvatarUrl}
+          vapiAssistantId={avatar.vapiAssistantId}
+        />
+      )}
       
       <div className="min-h-screen bg-background flex flex-col">
         {/* Header */}
