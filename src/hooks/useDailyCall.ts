@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import DailyIframe, { DailyCall } from "@daily-co/daily-js";
 
 interface UseDailyCallProps {
   onParticipantJoined?: (participant: any) => void;
@@ -29,30 +30,7 @@ export function useDailyCall({
   const [room, setRoom] = useState<DailyRoom | null>(null);
   const [localVideoTrack, setLocalVideoTrack] = useState<MediaStreamTrack | null>(null);
   const [remoteParticipants, setRemoteParticipants] = useState<any[]>([]);
-  const callFrameRef = useRef<any>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-
-  // Load Daily SDK dynamically
-  const loadDailySDK = useCallback(async () => {
-    if ((window as any).DailyIframe) {
-      return (window as any).DailyIframe;
-    }
-
-    return new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = 'https://unpkg.com/@daily-co/daily-js';
-      script.async = true;
-      script.onload = () => {
-        if ((window as any).DailyIframe) {
-          resolve((window as any).DailyIframe);
-        } else {
-          reject(new Error('Daily SDK failed to load'));
-        }
-      };
-      script.onerror = () => reject(new Error('Failed to load Daily SDK'));
-      document.head.appendChild(script);
-    });
-  }, []);
+  const callFrameRef = useRef<DailyCall | null>(null);
 
   const createRoom = useCallback(async (): Promise<DailyRoom> => {
     const response = await supabase.functions.invoke('daily-room', {
@@ -72,7 +50,6 @@ export function useDailyCall({
   const startVideoCall = useCallback(async (container: HTMLDivElement) => {
     try {
       setIsConnecting(true);
-      containerRef.current = container;
 
       // Request camera and microphone permissions
       await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -81,10 +58,7 @@ export function useDailyCall({
       const roomData = await createRoom();
       setRoom(roomData);
 
-      // Load Daily SDK
-      const DailyIframe = await loadDailySDK();
-
-      // Create the call frame
+      // Create the call frame using npm package
       const callFrame = DailyIframe.createFrame(container, {
         iframeStyle: {
           width: '100%',
@@ -119,32 +93,37 @@ export function useDailyCall({
         });
       });
 
-      callFrame.on('participant-joined', (event: any) => {
-        setRemoteParticipants(prev => [...prev, event.participant]);
-        onParticipantJoined?.(event.participant);
+      callFrame.on('participant-joined', (event) => {
+        if (event?.participant) {
+          setRemoteParticipants(prev => [...prev, event.participant]);
+          onParticipantJoined?.(event.participant);
+        }
       });
 
-      callFrame.on('participant-left', (event: any) => {
-        setRemoteParticipants(prev => 
-          prev.filter(p => p.session_id !== event.participant.session_id)
-        );
-        onParticipantLeft?.(event.participant);
+      callFrame.on('participant-left', (event) => {
+        if (event?.participant) {
+          setRemoteParticipants(prev => 
+            prev.filter(p => p.session_id !== event.participant.session_id)
+          );
+          onParticipantLeft?.(event.participant);
+        }
       });
 
-      callFrame.on('error', (error: any) => {
-        console.error('Daily error:', error);
+      callFrame.on('error', (event) => {
+        console.error('Daily error:', event);
         setIsConnecting(false);
         setIsConnected(false);
-        onError?.(new Error(error.errorMsg || 'Video call error'));
+        const errorMsg = event?.errorMsg || 'Video call error';
+        onError?.(new Error(errorMsg));
         toast({
           title: "Errore videochiamata",
-          description: error.errorMsg || "Si è verificato un errore durante la videochiamata.",
+          description: errorMsg,
           variant: "destructive",
         });
       });
 
-      callFrame.on('track-started', (event: any) => {
-        if (event.participant.local && event.track.kind === 'video') {
+      callFrame.on('track-started', (event) => {
+        if (event?.participant?.local && event?.track?.kind === 'video') {
           setLocalVideoTrack(event.track);
         }
       });
@@ -175,7 +154,7 @@ export function useDailyCall({
       
       onError?.(error as Error);
     }
-  }, [createRoom, loadDailySDK, onParticipantJoined, onParticipantLeft, onCallStart, onCallEnd, onError, toast]);
+  }, [createRoom, onParticipantJoined, onParticipantLeft, onCallStart, onCallEnd, onError, toast]);
 
   const endVideoCall = useCallback(async () => {
     if (callFrameRef.current) {

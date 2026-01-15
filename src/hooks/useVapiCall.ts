@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import Vapi from "@vapi-ai/web";
 
 interface UseVapiCallProps {
   assistantId?: string;
@@ -33,7 +34,7 @@ export function useVapiCall({
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [vapiPublicKey, setVapiPublicKey] = useState<string | null>(null);
-  const vapiRef = useRef<any>(null);
+  const vapiRef = useRef<Vapi | null>(null);
 
   // Fetch Vapi public key from edge function
   const fetchVapiPublicKey = useCallback(async () => {
@@ -58,28 +59,6 @@ export function useVapiCall({
     }
   }, [vapiPublicKey]);
 
-  // Load Vapi SDK dynamically
-  const loadVapiSDK = useCallback(async () => {
-    if ((window as any).Vapi) {
-      return (window as any).Vapi;
-    }
-
-    return new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/@vapi-ai/web@latest/dist/vapi.min.js';
-      script.async = true;
-      script.onload = () => {
-        if ((window as any).Vapi) {
-          resolve((window as any).Vapi);
-        } else {
-          reject(new Error('Vapi SDK failed to load'));
-        }
-      };
-      script.onerror = () => reject(new Error('Failed to load Vapi SDK'));
-      document.head.appendChild(script);
-    });
-  }, []);
-
   const startCall = useCallback(async () => {
     if (!assistantId) {
       toast({
@@ -103,11 +82,8 @@ export function useVapiCall({
       // Request microphone permission
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      // Load SDK
-      const VapiSDK = await loadVapiSDK();
-      
-      // Initialize Vapi instance
-      const vapi = new VapiSDK(publicKey);
+      // Initialize Vapi instance with npm package
+      const vapi = new Vapi(publicKey);
       vapiRef.current = vapi;
 
       // Set up event listeners
@@ -178,7 +154,7 @@ export function useVapiCall({
       
       onError?.(error as Error);
     }
-  }, [assistantId, fetchVapiPublicKey, loadVapiSDK, onTranscript, onSpeechStart, onSpeechEnd, onCallStart, onCallEnd, onError, toast]);
+  }, [assistantId, fetchVapiPublicKey, onTranscript, onSpeechStart, onSpeechEnd, onCallStart, onCallEnd, onError, toast]);
 
   const endCall = useCallback(() => {
     if (vapiRef.current) {
