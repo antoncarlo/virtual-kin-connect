@@ -41,6 +41,182 @@ export type Database = {
         }
         Relationships: []
       }
+      favorites: {
+        Row: {
+          avatar_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          avatar_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          avatar_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          display_name: string | null
+          has_completed_onboarding: boolean
+          id: string
+          notification_preferences: Json | null
+          stripe_customer_id: string | null
+          subscription_status: string | null
+          subscription_tier: string | null
+          tokens_balance: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name?: string | null
+          has_completed_onboarding?: boolean
+          id?: string
+          notification_preferences?: Json | null
+          stripe_customer_id?: string | null
+          subscription_status?: string | null
+          subscription_tier?: string | null
+          tokens_balance?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name?: string | null
+          has_completed_onboarding?: boolean
+          id?: string
+          notification_preferences?: Json | null
+          stripe_customer_id?: string | null
+          subscription_status?: string | null
+          subscription_tier?: string | null
+          tokens_balance?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ratings: {
+        Row: {
+          avatar_id: string
+          created_at: string
+          feedback: string | null
+          id: string
+          rating: number
+          session_id: string | null
+          user_id: string
+        }
+        Insert: {
+          avatar_id: string
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          rating: number
+          session_id?: string | null
+          user_id: string
+        }
+        Update: {
+          avatar_id?: string
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          rating?: number
+          session_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ratings_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "session_insights"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referrals: {
+        Row: {
+          bonus_tokens: number
+          completed_at: string | null
+          created_at: string
+          id: string
+          referral_code: string
+          referred_id: string | null
+          referrer_id: string
+          status: string
+        }
+        Insert: {
+          bonus_tokens?: number
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          referral_code: string
+          referred_id?: string | null
+          referrer_id: string
+          status?: string
+        }
+        Update: {
+          bonus_tokens?: number
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          referral_code?: string
+          referred_id?: string | null
+          referrer_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      session_insights: {
+        Row: {
+          avatar_id: string
+          created_at: string
+          duration_seconds: number | null
+          id: string
+          key_points: Json | null
+          mood: string | null
+          summary: string | null
+          topic: string | null
+          user_id: string
+        }
+        Insert: {
+          avatar_id: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          key_points?: Json | null
+          mood?: string | null
+          summary?: string | null
+          topic?: string | null
+          user_id: string
+        }
+        Update: {
+          avatar_id?: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          key_points?: Json | null
+          mood?: string | null
+          summary?: string | null
+          topic?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
