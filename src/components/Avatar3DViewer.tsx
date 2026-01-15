@@ -116,14 +116,6 @@ export function Avatar3DViewer({
             </>
           )}
           
-          {/* Online indicator */}
-          <div className="absolute bottom-2 right-2 w-5 h-5 bg-green-500 rounded-full border-3 border-slate-900 shadow-lg">
-            <motion.div
-              animate={{ scale: [1, 1.3, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}
-              className="absolute inset-0 bg-green-500 rounded-full opacity-50"
-            />
-          </div>
         </motion.div>
         
         {/* Audio visualizer when speaking */}

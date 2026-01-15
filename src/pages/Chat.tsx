@@ -409,7 +409,7 @@ export default function Chat() {
               <div>
                 <h1 className="font-semibold text-foreground">{avatar.name}</h1>
                 <p className="text-xs text-primary">
-                  {isVapiConnected ? "In chiamata..." : isVapiSpeaking ? "Sta parlando..." : "Online"}
+                  {isVapiConnected ? "In chiamata..." : isVapiSpeaking ? "Sta parlando..." : "Disponibile"}
                 </p>
               </div>
             </div>

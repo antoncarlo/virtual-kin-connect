@@ -31,7 +31,7 @@ const plans = [
       "Voice calls included",
       "Conversation memory",
       "Priority support",
-      "Video calls (Coming Soon)",
+      "Video calls",
     ],
   },
   {
@@ -46,7 +46,7 @@ const plans = [
       "Voice calls included",
       "Conversation memory",
       "Priority support",
-      "Video calls (Coming Soon)",
+      "Video calls",
       "Early access to new avatars",
     ],
   },
