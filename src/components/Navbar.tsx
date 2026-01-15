@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { ThemeToggle } from "./ThemeToggle";
 import kindredIcon from "@/assets/kindred-icon.png";
 
 export function Navbar() {
@@ -67,7 +68,8 @@ export function Navbar() {
         </nav>
 
         {/* CTA Buttons */}
-        <div className="hidden md:flex items-center gap-4">
+        <div className="hidden md:flex items-center gap-3">
+          <ThemeToggle />
           <Button variant="ghost" className="font-medium" asChild>
             <Link to="/login">Sign In</Link>
           </Button>
@@ -119,6 +121,10 @@ export function Navbar() {
             Pricing
           </a>
           <div className="flex flex-col gap-3 pt-4 border-t border-border">
+            <div className="flex items-center justify-between py-2">
+              <span className="text-sm font-medium text-muted-foreground">Theme</span>
+              <ThemeToggle />
+            </div>
             <Button variant="ghost" className="w-full" asChild>
               <Link to="/login">Sign In</Link>
             </Button>
