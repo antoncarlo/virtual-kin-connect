@@ -33,6 +33,8 @@ export const avatars: Avatar[] = [
     imageUrl: marcoImg,
     voiceId: "ChJuCmdw5W6I2qZbzwVl",
     agentId: "agent_1501kepe0n1mf4yafr5mqxpx0ne5",
+    vapiAssistantId: "your-vapi-assistant-id-marco", // Sostituisci con il tuo Vapi Assistant ID
+    rpmAvatarUrl: "https://models.readyplayer.me/64bfa15f0e72c63d7c3934a6.glb", // Avatar maschile default
     gradient: "from-blue-500 to-purple-600",
   },
   {
@@ -43,7 +45,9 @@ export const avatars: Avatar[] = [
     description: "Sofia è l'amica saggia che tutti meritano. Empatica e comprensiva, ti aiuta a vedere le cose da prospettive nuove.",
     personality: ["Empathetic", "Wise", "Thoughtful", "Caring"],
     imageUrl: sofiaImg,
-    voiceId: "YQ36DZjvxVXPUHeSwvFK", // Valentina - Young Fresh Italian female voice
+    voiceId: "YQ36DZjvxVXPUHeSwvFK",
+    vapiAssistantId: "your-vapi-assistant-id-sofia", // Sostituisci con il tuo Vapi Assistant ID
+    rpmAvatarUrl: "https://models.readyplayer.me/64c06c2f0e72c63d7c3934b2.glb", // Avatar femminile default
     gradient: "from-purple-500 to-pink-500",
   },
   {
@@ -54,7 +58,9 @@ export const avatars: Avatar[] = [
     description: "Alex sa come farti sorridere. Affascinante e romantico, porta un tocco di magia in ogni conversazione.",
     personality: ["Charming", "Romantic", "Playful", "Confident"],
     imageUrl: alexImg,
-    voiceId: "G1QO6RfZl0zS1DpKDReq", // Ricasco - Warm and Friendly Italian male
+    voiceId: "G1QO6RfZl0zS1DpKDReq",
+    vapiAssistantId: "your-vapi-assistant-id-alex", // Sostituisci con il tuo Vapi Assistant ID
+    rpmAvatarUrl: "https://models.readyplayer.me/64bfa15f0e72c63d7c3934a6.glb", // Avatar maschile default
     gradient: "from-pink-500 to-rose-500",
   },
   {
@@ -65,7 +71,9 @@ export const avatars: Avatar[] = [
     description: "Luna è l'artista del gruppo. Ispirazionale e creativa, ti spinge a esplorare nuove idee e a sognare in grande.",
     personality: ["Creative", "Inspiring", "Free-spirited", "Artistic"],
     imageUrl: lunaImg,
-    voiceId: "MLpDWJvrjFIdb63xbJp8", // Angelina - Warm and gentle Italian storyteller
+    voiceId: "MLpDWJvrjFIdb63xbJp8",
+    vapiAssistantId: "your-vapi-assistant-id-luna", // Sostituisci con il tuo Vapi Assistant ID
+    rpmAvatarUrl: "https://models.readyplayer.me/64c06c2f0e72c63d7c3934b2.glb", // Avatar femminile default
     gradient: "from-violet-500 to-indigo-500",
   },
   {
@@ -76,7 +84,9 @@ export const avatars: Avatar[] = [
     description: "Leo è il tuo personal coach. Energico e motivante, ti aiuta a superare i tuoi limiti e raggiungere i tuoi obiettivi.",
     personality: ["Energetic", "Motivating", "Disciplined", "Positive"],
     imageUrl: leoImg,
-    voiceId: "sl57jAImqa2LsggCVUXt", // Leandro - Middle aged Italian male, great for social media
+    voiceId: "sl57jAImqa2LsggCVUXt",
+    vapiAssistantId: "your-vapi-assistant-id-leo", // Sostituisci con il tuo Vapi Assistant ID
+    rpmAvatarUrl: "https://models.readyplayer.me/64bfa15f0e72c63d7c3934a6.glb", // Avatar maschile default
     gradient: "from-orange-500 to-amber-500",
   },
   {
@@ -87,7 +97,9 @@ export const avatars: Avatar[] = [
     description: "Emma è la presenza dolce e rassicurante di cui hai bisogno. Affettuosa e presente, rende ogni momento speciale.",
     personality: ["Sweet", "Affectionate", "Gentle", "Present"],
     imageUrl: emmaImg,
-    voiceId: "gfKKsLN1k0oYYN9n2dXX", // Violetta - Warm, clear Italian female voice
+    voiceId: "gfKKsLN1k0oYYN9n2dXX",
+    vapiAssistantId: "your-vapi-assistant-id-emma", // Sostituisci con il tuo Vapi Assistant ID
+    rpmAvatarUrl: "https://models.readyplayer.me/64c06c2f0e72c63d7c3934b2.glb", // Avatar femminile default
     gradient: "from-rose-400 to-pink-400",
   },
 ];
