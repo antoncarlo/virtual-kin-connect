@@ -1,7 +1,8 @@
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { MessageCircle, Phone, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Avatar } from "@/data/avatars";
+import { useState } from "react";
 
 interface AvatarCardProps {
   avatar: Avatar;
@@ -10,6 +11,8 @@ interface AvatarCardProps {
 }
 
 export function AvatarCard({ avatar, index, onSelect }: AvatarCardProps) {
+  const [isHovered, setIsHovered] = useState(false);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -17,6 +20,8 @@ export function AvatarCard({ avatar, index, onSelect }: AvatarCardProps) {
       transition={{ duration: 0.4, delay: index * 0.05 }}
       viewport={{ once: true }}
       whileHover={{ y: -4 }}
+      onHoverStart={() => setIsHovered(true)}
+      onHoverEnd={() => setIsHovered(false)}
       className="group cursor-pointer"
     >
       <div className="relative rounded-xl overflow-hidden">
@@ -34,6 +39,31 @@ export function AvatarCard({ avatar, index, onSelect }: AvatarCardProps) {
             <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-[10px] text-white">Online</span>
           </div>
+
+          {/* Personality traits - visible on hover */}
+          <AnimatePresence>
+            {isHovered && (
+              <motion.div 
+                className="absolute top-3 left-3 flex flex-wrap gap-1 max-w-[70%]"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                {avatar.personality.map((trait, i) => (
+                  <motion.span
+                    key={trait}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-sm text-white text-[10px] font-medium"
+                  >
+                    {trait}
+                  </motion.span>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
           
           {/* Content overlay */}
           <div className="absolute bottom-0 left-0 right-0 p-4">
