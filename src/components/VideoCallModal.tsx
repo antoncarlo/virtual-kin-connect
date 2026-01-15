@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Video,
@@ -9,11 +9,13 @@ import {
   Maximize2,
   Minimize2,
   User,
-  TestTube,
+  Loader2,
+  Volume2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useLocalVideoCall } from "@/hooks/useLocalVideoCall";
+import { useVapiCall } from "@/hooks/useVapiCall";
 import { Avatar3DViewer } from "./Avatar3DViewer";
+import { useToast } from "@/hooks/use-toast";
 
 interface VideoCallModalProps {
   isOpen: boolean;
@@ -21,6 +23,7 @@ interface VideoCallModalProps {
   avatarName: string;
   avatarImage: string;
   avatarModelUrl?: string;
+  vapiAssistantId?: string;
 }
 
 export function VideoCallModal({
@@ -29,46 +32,128 @@ export function VideoCallModal({
   avatarName,
   avatarImage,
   avatarModelUrl,
+  vapiAssistantId,
 }: VideoCallModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const { toast } = useToast();
+  
   const [isCameraOn, setIsCameraOn] = useState(true);
   const [isMicOn, setIsMicOn] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showAvatar3D, setShowAvatar3D] = useState(true);
   const [callDuration, setCallDuration] = useState(0);
+  const [hasLocalVideo, setHasLocalVideo] = useState(false);
+  const [transcript, setTranscript] = useState<string>("");
 
+  // Vapi voice call integration
   const {
-    isConnecting,
-    isConnected,
-    startVideoCall,
-    endVideoCall,
-    toggleCamera,
-    toggleMicrophone,
-  } = useLocalVideoCall({
+    isConnecting: isVapiConnecting,
+    isConnected: isVapiConnected,
+    isSpeaking: isAvatarSpeaking,
+    startCall: startVapiCall,
+    endCall: endVapiCall,
+    toggleMute: toggleVapiMute,
+  } = useVapiCall({
+    assistantId: vapiAssistantId,
+    onTranscript: (text, isFinal) => {
+      if (text) {
+        setTranscript(text);
+        if (isFinal) {
+          // Clear transcript after a delay when final
+          setTimeout(() => setTranscript(""), 3000);
+        }
+      }
+    },
+    onCallStart: () => {
+      toast({
+        title: "Connesso!",
+        description: `Stai parlando con ${avatarName}. Puoi parlare liberamente.`,
+      });
+    },
     onCallEnd: () => {
-      onClose();
+      toast({
+        title: "Chiamata terminata",
+        description: `La chiamata con ${avatarName} è terminata.`,
+      });
+    },
+    onError: (error) => {
+      console.error("Vapi error:", error);
+      toast({
+        title: "Errore chiamata",
+        description: error.message || "Impossibile connettersi. Riprova.",
+        variant: "destructive",
+      });
     },
   });
 
-  // Start call when modal opens
-  useEffect(() => {
-    if (isOpen && videoRef.current && !isConnected && !isConnecting) {
-      startVideoCall(videoRef.current);
+  // Start local camera when modal opens
+  const startLocalCamera = useCallback(async () => {
+    if (!videoRef.current || streamRef.current) return;
+    
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: false, // Audio is handled by Vapi
+      });
+      
+      streamRef.current = stream;
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play();
+      setHasLocalVideo(true);
+    } catch (error) {
+      console.error("Camera access error:", error);
+      setHasLocalVideo(false);
+      // Don't show error - camera is optional
     }
-  }, [isOpen, isConnected, isConnecting, startVideoCall]);
+  }, []);
+
+  // Stop local camera
+  const stopLocalCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setHasLocalVideo(false);
+  }, []);
+
+  // Start everything when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      startLocalCamera();
+      
+      // Auto-start Vapi call if assistant is configured
+      if (vapiAssistantId && !isVapiConnected && !isVapiConnecting) {
+        // Small delay to let camera initialize first
+        const timer = setTimeout(() => {
+          startVapiCall();
+        }, 500);
+        return () => clearTimeout(timer);
+      }
+    } else {
+      // Cleanup when modal closes
+      stopLocalCamera();
+      if (isVapiConnected) {
+        endVapiCall();
+      }
+      setCallDuration(0);
+      setTranscript("");
+    }
+  }, [isOpen, vapiAssistantId, isVapiConnected, isVapiConnecting, startVapiCall, endVapiCall, startLocalCamera, stopLocalCamera]);
 
   // Timer for call duration
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isConnected) {
+    if (isVapiConnected) {
       interval = setInterval(() => {
         setCallDuration(prev => prev + 1);
       }, 1000);
-    } else {
-      setCallDuration(0);
     }
     return () => clearInterval(interval);
-  }, [isConnected]);
+  }, [isVapiConnected]);
 
   // Format duration as MM:SS
   const formatDuration = (seconds: number) => {
@@ -79,18 +164,32 @@ export function VideoCallModal({
 
   // Handle closing
   const handleClose = async () => {
-    await endVideoCall();
+    stopLocalCamera();
+    if (isVapiConnected) {
+      endVapiCall();
+    }
     onClose();
   };
 
   const handleToggleCamera = () => {
-    setIsCameraOn(!isCameraOn);
-    toggleCamera(!isCameraOn);
+    if (streamRef.current) {
+      const videoTrack = streamRef.current.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !isCameraOn;
+        setIsCameraOn(!isCameraOn);
+      }
+    } else if (!isCameraOn) {
+      // Try to start camera again
+      startLocalCamera();
+      setIsCameraOn(true);
+    }
   };
 
   const handleToggleMic = () => {
-    setIsMicOn(!isMicOn);
-    toggleMicrophone(!isMicOn);
+    const newMicState = !isMicOn;
+    setIsMicOn(newMicState);
+    // Toggle Vapi mute (inverted - muted when mic is off)
+    toggleVapiMute(!newMicState);
   };
 
   const handleToggleFullscreen = () => {
@@ -103,6 +202,21 @@ export function VideoCallModal({
     }
   };
 
+  const getStatusText = () => {
+    if (isVapiConnecting) return "Connessione in corso...";
+    if (isVapiConnected && isAvatarSpeaking) return "Sta parlando...";
+    if (isVapiConnected) return "In ascolto...";
+    if (!vapiAssistantId) return "Assistente non configurato";
+    return "In attesa";
+  };
+
+  const getStatusColor = () => {
+    if (isVapiConnecting) return "text-yellow-400";
+    if (isVapiConnected && isAvatarSpeaking) return "text-green-400";
+    if (isVapiConnected) return "text-blue-400";
+    return "text-muted-foreground";
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -110,7 +224,7 @@ export function VideoCallModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/95"
         >
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
@@ -119,28 +233,28 @@ export function VideoCallModal({
             className="relative w-full h-full max-w-6xl max-h-[90vh] m-4 flex flex-col"
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-4 bg-background/20 backdrop-blur-lg rounded-t-xl">
+            <div className="flex items-center justify-between p-4 bg-background/20 backdrop-blur-lg rounded-t-xl border-b border-white/10">
               <div className="flex items-center gap-3">
-                <img
-                  src={avatarImage}
-                  alt={avatarName}
-                  className="w-10 h-10 rounded-full border-2 border-primary"
-                />
+                <div className="relative">
+                  <img
+                    src={avatarImage}
+                    alt={avatarName}
+                    className="w-12 h-12 rounded-full border-2 border-primary object-cover"
+                  />
+                  {isVapiConnected && (
+                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-black" />
+                  )}
+                </div>
                 <div>
-                  <h3 className="font-semibold text-white">{avatarName}</h3>
+                  <h3 className="font-semibold text-white text-lg">{avatarName}</h3>
                   <div className="flex items-center gap-2">
-                    <p className="text-xs text-green-400">
-                      {isConnecting ? "Connessione..." : isConnected ? "In chiamata" : "In attesa"}
+                    <p className={`text-sm ${getStatusColor()}`}>
+                      {getStatusText()}
                     </p>
-                    {isConnected && (
-                      <span className="text-xs text-white/70">{formatDuration(callDuration)}</span>
+                    {isVapiConnected && (
+                      <span className="text-sm text-white/60">• {formatDuration(callDuration)}</span>
                     )}
                   </div>
-                </div>
-                {/* Test mode badge */}
-                <div className="flex items-center gap-1 px-2 py-1 bg-amber-500/20 text-amber-400 rounded-full text-xs">
-                  <TestTube className="w-3 h-3" />
-                  <span>Modalità Test</span>
                 </div>
               </div>
 
@@ -149,7 +263,8 @@ export function VideoCallModal({
                   variant="ghost"
                   size="icon"
                   onClick={() => setShowAvatar3D(!showAvatar3D)}
-                  className="text-white hover:bg-white/10"
+                  className={`text-white hover:bg-white/10 ${showAvatar3D ? 'bg-white/20' : ''}`}
+                  title={showAvatar3D ? "Nascondi avatar" : "Mostra avatar"}
                 >
                   <User className="w-5 h-5" />
                 </Button>
@@ -169,54 +284,124 @@ export function VideoCallModal({
             </div>
 
             {/* Main Video Area */}
-            <div className="flex-1 relative bg-background/10 rounded-b-xl overflow-hidden">
-              {/* Local video element */}
-              <div className={`absolute inset-0 ${showAvatar3D ? 'w-2/3' : 'w-full'} flex items-center justify-center bg-black`}>
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className={`w-full h-full object-cover ${!isCameraOn ? 'hidden' : ''}`}
-                />
-                {!isCameraOn && (
-                  <div className="flex flex-col items-center justify-center text-white/60">
-                    <VideoOff className="w-16 h-16 mb-4" />
-                    <p>Camera disattivata</p>
+            <div className="flex-1 relative bg-gradient-to-br from-slate-900 to-slate-800 rounded-b-xl overflow-hidden">
+              {/* Avatar section (main) */}
+              <div className={`absolute inset-0 ${hasLocalVideo && showAvatar3D ? 'right-1/4' : ''} flex items-center justify-center`}>
+                {showAvatar3D ? (
+                  <Avatar3DViewer
+                    avatarUrl={avatarModelUrl}
+                    avatarImage={avatarImage}
+                    className="w-full h-full"
+                    isSpeaking={isAvatarSpeaking}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center">
+                    <motion.div
+                      animate={isAvatarSpeaking ? {
+                        scale: [1, 1.05, 1],
+                      } : {}}
+                      transition={{
+                        duration: 0.3,
+                        repeat: Infinity,
+                      }}
+                    >
+                      <img
+                        src={avatarImage}
+                        alt={avatarName}
+                        className="w-40 h-40 rounded-full object-cover border-4 border-primary/50 shadow-2xl"
+                      />
+                    </motion.div>
+                    
+                    {/* Audio visualizer */}
+                    {isAvatarSpeaking && (
+                      <div className="flex items-center gap-1 mt-6">
+                        {[...Array(7)].map((_, i) => (
+                          <motion.div
+                            key={i}
+                            animate={{
+                              height: [8, 28, 8],
+                            }}
+                            transition={{
+                              duration: 0.4,
+                              repeat: Infinity,
+                              delay: i * 0.08,
+                            }}
+                            className="w-1.5 bg-primary rounded-full"
+                            style={{ minHeight: 8 }}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
 
-              {/* 3D Avatar panel */}
-              {showAvatar3D && (
-                <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-background/30 backdrop-blur-sm border-l border-white/10">
-                  <Avatar3DViewer
-                    avatarUrl={avatarModelUrl}
-                    avatarImage={avatarImage}
-                    className="w-full h-full rounded-none"
-                    isSpeaking={isConnected}
+              {/* Local video (picture-in-picture) */}
+              {hasLocalVideo && (
+                <div className="absolute bottom-4 right-4 w-48 h-36 rounded-lg overflow-hidden border-2 border-white/20 shadow-2xl bg-black">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className={`w-full h-full object-cover ${!isCameraOn ? 'hidden' : ''}`}
                   />
+                  {!isCameraOn && (
+                    <div className="flex flex-col items-center justify-center h-full text-white/60 bg-slate-800">
+                      <VideoOff className="w-8 h-8 mb-1" />
+                      <p className="text-xs">Camera off</p>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Loading overlay */}
-              {isConnecting && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+              {/* Transcript overlay */}
+              {transcript && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute bottom-24 left-4 right-4 max-w-2xl mx-auto"
+                >
+                  <div className="bg-black/70 backdrop-blur-sm rounded-lg px-4 py-3 text-center">
+                    <p className="text-white text-sm">{transcript}</p>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Connection status overlay */}
+              {isVapiConnecting && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm">
                   <div className="text-center">
-                    <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-white text-lg">Connessione in corso...</p>
+                    <Loader2 className="w-16 h-16 animate-spin text-primary mx-auto mb-4" />
+                    <p className="text-white text-xl font-medium">Connessione in corso...</p>
+                    <p className="text-white/60 text-sm mt-2">Preparazione chiamata vocale</p>
+                  </div>
+                </div>
+              )}
+
+              {/* No assistant warning */}
+              {!vapiAssistantId && !isVapiConnecting && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                  <div className="text-center bg-black/60 rounded-xl p-6 max-w-sm mx-4">
+                    <Volume2 className="w-12 h-12 text-yellow-500 mx-auto mb-3" />
+                    <p className="text-white font-medium">Chiamata vocale non disponibile</p>
+                    <p className="text-white/60 text-sm mt-2">
+                      L'assistente vocale per {avatarName} non è configurato.
+                    </p>
                   </div>
                 </div>
               )}
             </div>
 
             {/* Controls */}
-            <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex items-center gap-4 p-4 bg-background/40 backdrop-blur-lg rounded-full">
+            <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex items-center gap-4 p-4 bg-background/40 backdrop-blur-lg rounded-full border border-white/10">
               <Button
                 variant={isCameraOn ? "secondary" : "destructive"}
                 size="icon"
                 className="rounded-full w-12 h-12"
                 onClick={handleToggleCamera}
+                title={isCameraOn ? "Disattiva camera" : "Attiva camera"}
               >
                 {isCameraOn ? (
                   <Video className="w-5 h-5" />
@@ -230,6 +415,8 @@ export function VideoCallModal({
                 size="icon"
                 className="rounded-full w-12 h-12"
                 onClick={handleToggleMic}
+                disabled={!isVapiConnected}
+                title={isMicOn ? "Disattiva microfono" : "Attiva microfono"}
               >
                 {isMicOn ? (
                   <Mic className="w-5 h-5" />
@@ -243,6 +430,7 @@ export function VideoCallModal({
                 size="icon"
                 className="rounded-full w-14 h-14"
                 onClick={handleClose}
+                title="Termina chiamata"
               >
                 <Phone className="w-6 h-6 rotate-[135deg]" />
               </Button>
