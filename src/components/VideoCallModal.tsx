@@ -9,9 +9,10 @@ import {
   Maximize2,
   Minimize2,
   User,
+  TestTube,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useDailyCall } from "@/hooks/useDailyCall";
+import { useLocalVideoCall } from "@/hooks/useLocalVideoCall";
 import { ReadyPlayerMeAvatar } from "./ReadyPlayerMeAvatar";
 
 interface VideoCallModalProps {
@@ -29,11 +30,12 @@ export function VideoCallModal({
   avatarImage,
   avatarModelUrl,
 }: VideoCallModalProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [isCameraOn, setIsCameraOn] = useState(true);
   const [isMicOn, setIsMicOn] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showAvatar3D, setShowAvatar3D] = useState(true);
+  const [callDuration, setCallDuration] = useState(0);
 
   const {
     isConnecting,
@@ -42,7 +44,7 @@ export function VideoCallModal({
     endVideoCall,
     toggleCamera,
     toggleMicrophone,
-  } = useDailyCall({
+  } = useLocalVideoCall({
     onCallEnd: () => {
       onClose();
     },
@@ -50,10 +52,30 @@ export function VideoCallModal({
 
   // Start call when modal opens
   useEffect(() => {
-    if (isOpen && containerRef.current && !isConnected && !isConnecting) {
-      startVideoCall(containerRef.current);
+    if (isOpen && videoRef.current && !isConnected && !isConnecting) {
+      startVideoCall(videoRef.current);
     }
   }, [isOpen, isConnected, isConnecting, startVideoCall]);
+
+  // Timer for call duration
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isConnected) {
+      interval = setInterval(() => {
+        setCallDuration(prev => prev + 1);
+      }, 1000);
+    } else {
+      setCallDuration(0);
+    }
+    return () => clearInterval(interval);
+  }, [isConnected]);
+
+  // Format duration as MM:SS
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   // Handle closing
   const handleClose = async () => {
@@ -106,9 +128,19 @@ export function VideoCallModal({
                 />
                 <div>
                   <h3 className="font-semibold text-white">{avatarName}</h3>
-                  <p className="text-xs text-green-400">
-                    {isConnecting ? "Connessione..." : isConnected ? "In chiamata" : "In attesa"}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs text-green-400">
+                      {isConnecting ? "Connessione..." : isConnected ? "In chiamata" : "In attesa"}
+                    </p>
+                    {isConnected && (
+                      <span className="text-xs text-white/70">{formatDuration(callDuration)}</span>
+                    )}
+                  </div>
+                </div>
+                {/* Test mode badge */}
+                <div className="flex items-center gap-1 px-2 py-1 bg-amber-500/20 text-amber-400 rounded-full text-xs">
+                  <TestTube className="w-3 h-3" />
+                  <span>Modalità Test</span>
                 </div>
               </div>
 
@@ -138,11 +170,22 @@ export function VideoCallModal({
 
             {/* Main Video Area */}
             <div className="flex-1 relative bg-background/10 rounded-b-xl overflow-hidden">
-              {/* Daily.co iframe container */}
-              <div
-                ref={containerRef}
-                className={`absolute inset-0 ${showAvatar3D ? 'w-2/3' : 'w-full'}`}
-              />
+              {/* Local video element */}
+              <div className={`absolute inset-0 ${showAvatar3D ? 'w-2/3' : 'w-full'} flex items-center justify-center bg-black`}>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className={`w-full h-full object-cover ${!isCameraOn ? 'hidden' : ''}`}
+                />
+                {!isCameraOn && (
+                  <div className="flex flex-col items-center justify-center text-white/60">
+                    <VideoOff className="w-16 h-16 mb-4" />
+                    <p>Camera disattivata</p>
+                  </div>
+                )}
+              </div>
 
               {/* 3D Avatar panel */}
               {showAvatar3D && (
