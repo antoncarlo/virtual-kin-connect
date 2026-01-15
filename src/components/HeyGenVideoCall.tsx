@@ -46,6 +46,7 @@ export function HeyGenVideoCall({
   const [hasLocalVideo, setHasLocalVideo] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
   const [transcript, setTranscript] = useState("");
+  const [isInitialized, setIsInitialized] = useState(false); // Prevent double init
 
   // HeyGen streaming for realistic avatar
   const {
@@ -135,38 +136,42 @@ export function HeyGenVideoCall({
     setHasLocalVideo(false);
   }, []);
 
-  // Initialize when modal opens
+  // Initialize when modal opens - run only once per open
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !isInitialized) {
+      setIsInitialized(true);
       startLocalCamera();
 
-      // Start HeyGen session with video element
-      if (heygenAvatarId && heygenVideoRef.current) {
-        startHeyGenSession(heygenVideoRef.current);
-      }
+      // Start HeyGen session with video element after a brief delay
+      const heygenTimer = setTimeout(() => {
+        if (heygenAvatarId && heygenVideoRef.current) {
+          startHeyGenSession(heygenVideoRef.current);
+        }
+      }, 500);
 
-      // Start Vapi call
-      if (vapiAssistantId) {
-        setTimeout(() => startVapiCall(), 1000);
-      }
-    } else {
+      // Start Vapi call after HeyGen
+      const vapiTimer = setTimeout(() => {
+        if (vapiAssistantId) {
+          startVapiCall();
+        }
+      }, 1500);
+
+      return () => {
+        clearTimeout(heygenTimer);
+        clearTimeout(vapiTimer);
+      };
+    }
+    
+    if (!isOpen && isInitialized) {
+      // Cleanup when modal closes
       stopLocalCamera();
       stopHeyGenSession();
       endVapiCall();
       setCallDuration(0);
       setTranscript("");
+      setIsInitialized(false);
     }
-  }, [
-    isOpen,
-    heygenAvatarId,
-    vapiAssistantId,
-    startLocalCamera,
-    stopLocalCamera,
-    startHeyGenSession,
-    stopHeyGenSession,
-    startVapiCall,
-    endVapiCall,
-  ]);
+  }, [isOpen, isInitialized, heygenAvatarId, vapiAssistantId, startLocalCamera, startHeyGenSession, startVapiCall, stopLocalCamera, stopHeyGenSession, endVapiCall]);
 
   // Call duration timer
   useEffect(() => {

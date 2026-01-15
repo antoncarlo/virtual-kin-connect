@@ -35,12 +35,24 @@ export function useHeyGenStreaming({
   const roomRef = useRef<Room | null>(null);
   const sessionInfoRef = useRef<SessionInfo | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  const isStartingRef = useRef(false); // Prevent duplicate calls
 
   const startSession = useCallback(async (videoElement?: HTMLVideoElement) => {
+    // Prevent duplicate calls
+    if (isStartingRef.current || isConnected || sessionInfoRef.current) {
+      console.log('HeyGen session already in progress or connected, skipping...');
+      return;
+    }
+
+    isStartingRef.current = true;
+    console.log('Starting HeyGen session with avatarId:', avatarId);
+    
+
     try {
       setIsConnecting(true);
 
       // Create HeyGen streaming session
+      console.log('Calling heygen-streaming edge function...');
       const createResponse = await supabase.functions.invoke('heygen-streaming', {
         body: {
           action: 'create-session',
@@ -49,11 +61,22 @@ export function useHeyGenStreaming({
         },
       });
 
+      console.log('HeyGen create response:', createResponse);
+
       if (createResponse.error) {
         throw new Error(createResponse.error.message);
       }
 
       const sessionData = createResponse.data;
+      console.log('Session data:', sessionData);
+      
+      if (sessionData.error) {
+        throw new Error(sessionData.error);
+      }
+      
+      if (!sessionData.data?.session_id) {
+        throw new Error('Failed to create HeyGen session - no session_id returned');
+      }
       if (!sessionData.data?.session_id) {
         throw new Error('Failed to create HeyGen session');
       }
@@ -135,17 +158,18 @@ export function useHeyGenStreaming({
       console.error('HeyGen streaming error:', error);
       setIsConnecting(false);
       setIsConnected(false);
+      isStartingRef.current = false;
       
       const err = error as Error;
       onError?.(err);
       
       toast({
-        title: "Errore connessione",
+        title: "Errore connessione HeyGen",
         description: err.message || "Impossibile avviare lo streaming avatar",
         variant: "destructive",
       });
     }
-  }, [avatarId, voiceId, onConnected, onDisconnected, onError, toast]);
+  }, [avatarId, voiceId, isConnected, onConnected, onDisconnected, onError, toast]);
 
   const sendText = useCallback(async (text: string) => {
     if (!sessionInfoRef.current) {
@@ -184,6 +208,9 @@ export function useHeyGenStreaming({
   }, [onSpeaking]);
 
   const stopSession = useCallback(async () => {
+    console.log('Stopping HeyGen session...');
+    isStartingRef.current = false;
+    
     try {
       if (sessionInfoRef.current) {
         await supabase.functions.invoke('heygen-streaming', {
