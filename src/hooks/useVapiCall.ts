@@ -35,6 +35,7 @@ export function useVapiCall({
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [vapiPublicKey, setVapiPublicKey] = useState<string | null>(null);
   const vapiRef = useRef<Vapi | null>(null);
+  const isStartingRef = useRef(false); // Prevent duplicate calls
 
   // Fetch Vapi public key from edge function
   const fetchVapiPublicKey = useCallback(async () => {
@@ -60,6 +61,12 @@ export function useVapiCall({
   }, [vapiPublicKey]);
 
   const startCall = useCallback(async () => {
+    // Prevent duplicate calls
+    if (isStartingRef.current || isConnected || vapiRef.current) {
+      console.log('Vapi call already in progress or connected, skipping...');
+      return;
+    }
+
     if (!assistantId) {
       toast({
         title: "Errore",
@@ -70,6 +77,7 @@ export function useVapiCall({
     }
 
     try {
+      isStartingRef.current = true;
       setIsConnecting(true);
 
       // Get public key from backend
@@ -137,6 +145,17 @@ export function useVapiCall({
     } catch (error) {
       console.error('Failed to start Vapi call:', error);
       setIsConnecting(false);
+      isStartingRef.current = false;
+      
+      // Clean up any partial instance
+      if (vapiRef.current) {
+        try {
+          vapiRef.current.stop();
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+        vapiRef.current = null;
+      }
       
       if ((error as Error).name === 'NotAllowedError') {
         toast({
@@ -154,15 +173,21 @@ export function useVapiCall({
       
       onError?.(error as Error);
     }
-  }, [assistantId, fetchVapiPublicKey, onTranscript, onSpeechStart, onSpeechEnd, onCallStart, onCallEnd, onError, toast]);
+  }, [assistantId, isConnected, fetchVapiPublicKey, onTranscript, onSpeechStart, onSpeechEnd, onCallStart, onCallEnd, onError, toast]);
 
   const endCall = useCallback(() => {
+    isStartingRef.current = false;
     if (vapiRef.current) {
-      vapiRef.current.stop();
+      try {
+        vapiRef.current.stop();
+      } catch (e) {
+        console.error('Error stopping Vapi:', e);
+      }
       vapiRef.current = null;
     }
     setIsConnected(false);
     setIsSpeaking(false);
+    setIsConnecting(false);
   }, []);
 
   const toggleMute = useCallback((muted: boolean) => {
