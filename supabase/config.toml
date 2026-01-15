@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.daily-room]
 verify_jwt = false
+
+[functions.create-vapi-assistants]
+verify_jwt = false
+
+[functions.create-vapi-assistants-retry]
+verify_jwt = false
