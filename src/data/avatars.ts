@@ -28,7 +28,7 @@ export const avatars: Avatar[] = [
     personality: ["Supportive", "Funny", "Loyal", "Adventurous"],
     imageUrl: marcoImg,
     vapiAssistantId: "b081bf08-44cf-42eb-b842-1211a1bcb5cc",
-    rpmAvatarUrl: "https://models.readyplayer.me/64bfa15f0e72c63d7c3934a6.glb",
+    rpmAvatarUrl: "https://models.readyplayer.me/6409cf653b9454904c20c63c.glb",
     gradient: "from-blue-500 to-purple-600",
   },
   {
@@ -40,7 +40,7 @@ export const avatars: Avatar[] = [
     personality: ["Empathetic", "Wise", "Thoughtful", "Caring"],
     imageUrl: sofiaImg,
     vapiAssistantId: "1898ee39-ba59-403b-ad47-047b81479ccd",
-    rpmAvatarUrl: "https://models.readyplayer.me/64c06c2f0e72c63d7c3934b2.glb",
+    rpmAvatarUrl: "https://models.readyplayer.me/64404e8158dda5a0be3f5ce3.glb",
     gradient: "from-purple-500 to-pink-500",
   },
   {
@@ -52,7 +52,7 @@ export const avatars: Avatar[] = [
     personality: ["Charming", "Romantic", "Playful", "Confident"],
     imageUrl: alexImg,
     vapiAssistantId: "2c460d20-3257-4075-8c9a-837f5c513b1e",
-    rpmAvatarUrl: "https://models.readyplayer.me/64bfa15f0e72c63d7c3934a6.glb",
+    rpmAvatarUrl: "https://models.readyplayer.me/638df75d6a3c3873bf215359.glb",
     gradient: "from-pink-500 to-rose-500",
   },
   {
@@ -64,7 +64,7 @@ export const avatars: Avatar[] = [
     personality: ["Creative", "Inspiring", "Free-spirited", "Artistic"],
     imageUrl: lunaImg,
     vapiAssistantId: "e0896441-d73d-4505-9c30-ea81ce0c4985",
-    rpmAvatarUrl: "https://models.readyplayer.me/64c06c2f0e72c63d7c3934b2.glb",
+    rpmAvatarUrl: "https://models.readyplayer.me/643df1e9c128e5a49b7ac48f.glb",
     gradient: "from-violet-500 to-indigo-500",
   },
   {
@@ -76,7 +76,7 @@ export const avatars: Avatar[] = [
     personality: ["Energetic", "Motivating", "Disciplined", "Positive"],
     imageUrl: leoImg,
     vapiAssistantId: "2cdd0774-320e-467d-90a1-d2baf56adf11",
-    rpmAvatarUrl: "https://models.readyplayer.me/64bfa15f0e72c63d7c3934a6.glb",
+    rpmAvatarUrl: "https://models.readyplayer.me/64135d5c8c5aa5bfcbc65bd0.glb",
     gradient: "from-orange-500 to-amber-500",
   },
   {
@@ -88,7 +88,7 @@ export const avatars: Avatar[] = [
     personality: ["Sweet", "Affectionate", "Gentle", "Present"],
     imageUrl: emmaImg,
     vapiAssistantId: "1e84c844-5196-4a7d-96bf-9b80cdce4e9c",
-    rpmAvatarUrl: "https://models.readyplayer.me/64c06c2f0e72c63d7c3934b2.glb",
+    rpmAvatarUrl: "https://models.readyplayer.me/6429d7c46a3c3873bf24fa44.glb",
     gradient: "from-rose-400 to-pink-400",
   },
 ];
