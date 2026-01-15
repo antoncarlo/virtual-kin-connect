@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import kindredLogo from "@/assets/kindred-logo.png";
+import kindredIcon from "@/assets/kindred-icon.png";
 
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -23,16 +23,16 @@ export function Navbar() {
       animate={{ y: 0 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-        isScrolled ? "glass py-3" : "bg-transparent py-5"
+        isScrolled ? "glass py-3 shadow-lg shadow-primary/5" : "bg-transparent py-5"
       }`}
     >
       <div className="container mx-auto px-4 flex items-center justify-between">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-3 group">
           <motion.img 
-            src={kindredLogo} 
+            src={kindredIcon} 
             alt="Kindred" 
-            className="w-10 h-10 object-contain"
+            className="w-12 h-12 object-contain"
             whileHover={{ scale: 1.05, rotate: 5 }}
             transition={{ type: "spring", stiffness: 400 }}
           />
