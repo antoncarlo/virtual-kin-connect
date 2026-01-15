@@ -1,156 +1,167 @@
 import { motion } from "framer-motion";
-import { MessageCircle, Phone, Heart, Sparkles } from "lucide-react";
+import { MessageCircle, Phone, Video, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import type { Avatar } from "@/data/avatars";
+import { useState } from "react";
 
 interface AvatarCardProps {
   avatar: Avatar;
   index: number;
   onSelect: (avatar: Avatar) => void;
+  featured?: boolean;
 }
 
-export function AvatarCard({ avatar, index, onSelect }: AvatarCardProps) {
+export function AvatarCard({ avatar, index, onSelect, featured = false }: AvatarCardProps) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [isLiked, setIsLiked] = useState(false);
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 40, scale: 0.95 }}
-      whileInView={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.6, delay: index * 0.1, ease: "easeOut" }}
+      initial={{ opacity: 0, y: 60 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.8, delay: index * 0.15, ease: [0.22, 1, 0.36, 1] }}
       viewport={{ once: true }}
-      whileHover={{ y: -8 }}
-      className="group relative"
+      onHoverStart={() => setIsHovered(true)}
+      onHoverEnd={() => setIsHovered(false)}
+      className={`group relative cursor-pointer ${featured ? 'col-span-2 row-span-2' : ''}`}
     >
-      {/* Glow effect on hover */}
+      {/* Ambient glow */}
       <motion.div 
-        className="absolute -inset-0.5 bg-gradient-to-r from-primary/30 via-accent/30 to-primary/30 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-        animate={{ 
-          backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
-        }}
-        transition={{ duration: 3, repeat: Infinity }}
+        className={`absolute -inset-2 rounded-3xl bg-gradient-to-br ${avatar.gradient} opacity-0 blur-2xl transition-opacity duration-700`}
+        animate={{ opacity: isHovered ? 0.4 : 0 }}
       />
       
-      <div className="relative glass border-gradient rounded-2xl overflow-hidden">
-        {/* Image Container - SMALLER */}
-        <div className="relative aspect-[4/5] max-h-[280px] overflow-hidden">
+      <div className="relative rounded-2xl overflow-hidden bg-card border border-border/50">
+        {/* Image Container */}
+        <div className={`relative overflow-hidden ${featured ? 'aspect-[3/4]' : 'aspect-[3/4]'}`}>
+          {/* Main Image */}
           <motion.img
             src={avatar.imageUrl}
             alt={avatar.name}
             className="w-full h-full object-cover"
-            whileHover={{ scale: 1.08 }}
-            transition={{ duration: 0.7, ease: "easeOut" }}
+            animate={{ 
+              scale: isHovered ? 1.1 : 1,
+              filter: isHovered ? 'brightness(0.7)' : 'brightness(0.9)'
+            }}
+            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
           />
           
-          {/* Animated gradient overlay */}
+          {/* Gradient overlays */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
           <motion.div 
-            className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-transparent"
-            initial={{ opacity: 0.8 }}
-            whileHover={{ opacity: 1 }}
+            className={`absolute inset-0 bg-gradient-to-br ${avatar.gradient} mix-blend-overlay`}
+            animate={{ opacity: isHovered ? 0.3 : 0 }}
+            transition={{ duration: 0.5 }}
           />
           
-          {/* Floating particles */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            {[...Array(3)].map((_, i) => (
-              <motion.div
-                key={i}
-                className="absolute w-1 h-1 bg-primary/60 rounded-full"
-                style={{
-                  left: `${20 + i * 30}%`,
-                  bottom: `${10 + i * 10}%`,
-                }}
-                animate={{
-                  y: [-20, -60, -20],
-                  opacity: [0, 1, 0],
-                  scale: [0.5, 1, 0.5],
-                }}
-                transition={{
-                  duration: 3,
-                  delay: i * 0.5,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-              />
-            ))}
-          </div>
-          
-          {/* Online indicator */}
-          <motion.div 
-            className="absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full glass"
-            initial={{ opacity: 0, x: 20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 + index * 0.1 }}
-          >
-            <motion.div 
-              className="w-2 h-2 rounded-full bg-emerald-400"
-              animate={{ scale: [1, 1.3, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            />
-            <span className="text-xs font-medium text-foreground/80">Online</span>
-          </motion.div>
-          
-          {/* Floating Action Buttons */}
-          <motion.div 
-            className="absolute bottom-3 left-3 right-3 flex gap-2"
-            initial={{ opacity: 0, y: 20 }}
-            whileHover={{ opacity: 1, y: 0 }}
-          >
-            <Button
-              size="sm"
-              className="flex-1 gradient-primary text-primary-foreground shadow-lg"
-              onClick={() => onSelect(avatar)}
-            >
-              <MessageCircle className="w-4 h-4 mr-2" />
-              Chat
-            </Button>
-            <Button size="sm" variant="secondary" className="glass backdrop-blur-md">
-              <Phone className="w-4 h-4" />
-            </Button>
-          </motion.div>
-        </div>
+          {/* Shimmer effect on hover */}
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full"
+            animate={{ x: isHovered ? '200%' : '-100%' }}
+            transition={{ duration: 1, ease: "easeInOut" }}
+          />
 
-        {/* Content */}
-        <div className="p-4 space-y-2.5">
-          <div className="flex items-start justify-between">
-            <div>
-              <motion.h3 
-                className="text-lg font-display font-semibold text-foreground"
-                initial={{ opacity: 0, x: -10 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 + index * 0.1 }}
-              >
-                {avatar.name}
-              </motion.h3>
-              <p className="text-sm text-gradient font-medium">{avatar.role}</p>
-            </div>
-            <motion.button 
-              className="p-1.5 rounded-full hover:bg-accent/20 transition-colors"
-              whileHover={{ scale: 1.2 }}
-              whileTap={{ scale: 0.9 }}
+          {/* Top badges */}
+          <div className="absolute top-4 left-4 right-4 flex justify-between items-start">
+            <motion.div 
+              className={`px-3 py-1.5 rounded-full bg-gradient-to-r ${avatar.gradient} text-white text-xs font-semibold shadow-lg`}
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4 + index * 0.1 }}
             >
-              <Heart className="w-4 h-4 text-accent" />
+              {avatar.role}
+            </motion.div>
+            
+            <motion.button 
+              className="p-2 rounded-full bg-black/40 backdrop-blur-md hover:bg-black/60 transition-colors"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsLiked(!isLiked);
+              }}
+            >
+              <Heart className={`w-4 h-4 transition-colors ${isLiked ? 'text-rose-500 fill-rose-500' : 'text-white'}`} />
             </motion.button>
           </div>
 
-          <p className="text-muted-foreground text-xs italic line-clamp-2">
-            "{avatar.tagline}"
-          </p>
+          {/* Online status */}
+          <motion.div 
+            className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md"
+            initial={{ opacity: 0, y: -10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 + index * 0.1 }}
+          >
+            <motion.div 
+              className="w-2 h-2 rounded-full bg-emerald-400"
+              animate={{ 
+                scale: [1, 1.4, 1],
+                boxShadow: ['0 0 0 0 rgba(52,211,153,0.4)', '0 0 0 8px rgba(52,211,153,0)', '0 0 0 0 rgba(52,211,153,0.4)']
+              }}
+              transition={{ duration: 2, repeat: Infinity }}
+            />
+            <span className="text-xs font-medium text-white/90">Online</span>
+          </motion.div>
 
-          <div className="flex flex-wrap gap-1">
-            {avatar.personality.slice(0, 3).map((trait, i) => (
-              <motion.div
-                key={trait}
-                initial={{ opacity: 0, scale: 0 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.3 + i * 0.1 }}
-              >
-                <Badge
-                  variant="secondary"
-                  className="text-[10px] bg-secondary/50 text-secondary-foreground px-2 py-0.5"
+          {/* Content overlay - bottom */}
+          <motion.div 
+            className="absolute bottom-0 left-0 right-0 p-5"
+            animate={{ y: isHovered ? -8 : 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            {/* Name and tagline */}
+            <div className="mb-4">
+              <h3 className={`font-display font-bold text-white mb-1 ${featured ? 'text-3xl' : 'text-2xl'}`}>
+                {avatar.name}
+              </h3>
+              <p className="text-white/70 text-sm italic">"{avatar.tagline}"</p>
+            </div>
+
+            {/* Personality traits */}
+            <div className="flex flex-wrap gap-1.5 mb-4">
+              {avatar.personality.slice(0, featured ? 4 : 3).map((trait, i) => (
+                <motion.span
+                  key={trait}
+                  initial={{ opacity: 0, scale: 0 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.5 + i * 0.1 }}
+                  className="px-2.5 py-1 rounded-full bg-white/10 backdrop-blur-sm text-white/80 text-xs font-medium border border-white/10"
                 >
                   {trait}
-                </Badge>
-              </motion.div>
-            ))}
-          </div>
+                </motion.span>
+              ))}
+            </div>
+
+            {/* Action buttons */}
+            <motion.div 
+              className="flex gap-2"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: isHovered ? 1 : 0.7, y: isHovered ? 0 : 10 }}
+              transition={{ duration: 0.4 }}
+            >
+              <Button
+                className={`flex-1 bg-gradient-to-r ${avatar.gradient} text-white border-0 shadow-lg hover:shadow-xl transition-shadow`}
+                onClick={() => onSelect(avatar)}
+              >
+                <MessageCircle className="w-4 h-4 mr-2" />
+                Chatta
+              </Button>
+              <Button 
+                size="icon" 
+                variant="secondary" 
+                className="bg-white/10 backdrop-blur-md border-white/10 hover:bg-white/20"
+              >
+                <Phone className="w-4 h-4 text-white" />
+              </Button>
+              <Button 
+                size="icon" 
+                variant="secondary" 
+                className="bg-white/10 backdrop-blur-md border-white/10 hover:bg-white/20"
+              >
+                <Video className="w-4 h-4 text-white" />
+              </Button>
+            </motion.div>
+          </motion.div>
         </div>
       </div>
     </motion.div>
