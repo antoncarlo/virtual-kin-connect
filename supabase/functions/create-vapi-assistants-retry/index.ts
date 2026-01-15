@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Only Marco and Alex that failed before - using Vapi's built-in voices
+// Marco and Alex using Vapi's built-in voices
 const avatarConfigs = [
   {
     id: "marco",
@@ -60,10 +60,10 @@ Istruzioni importanti:
         ],
         temperature: 0.8,
       },
-      // Using Vapi's PlayHT voices instead of ElevenLabs
+      // Using Vapi's built-in Azure voices for Italian
       voice: {
-        provider: "playht",
-        voiceId: avatar.id === "marco" ? "s3://voice-cloning-zero-shot/d9ff78ba-d016-47f6-b0ef-dd630f59414e/adriansaad/manifest.json" : "s3://voice-cloning-zero-shot/820da3d2-3a3b-42e7-844d-e68db835a206/sarah/manifest.json",
+        provider: "azure",
+        voiceId: avatar.id === "marco" ? "it-IT-DiegoNeural" : "it-IT-GiuseppeNeural",
       },
       firstMessage: `Ciao! Sono ${avatar.name}. Come stai oggi?`,
       transcriber: {
@@ -110,7 +110,7 @@ serve(async (req) => {
       );
     }
 
-    console.log("Creating Vapi assistants for Marco and Alex...");
+    console.log("Creating Vapi assistants for Marco and Alex with Azure voices...");
 
     const results = await Promise.all(
       avatarConfigs.map(avatar => createVapiAssistant(VAPI_PRIVATE_KEY, avatar))
