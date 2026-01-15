@@ -1,10 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, validateAuth } from "../_shared/auth.ts";
 
 // Avatar configurations for creating Vapi assistants
 const avatarConfigs = [
@@ -136,6 +132,14 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Validate authentication
+  const { auth, error: authError } = await validateAuth(req);
+  if (authError) {
+    return authError;
+  }
+
+  console.log(`Authenticated user ${auth!.userId} accessing create-vapi-assistants`);
 
   try {
     const VAPI_PRIVATE_KEY = Deno.env.get("VAPI_PRIVATE_KEY");

@@ -1,14 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, validateAuth } from "../_shared/auth.ts";
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Validate authentication
+  const { auth, error: authError } = await validateAuth(req);
+  if (authError) {
+    return authError;
+  }
+
+  console.log(`Authenticated user ${auth!.userId} accessing daily-room`);
 
   try {
     const DAILY_API_KEY = Deno.env.get("DAILY_API_KEY");
@@ -62,6 +66,7 @@ serve(async (req) => {
             room_name: room.name,
             exp: Math.floor(Date.now() / 1000) + (expiryMinutes * 60),
             is_owner: true,
+            user_id: auth!.userId, // Include authenticated user ID
           },
         }),
       });
@@ -137,6 +142,7 @@ serve(async (req) => {
           properties: {
             room_name: roomName,
             exp: Math.floor(Date.now() / 1000) + (expiryMinutes * 60),
+            user_id: auth!.userId, // Include authenticated user ID
             ...properties,
           },
         }),
