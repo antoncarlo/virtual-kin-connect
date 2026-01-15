@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocalVideoCall } from "@/hooks/useLocalVideoCall";
-import { ReadyPlayerMeAvatar } from "./ReadyPlayerMeAvatar";
+import { Avatar3DViewer } from "./Avatar3DViewer";
 
 interface VideoCallModalProps {
   isOpen: boolean;
@@ -190,9 +190,10 @@ export function VideoCallModal({
               {/* 3D Avatar panel */}
               {showAvatar3D && (
                 <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-background/30 backdrop-blur-sm border-l border-white/10">
-                  <ReadyPlayerMeAvatar
+                  <Avatar3DViewer
                     avatarUrl={avatarModelUrl}
-                    className="w-full h-full"
+                    className="w-full h-full rounded-none"
+                    isSpeaking={isConnected}
                   />
                 </div>
               )}
