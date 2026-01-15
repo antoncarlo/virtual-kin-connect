@@ -33,7 +33,7 @@ export const avatars: Avatar[] = [
     imageUrl: marcoImg,
     voiceId: "ChJuCmdw5W6I2qZbzwVl",
     agentId: "agent_1501kepe0n1mf4yafr5mqxpx0ne5",
-    // Marco needs manual Vapi assistant creation - voice not available
+    vapiAssistantId: "b081bf08-44cf-42eb-b842-1211a1bcb5cc",
     rpmAvatarUrl: "https://models.readyplayer.me/64bfa15f0e72c63d7c3934a6.glb",
     gradient: "from-blue-500 to-purple-600",
   },
@@ -59,7 +59,7 @@ export const avatars: Avatar[] = [
     personality: ["Charming", "Romantic", "Playful", "Confident"],
     imageUrl: alexImg,
     voiceId: "G1QO6RfZl0zS1DpKDReq",
-    // Alex needs manual Vapi assistant creation - voice not available
+    vapiAssistantId: "2c460d20-3257-4075-8c9a-837f5c513b1e",
     rpmAvatarUrl: "https://models.readyplayer.me/64bfa15f0e72c63d7c3934a6.glb",
     gradient: "from-pink-500 to-rose-500",
   },
