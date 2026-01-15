@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { MessageCircle, Phone, Video, Brain, Heart, Shield, Zap, Star } from "lucide-react";
+import { MessageCircle, Phone, Video, Brain, Heart, Shield, Zap } from "lucide-react";
 
 const features = [
   {
@@ -96,19 +96,6 @@ export function FeaturesSection() {
           ))}
         </div>
         
-        {/* Bottom CTA */}
-        <motion.div
-          className="text-center mt-12"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-        >
-          <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full glass text-sm">
-            <Star className="w-4 h-4 text-gold fill-gold" />
-            <span className="text-foreground/80">Trusted by 100,000+ users worldwide</span>
-            <Star className="w-4 h-4 text-gold fill-gold" />
-          </div>
-        </motion.div>
       </div>
     </section>
   );

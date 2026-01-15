@@ -360,39 +360,6 @@ export function HeroSection() {
             </motion.div>
           </motion.div>
 
-          {/* Stats */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.6 }}
-            className="mt-24 grid grid-cols-3 gap-8 max-w-2xl mx-auto"
-          >
-            {[
-              { value: "100K+", label: "Happy Users" },
-              { value: "24/7", label: "Always Available" },
-              { value: "4.9★", label: "User Rating" },
-            ].map((stat, index) => (
-              <motion.div 
-                key={stat.label} 
-                className="text-center"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.7 + index * 0.1 }}
-                whileHover={{ scale: 1.05 }}
-              >
-                <motion.div 
-                  className="text-3xl md:text-4xl font-display font-bold text-gradient mb-1"
-                  animate={{ 
-                    textShadow: ["0 0 20px hsl(var(--primary) / 0)", "0 0 20px hsl(var(--primary) / 0.3)", "0 0 20px hsl(var(--primary) / 0)"],
-                  }}
-                  transition={{ duration: 2, repeat: Infinity, delay: index * 0.3 }}
-                >
-                  {stat.value}
-                </motion.div>
-                <div className="text-sm text-muted-foreground font-medium">{stat.label}</div>
-              </motion.div>
-            ))}
-          </motion.div>
         </div>
       </div>
 

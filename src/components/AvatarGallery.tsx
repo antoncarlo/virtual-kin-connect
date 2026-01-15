@@ -2,7 +2,6 @@ import { motion } from "framer-motion";
 import { AvatarCard } from "./AvatarCard";
 import { avatars, type Avatar } from "@/data/avatars";
 import { useNavigate } from "react-router-dom";
-import { Sparkles, Heart, MessageCircle, Zap } from "lucide-react";
 
 export function AvatarGallery() {
   const navigate = useNavigate();
@@ -47,20 +46,6 @@ export function AvatarGallery() {
           ))}
         </div>
         
-        {/* Bottom features */}
-        <div className="mt-10 flex flex-wrap justify-center gap-6 text-sm text-muted-foreground">
-          {[
-            { icon: Sparkles, label: "Advanced AI" },
-            { icon: Heart, label: "Emotionally Intelligent" },
-            { icon: MessageCircle, label: "Always Available" },
-            { icon: Zap, label: "Instant Responses" },
-          ].map((item) => (
-            <div key={item.label} className="flex items-center gap-2">
-              <item.icon className="w-4 h-4 text-primary" />
-              <span>{item.label}</span>
-            </div>
-          ))}
-        </div>
       </div>
     </section>
   );
