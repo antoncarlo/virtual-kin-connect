@@ -2,7 +2,7 @@ import { Phone, PhoneOff } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { useEffect } from "react";
+import { useEffect, useRef, useCallback } from "react";
 
 interface IncomingCallModalProps {
   isOpen: boolean;
@@ -12,6 +12,48 @@ interface IncomingCallModalProps {
   onReject: () => void;
 }
 
+// Create ringtone using Web Audio API
+function createRingtone() {
+  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+  
+  const playTone = () => {
+    // Create oscillators for a pleasant ringtone
+    const oscillator1 = audioContext.createOscillator();
+    const oscillator2 = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    // Set frequencies for a nice chord
+    oscillator1.frequency.value = 440; // A4
+    oscillator2.frequency.value = 554.37; // C#5
+    
+    oscillator1.type = 'sine';
+    oscillator2.type = 'sine';
+    
+    // Connect oscillators to gain node
+    oscillator1.connect(gainNode);
+    oscillator2.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    // Set volume
+    gainNode.gain.value = 0.3;
+    
+    const now = audioContext.currentTime;
+    
+    // Envelope for smooth sound
+    gainNode.gain.setValueAtTime(0, now);
+    gainNode.gain.linearRampToValueAtTime(0.3, now + 0.05);
+    gainNode.gain.linearRampToValueAtTime(0.2, now + 0.3);
+    gainNode.gain.linearRampToValueAtTime(0, now + 0.5);
+    
+    oscillator1.start(now);
+    oscillator2.start(now);
+    oscillator1.stop(now + 0.5);
+    oscillator2.stop(now + 0.5);
+  };
+  
+  return { audioContext, playTone };
+}
+
 export function IncomingCallModal({
   isOpen,
   avatarName,
@@ -19,19 +61,74 @@ export function IncomingCallModal({
   onAccept,
   onReject,
 }: IncomingCallModalProps) {
-  // Play ringtone effect (vibration pattern simulation via visual)
+  const ringtoneRef = useRef<{ audioContext: AudioContext; playTone: () => void } | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const stopRingtone = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    if (ringtoneRef.current?.audioContext) {
+      ringtoneRef.current.audioContext.close().catch(() => {});
+      ringtoneRef.current = null;
+    }
+  }, []);
+
+  // Play ringtone when modal opens
   useEffect(() => {
-    if (isOpen && navigator.vibrate) {
-      // Vibrate pattern: vibrate 500ms, pause 200ms, repeat
-      const interval = setInterval(() => {
-        navigator.vibrate([500, 200, 500]);
-      }, 1400);
+    if (isOpen) {
+      // Initialize ringtone
+      try {
+        ringtoneRef.current = createRingtone();
+        
+        // Play immediately
+        ringtoneRef.current.playTone();
+        
+        // Repeat every 1.5 seconds
+        intervalRef.current = setInterval(() => {
+          if (ringtoneRef.current) {
+            ringtoneRef.current.playTone();
+            // Second beep after 300ms for that classic ringtone feel
+            setTimeout(() => {
+              if (ringtoneRef.current) {
+                ringtoneRef.current.playTone();
+              }
+            }, 300);
+          }
+        }, 2000);
+      } catch (error) {
+        console.error('Failed to create ringtone:', error);
+      }
+      
+      // Vibration pattern
+      if (navigator.vibrate) {
+        const vibrationInterval = setInterval(() => {
+          navigator.vibrate([500, 200, 500]);
+        }, 1400);
+        
+        return () => {
+          clearInterval(vibrationInterval);
+          navigator.vibrate(0);
+          stopRingtone();
+        };
+      }
+      
       return () => {
-        clearInterval(interval);
-        navigator.vibrate(0);
+        stopRingtone();
       };
     }
-  }, [isOpen]);
+  }, [isOpen, stopRingtone]);
+
+  const handleAccept = () => {
+    stopRingtone();
+    onAccept();
+  };
+
+  const handleReject = () => {
+    stopRingtone();
+    onReject();
+  };
 
   return (
     <AnimatePresence>
@@ -107,7 +204,7 @@ export function IncomingCallModal({
                 whileTap={{ scale: 0.95 }}
               >
                 <Button
-                  onClick={onReject}
+                  onClick={handleReject}
                   size="lg"
                   className="w-16 h-16 rounded-full bg-destructive hover:bg-destructive/90 shadow-lg shadow-destructive/30"
                 >
@@ -130,7 +227,7 @@ export function IncomingCallModal({
                 }}
               >
                 <Button
-                  onClick={onAccept}
+                  onClick={handleAccept}
                   size="lg"
                   className="w-16 h-16 rounded-full bg-green-500 hover:bg-green-600 shadow-lg shadow-green-500/30"
                 >
