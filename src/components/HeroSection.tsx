@@ -16,10 +16,10 @@ export function HeroSection() {
     offset: ["start start", "end start"]
   });
   
-  const backgroundY = useTransform(scrollYProgress, [0, 1], [0, 300]);
-  const textY = useTransform(scrollYProgress, [0, 1], [0, 150]);
-  const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
-  const scale = useTransform(scrollYProgress, [0, 0.5], [1, 0.9]);
+  const backgroundY = useTransform(scrollYProgress, [0, 1], [0, 200]);
+  const textY = useTransform(scrollYProgress, [0, 1], [0, 80]);
+  const opacity = useTransform(scrollYProgress, [0, 0.8], [1, 0.3]);
+  const scale = useTransform(scrollYProgress, [0, 1], [1, 0.95]);
 
   const handlePlayVideo = () => {
     if (videoRef.current) {
