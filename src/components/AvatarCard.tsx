@@ -69,7 +69,7 @@ export function AvatarCard({ avatar, index, onSelect }: AvatarCardProps) {
               className={`w-full h-8 text-xs bg-gradient-to-r ${avatar.gradient} text-white border-0`}
               onClick={() => onSelect(avatar)}
             >
-              Inizia a chattare
+              Start chatting
             </Button>
           </div>
         </div>

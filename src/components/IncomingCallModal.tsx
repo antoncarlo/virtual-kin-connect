@@ -192,7 +192,7 @@ export function IncomingCallModal({
                 animate={{ opacity: [0.5, 1, 0.5] }}
                 transition={{ duration: 1.5, repeat: Infinity }}
               >
-                Chiamata in arrivo...
+                Incoming call...
               </motion.p>
             </div>
 
@@ -210,7 +210,7 @@ export function IncomingCallModal({
                 >
                   <PhoneOff className="w-7 h-7" />
                 </Button>
-                <p className="text-xs text-center mt-2 text-muted-foreground">Rifiuta</p>
+                <p className="text-xs text-center mt-2 text-muted-foreground">Decline</p>
               </motion.div>
 
               {/* Accept button */}
@@ -233,7 +233,7 @@ export function IncomingCallModal({
                 >
                   <Phone className="w-7 h-7" />
                 </Button>
-                <p className="text-xs text-center mt-2 text-muted-foreground">Accetta</p>
+                <p className="text-xs text-center mt-2 text-muted-foreground">Accept</p>
               </motion.div>
             </div>
           </motion.div>
