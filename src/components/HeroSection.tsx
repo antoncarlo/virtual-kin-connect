@@ -1,4 +1,4 @@
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion } from "framer-motion";
 import { ArrowRight, Sparkles, Play, Volume2, VolumeX, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -13,16 +13,6 @@ export function HeroSection() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const sectionRef = useRef<HTMLElement>(null);
-  
-  const { scrollYProgress } = useScroll({
-    target: sectionRef,
-    offset: ["start start", "end start"]
-  });
-  
-  const backgroundY = useTransform(scrollYProgress, [0, 1], [0, 200]);
-  const textY = useTransform(scrollYProgress, [0, 1], [0, 80]);
-  const opacity = useTransform(scrollYProgress, [0, 0.8], [1, 0.3]);
-  const scale = useTransform(scrollYProgress, [0, 1], [1, 0.95]);
 
   // Fetch audio narration
   const fetchNarration = async () => {
@@ -130,7 +120,7 @@ export function HeroSection() {
       <div className="absolute inset-0 gradient-cosmic" />
       
       {/* Animated mesh gradient with parallax */}
-      <motion.div className="absolute inset-0 overflow-hidden" style={{ y: backgroundY }}>
+      <motion.div className="absolute inset-0 overflow-hidden">
         <motion.div 
           className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-primary/8 rounded-full blur-[200px]"
           animate={{ 
@@ -192,10 +182,7 @@ export function HeroSection() {
         }}
       />
 
-      <motion.div 
-        className="container mx-auto px-4 relative z-10"
-        style={{ y: textY, opacity, scale }}
-      >
+      <div className="container mx-auto px-4 relative z-10">
         <div className="max-w-5xl mx-auto text-center">
           {/* Badge */}
           <motion.div
@@ -312,14 +299,11 @@ export function HeroSection() {
                   onPause={() => setIsVideoPlaying(false)}
                 />
                 
-                {/* Play overlay */}
+                {/* Play button */}
                 {!isVideoPlaying && (
-                  <motion.div
-                    className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm cursor-pointer"
+                  <div
+                    className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer"
                     onClick={handlePlayVideo}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
                   >
                     <motion.div
                       className="w-24 h-24 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30"
@@ -336,15 +320,7 @@ export function HeroSection() {
                         <Play className="w-10 h-10 text-white fill-white ml-1" />
                       )}
                     </motion.div>
-                    <motion.p 
-                      className="mt-4 text-white/80 text-sm font-medium"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.3 }}
-                    >
-                      {isLoadingAudio ? "Loading audio..." : "▶ Play with narration"}
-                    </motion.p>
-                  </motion.div>
+                  </div>
                 )}
                 
                 {/* Video controls */}
@@ -418,7 +394,7 @@ export function HeroSection() {
             ))}
           </motion.div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Scroll Indicator */}
       <motion.div
