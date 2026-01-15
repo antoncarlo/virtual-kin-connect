@@ -46,7 +46,33 @@ export function HeyGenVideoCall({
   const [hasLocalVideo, setHasLocalVideo] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
   const [transcript, setTranscript] = useState("");
-  const [isInitialized, setIsInitialized] = useState(false); // Prevent double init
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Stable callback refs to prevent hook re-initialization
+  const handleHeyGenConnected = useCallback(() => {
+    toast({
+      title: "Avatar HeyGen connesso",
+      description: "Streaming video realistico attivo",
+    });
+  }, [toast]);
+
+  const handleHeyGenError = useCallback((error: Error) => {
+    console.error("HeyGen error:", error);
+  }, []);
+
+  const handleVapiTranscript = useCallback((text: string, isFinal: boolean) => {
+    setTranscript(text);
+    if (isFinal) {
+      setTimeout(() => setTranscript(""), 3000);
+    }
+  }, []);
+
+  const handleVapiCallStart = useCallback(() => {
+    toast({
+      title: "Connesso!",
+      description: `Stai parlando con ${avatarName}`,
+    });
+  }, [toast, avatarName]);
 
   // HeyGen streaming for realistic avatar
   const {
@@ -60,15 +86,8 @@ export function HeyGenVideoCall({
   } = useHeyGenStreaming({
     avatarId: heygenAvatarId,
     voiceId: heygenVoiceId,
-    onConnected: () => {
-      toast({
-        title: "Avatar HeyGen connesso",
-        description: "Streaming video realistico attivo",
-      });
-    },
-    onError: (error) => {
-      console.error("HeyGen error:", error);
-    },
+    onConnected: handleHeyGenConnected,
+    onError: handleHeyGenError,
   });
 
   // Vapi for voice conversation
@@ -81,23 +100,16 @@ export function HeyGenVideoCall({
     toggleMute: toggleVapiMute,
   } = useVapiCall({
     assistantId: vapiAssistantId,
-    onTranscript: (text, isFinal) => {
-      setTranscript(text);
-      // Send transcript to HeyGen for lip-sync
-      if (isFinal && text && isHeyGenConnected) {
-        sendHeyGenText(text);
-      }
-      if (isFinal) {
-        setTimeout(() => setTranscript(""), 3000);
-      }
-    },
-    onCallStart: () => {
-      toast({
-        title: "Connesso!",
-        description: `Stai parlando con ${avatarName}`,
-      });
-    },
+    onTranscript: handleVapiTranscript,
+    onCallStart: handleVapiCallStart,
   });
+
+  // Send transcript to HeyGen for lip-sync
+  useEffect(() => {
+    if (transcript && isHeyGenConnected) {
+      sendHeyGenText(transcript);
+    }
+  }, [transcript, isHeyGenConnected, sendHeyGenText]);
 
   // Attach HeyGen stream to video element
   useEffect(() => {
