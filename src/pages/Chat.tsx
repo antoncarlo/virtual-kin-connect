@@ -201,10 +201,21 @@ export default function Chat() {
 
   // Handle initiating a call when requested - show incoming call modal
   const initiateCallIfRequested = async (userMessage: string, agentResponse: string) => {
-    if (!voiceCallRef.current || voiceCallRef.current.isConnected) return;
-    
     // Check if user asked to be called
     if (detectCallRequest(userMessage)) {
+      // Check if avatar supports voice calls
+      if (!avatar?.agentId) {
+        toast({
+          title: "Chiamata non disponibile",
+          description: `${avatar?.name} non supporta ancora le chiamate vocali.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Check if already connected
+      if (voiceCallRef.current?.isConnected) return;
+      
       // Small delay to let the chat response appear first, then show incoming call modal
       setTimeout(() => {
         setShowIncomingCall(true);
