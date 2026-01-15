@@ -1,14 +1,17 @@
 import { motion, useScroll, useTransform } from "framer-motion";
-import { ArrowRight, Sparkles, Play, Volume2, VolumeX } from "lucide-react";
+import { ArrowRight, Sparkles, Play, Volume2, VolumeX, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import introVideo from "@/assets/kindred-intro.mp4";
 
 export function HeroSection() {
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isLoadingAudio, setIsLoadingAudio] = useState(false);
+  const [audioLoaded, setAudioLoaded] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const sectionRef = useRef<HTMLElement>(null);
   
   const { scrollYProgress } = useScroll({
@@ -21,12 +24,56 @@ export function HeroSection() {
   const opacity = useTransform(scrollYProgress, [0, 0.8], [1, 0.3]);
   const scale = useTransform(scrollYProgress, [0, 1], [1, 0.95]);
 
-  const handlePlayVideo = () => {
+  // Fetch audio narration
+  const fetchNarration = async () => {
+    if (audioLoaded || isLoadingAudio) return;
+    
+    setIsLoadingAudio(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-narration`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ language: "it" }),
+        }
+      );
+
+      if (!response.ok) throw new Error("Failed to fetch narration");
+      
+      const data = await response.json();
+      if (data.audioContent) {
+        const audioUrl = `data:audio/mpeg;base64,${data.audioContent}`;
+        audioRef.current = new Audio(audioUrl);
+        audioRef.current.loop = true;
+        setAudioLoaded(true);
+      }
+    } catch (error) {
+      console.error("Error fetching narration:", error);
+    } finally {
+      setIsLoadingAudio(false);
+    }
+  };
+
+  const handlePlayVideo = async () => {
     if (videoRef.current) {
       if (isVideoPlaying) {
         videoRef.current.pause();
+        audioRef.current?.pause();
       } else {
+        // Fetch audio if not loaded
+        if (!audioLoaded && !isLoadingAudio) {
+          await fetchNarration();
+        }
         videoRef.current.play();
+        if (audioRef.current && !isMuted) {
+          audioRef.current.currentTime = 0;
+          audioRef.current.play();
+        }
       }
       setIsVideoPlaying(!isVideoPlaying);
     }
@@ -34,11 +81,48 @@ export function HeroSection() {
 
   const toggleMute = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (videoRef.current) {
-      videoRef.current.muted = !isMuted;
-      setIsMuted(!isMuted);
+    const newMuted = !isMuted;
+    setIsMuted(newMuted);
+    
+    if (audioRef.current) {
+      if (newMuted) {
+        audioRef.current.pause();
+      } else if (isVideoPlaying) {
+        audioRef.current.play();
+      }
     }
   };
+
+  // Sync audio with video
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleVideoEnd = () => {
+      audioRef.current?.pause();
+      if (audioRef.current) audioRef.current.currentTime = 0;
+    };
+
+    const handleVideoPause = () => {
+      audioRef.current?.pause();
+    };
+
+    video.addEventListener("ended", handleVideoEnd);
+    video.addEventListener("pause", handleVideoPause);
+
+    return () => {
+      video.removeEventListener("ended", handleVideoEnd);
+      video.removeEventListener("pause", handleVideoPause);
+    };
+  }, []);
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      audioRef.current?.pause();
+      audioRef.current = null;
+    };
+  }, []);
 
   return (
     <section ref={sectionRef} className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
@@ -222,7 +306,7 @@ export function HeroSection() {
                   src={introVideo}
                   className="w-full aspect-video object-cover"
                   loop
-                  muted={isMuted}
+                  muted
                   playsInline
                   onPlay={() => setIsVideoPlaying(true)}
                   onPause={() => setIsVideoPlaying(false)}
@@ -231,7 +315,7 @@ export function HeroSection() {
                 {/* Play overlay */}
                 {!isVideoPlaying && (
                   <motion.div
-                    className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm cursor-pointer"
+                    className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm cursor-pointer"
                     onClick={handlePlayVideo}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -246,8 +330,20 @@ export function HeroSection() {
                       }}
                       transition={{ duration: 2, repeat: Infinity }}
                     >
-                      <Play className="w-10 h-10 text-white fill-white ml-1" />
+                      {isLoadingAudio ? (
+                        <Loader2 className="w-10 h-10 text-white animate-spin" />
+                      ) : (
+                        <Play className="w-10 h-10 text-white fill-white ml-1" />
+                      )}
                     </motion.div>
+                    <motion.p 
+                      className="mt-4 text-white/80 text-sm font-medium"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.3 }}
+                    >
+                      {isLoadingAudio ? "Caricamento audio..." : "▶ Riproduci con narrazione"}
+                    </motion.p>
                   </motion.div>
                 )}
                 
@@ -259,12 +355,17 @@ export function HeroSection() {
                     className="absolute bottom-4 right-4 flex gap-2"
                   >
                     <motion.button
-                      className="p-3 rounded-full bg-black/50 backdrop-blur-md border border-white/20 text-white"
+                      className={`p-3 rounded-full backdrop-blur-md border border-white/20 text-white flex items-center gap-2 ${
+                        isMuted ? "bg-black/50" : "bg-primary/70"
+                      }`}
                       onClick={toggleMute}
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.95 }}
                     >
                       {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                      <span className="text-xs font-medium pr-1">
+                        {isMuted ? "Audio OFF" : "Audio ON"}
+                      </span>
                     </motion.button>
                   </motion.div>
                 )}
@@ -273,12 +374,13 @@ export function HeroSection() {
             
             {/* Video label */}
             <motion.div
-              className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full glass text-sm font-medium text-foreground/80"
+              className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full glass text-sm font-medium text-foreground/80 flex items-center gap-2"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.8 }}
             >
-              🎬 Guarda come funziona Kindred
+              <Volume2 className="w-4 h-4" />
+              Guarda come funziona Kindred con audio
             </motion.div>
           </motion.div>
 
