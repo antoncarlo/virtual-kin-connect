@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Check, Crown, Sparkles, Zap, X } from "lucide-react";
+import { Check, Crown, Sparkles, Star, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -21,50 +21,53 @@ const plans = [
   {
     id: "starter",
     name: "Starter",
-    price: 9.99,
-    period: "mese",
-    features: [
-      "1 avatar",
-      "Chat illimitate",
-      "50 minuti chiamate/mese",
-      "Supporto email",
-    ],
-    icon: Zap,
-    gradient: "from-blue-500 to-cyan-500",
+    avatars: 1,
+    price: 49,
+    icon: Sparkles,
     popular: false,
+    features: [
+      "1 AI companion avatar",
+      "Unlimited chat messages",
+      "Voice calls included",
+      "Conversation memory",
+      "24/7 availability",
+    ],
+    gradient: "from-blue-500 to-cyan-500",
   },
   {
-    id: "pro",
-    name: "Pro",
-    price: 19.99,
-    period: "mese",
-    features: [
-      "3 avatar",
-      "Chat illimitate",
-      "200 minuti chiamate/mese",
-      "Videochiamate",
-      "Priorità supporto",
-    ],
-    icon: Sparkles,
-    gradient: "from-purple-500 to-pink-500",
+    id: "plus",
+    name: "Plus",
+    avatars: 2,
+    price: 69,
+    icon: Star,
     popular: true,
+    features: [
+      "2 AI companion avatars",
+      "Unlimited chat messages",
+      "Voice calls included",
+      "Conversation memory",
+      "Priority support",
+      "Video calls (Coming Soon)",
+    ],
+    gradient: "from-purple-500 to-pink-500",
   },
   {
     id: "premium",
     name: "Premium",
-    price: 49.99,
-    period: "mese",
-    features: [
-      "6 avatar",
-      "Chat illimitate",
-      "Chiamate illimitate",
-      "Videochiamate HD",
-      "Avatar personalizzati",
-      "Supporto prioritario 24/7",
-    ],
+    avatars: 3,
+    price: 110,
     icon: Crown,
-    gradient: "from-gold to-amber-500",
     popular: false,
+    features: [
+      "3 AI companion avatars",
+      "Unlimited chat messages",
+      "Voice calls included",
+      "Conversation memory",
+      "Priority support",
+      "Video calls (Coming Soon)",
+      "Early access to new avatars",
+    ],
+    gradient: "from-gold to-amber-500",
   },
 ];
 
@@ -138,10 +141,13 @@ export function SubscriptionModal({
                 <h3 className="text-lg font-semibold text-center mb-1">
                   {plan.name}
                 </h3>
+                <p className="text-sm text-muted-foreground text-center mb-4">
+                  {plan.avatars} AI avatar{plan.avatars > 1 ? 's' : ''} included
+                </p>
 
                 <div className="text-center mb-4">
-                  <span className="text-3xl font-bold">€{plan.price}</span>
-                  <span className="text-muted-foreground">/{plan.period}</span>
+                  <span className="text-3xl font-bold">${plan.price}</span>
+                  <span className="text-muted-foreground">/month</span>
                 </div>
 
                 <ul className="space-y-2 mb-6">
