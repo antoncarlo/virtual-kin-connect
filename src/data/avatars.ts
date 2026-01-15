@@ -15,6 +15,8 @@ export interface Avatar {
   imageUrl: string;
   vapiAssistantId?: string; // Vapi.ai Assistant ID for calls
   rpmAvatarUrl?: string; // ReadyPlayerMe 3D avatar URL
+  heygenAvatarId?: string; // HeyGen streaming avatar ID
+  heygenVoiceId?: string; // HeyGen voice ID
   gradient: string;
 }
 
