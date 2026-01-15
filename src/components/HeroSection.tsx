@@ -342,7 +342,7 @@ export function HeroSection() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.3 }}
                     >
-                      {isLoadingAudio ? "Caricamento audio..." : "▶ Riproduci con narrazione"}
+                      {isLoadingAudio ? "Loading audio..." : "▶ Play with narration"}
                     </motion.p>
                   </motion.div>
                 )}
@@ -380,7 +380,7 @@ export function HeroSection() {
               transition={{ delay: 0.8 }}
             >
               <Volume2 className="w-4 h-4" />
-              Guarda come funziona Kindred con audio
+              See how Kindred works
             </motion.div>
           </motion.div>
 
