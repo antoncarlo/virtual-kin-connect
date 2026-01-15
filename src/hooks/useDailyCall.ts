@@ -48,6 +48,12 @@ export function useDailyCall({
   }, []);
 
   const startVideoCall = useCallback(async (container: HTMLDivElement) => {
+    // Prevent duplicate calls
+    if (callFrameRef.current || isConnecting) {
+      console.log('Call already in progress, skipping...');
+      return;
+    }
+
     try {
       setIsConnecting(true);
 
