@@ -6,10 +6,10 @@ import {
   Send, 
   MoreVertical, 
   Loader2,
-  Volume2,
-  VolumeX,
-  Trash2,
+  Phone,
+  PhoneOff,
   Video,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,10 +17,8 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { avatars } from "@/data/avatars";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useVoiceCall } from "@/hooks/useVoiceCall";
 import { useChatHistory } from "@/hooks/useChatHistory";
-import { VoiceCallButton, VoiceCallButtonRef } from "@/components/VoiceCallButton";
-import { VapiCallButton, VapiCallButtonRef } from "@/components/VapiCallButton";
+import { useVapiCall } from "@/hooks/useVapiCall";
 import { IncomingCallModal } from "@/components/IncomingCallModal";
 import { VideoCallModal } from "@/components/VideoCallModal";
 import {
@@ -42,10 +40,7 @@ export default function Chat() {
   const [isTyping, setIsTyping] = useState(false);
   const [showIncomingCall, setShowIncomingCall] = useState(false);
   const [showVideoCall, setShowVideoCall] = useState(false);
-  const [pendingCallRequest, setPendingCallRequest] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const voiceCallRef = useRef<VoiceCallButtonRef>(null);
-  const vapiCallRef = useRef<VapiCallButtonRef>(null);
 
   const avatar = avatars.find((a) => a.id === avatarId);
   
@@ -58,7 +53,6 @@ export default function Chat() {
     isLoading: isHistoryLoading,
     addMessage,
     updateLastAssistantMessage,
-    saveAssistantMessage,
     clearHistory,
     getMessagesForAPI,
   } = useChatHistory({ 
@@ -66,8 +60,26 @@ export default function Chat() {
     welcomeMessage 
   });
 
-  const { isPlaying, isLoading: isVoiceLoading, playMessage, stopPlayback } = useVoiceCall({ 
-    voiceId: avatar?.voiceId || "" 
+  // Vapi voice call hook
+  const {
+    isConnecting: isVapiConnecting,
+    isConnected: isVapiConnected,
+    isSpeaking: isVapiSpeaking,
+    startCall: startVapiCall,
+    endCall: endVapiCall,
+  } = useVapiCall({
+    assistantId: avatar?.vapiAssistantId,
+    onTranscript: async (text, isFinal) => {
+      if (isFinal && text) {
+        await addMessage("user", text);
+      }
+    },
+    onCallEnd: () => {
+      toast({
+        title: "Chiamata terminata",
+        description: `La chiamata con ${avatar?.name} è terminata.`,
+      });
+    },
   });
 
   useEffect(() => {
@@ -205,26 +217,21 @@ export default function Chat() {
   };
 
   // Handle initiating a call when requested - show incoming call modal
-  const initiateCallIfRequested = async (userMessage: string, agentResponse: string) => {
-    // Check if user asked to be called
+  const initiateCallIfRequested = async (userMessage: string) => {
     if (detectCallRequest(userMessage)) {
-      // Check if avatar supports voice calls
-      if (!avatar?.agentId) {
+      if (!avatar?.vapiAssistantId) {
         toast({
           title: "Chiamata non disponibile",
-          description: `${avatar?.name} non supporta ancora le chiamate vocali.`,
+          description: `${avatar?.name} non supporta ancora le chiamate vocali. Configura l'assistente Vapi.`,
           variant: "destructive",
         });
         return;
       }
       
-      // Check if already connected
-      if (voiceCallRef.current?.isConnected) return;
+      if (isVapiConnected) return;
       
-      // Small delay to let the chat response appear first, then show incoming call modal
       setTimeout(() => {
         setShowIncomingCall(true);
-        setPendingCallRequest(true);
       }, 1500);
     }
   };
@@ -232,9 +239,8 @@ export default function Chat() {
   // Handle accepting the incoming call
   const handleAcceptCall = async () => {
     setShowIncomingCall(false);
-    setPendingCallRequest(false);
     try {
-      await voiceCallRef.current?.startCall();
+      await startVapiCall();
     } catch (error) {
       console.error("Failed to start call:", error);
       toast({
@@ -248,7 +254,6 @@ export default function Chat() {
   // Handle rejecting the incoming call
   const handleRejectCall = () => {
     setShowIncomingCall(false);
-    setPendingCallRequest(false);
     toast({
       title: "Chiamata rifiutata",
       description: `Hai rifiutato la chiamata di ${avatar?.name}.`,
@@ -263,18 +268,8 @@ export default function Chat() {
     setIsLoading(true);
     setIsTyping(true);
 
-    // Add user message
     await addMessage("user", userContent);
 
-    // Create placeholder for assistant response
-    const assistantPlaceholder = {
-      id: (Date.now() + 1).toString(),
-      role: "assistant" as const,
-      content: "",
-      timestamp: new Date(),
-    };
-
-    // We need to manually add the placeholder since we're streaming
     const chatHistory = getMessagesForAPI();
 
     try {
@@ -284,7 +279,6 @@ export default function Chat() {
         [...chatHistory, { role: "user", content: userContent }],
         (fullContent) => {
           if (isFirstChunk) {
-            // Add placeholder message on first chunk
             addMessage("assistant", fullContent);
             isFirstChunk = false;
           } else {
@@ -294,17 +288,10 @@ export default function Chat() {
         },
         async (finalContent) => {
           setIsLoading(false);
-          // Save the final assistant message to database
-          if (finalContent && !isFirstChunk) {
-            // The message was already added via addMessage, we need to save it properly
-            // Since addMessage already saves, we just need to make sure it's saved
-          } else if (finalContent && isFirstChunk) {
-            // Edge case: if streaming was so fast we never got a chunk update
+          if (finalContent && isFirstChunk) {
             await addMessage("assistant", finalContent);
           }
-          
-          // Check if user requested a call and initiate it
-          await initiateCallIfRequested(userContent, finalContent);
+          await initiateCallIfRequested(userContent);
         }
       );
     } catch (error) {
@@ -332,6 +319,23 @@ export default function Chat() {
       title: "Cronologia cancellata",
       description: `La chat con ${avatar?.name} è stata cancellata.`,
     });
+  };
+
+  const handleVoiceCall = async () => {
+    if (!avatar?.vapiAssistantId) {
+      toast({
+        title: "Chiamata non disponibile",
+        description: `Configura un assistente Vapi per ${avatar?.name}.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (isVapiConnected) {
+      endVapiCall();
+    } else {
+      await startVapiCall();
+    }
   };
 
   if (!avatar) {
@@ -371,203 +375,173 @@ export default function Chat() {
       />
       
       <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="glass border-b border-border sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate("/dashboard")}
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            
-            <Avatar className="w-10 h-10 border-2 border-primary/30">
-              <AvatarImage src={avatar.imageUrl} alt={avatar.name} />
-              <AvatarFallback>{avatar.name[0]}</AvatarFallback>
-            </Avatar>
-            
-            <div>
-              <h1 className="font-semibold text-foreground">{avatar.name}</h1>
-              <p className="text-xs text-primary">Online</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Video Call Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-primary hover:bg-primary/10"
-              onClick={() => setShowVideoCall(true)}
-              title={`Videochiamata con ${avatar.name}`}
-            >
-              <Video className="w-5 h-5" />
-            </Button>
-            
-            {/* Vapi Voice Call Button (if configured) */}
-            {avatar.vapiAssistantId && (
-              <VapiCallButton 
-                ref={vapiCallRef}
-                assistantId={avatar.vapiAssistantId} 
-                avatarName={avatar.name}
-                onUserTranscript={async (transcript) => {
-                  await addMessage("user", transcript);
-                }}
-              />
-            )}
-            
-            {/* ElevenLabs Voice Call Button */}
-            <VoiceCallButton 
-              ref={voiceCallRef}
-              agentId={avatar.agentId} 
-              avatarName={avatar.name}
-              onUserTranscript={async (transcript) => {
-                await addMessage("user", transcript);
-              }}
-              onAgentResponse={async (response) => {
-                await addMessage("assistant", response);
-              }}
-            />
-            
-            {/* TTS Playback Button */}
-            {isPlaying ? (
+        {/* Header */}
+        <header className="glass border-b border-border sticky top-0 z-50">
+          <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-destructive hover:bg-destructive/10"
-                onClick={stopPlayback}
+                onClick={() => navigate("/dashboard")}
               >
-                <VolumeX className="w-5 h-5" />
+                <ArrowLeft className="w-5 h-5" />
               </Button>
-            ) : (
+              
+              <Avatar className="w-10 h-10 border-2 border-primary/30">
+                <AvatarImage src={avatar.imageUrl} alt={avatar.name} />
+                <AvatarFallback>{avatar.name[0]}</AvatarFallback>
+              </Avatar>
+              
+              <div>
+                <h1 className="font-semibold text-foreground">{avatar.name}</h1>
+                <p className="text-xs text-primary">
+                  {isVapiConnected ? "In chiamata..." : isVapiSpeaking ? "Sta parlando..." : "Online"}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* Video Call Button */}
               <Button
                 variant="ghost"
                 size="icon"
                 className="text-primary hover:bg-primary/10"
-                disabled={isVoiceLoading || messages.length === 0}
-                onClick={() => {
-                  const lastAssistantMessage = [...messages].reverse().find(m => m.role === "assistant");
-                  if (lastAssistantMessage) {
-                    playMessage(lastAssistantMessage.content);
-                  }
-                }}
+                onClick={() => setShowVideoCall(true)}
+                title={`Videochiamata con ${avatar.name}`}
               >
-                {isVoiceLoading ? (
+                <Video className="w-5 h-5" />
+              </Button>
+              
+              {/* Vapi Voice Call Button */}
+              <Button
+                variant={isVapiConnected ? "destructive" : "ghost"}
+                size="icon"
+                className={`relative ${!isVapiConnected && "text-primary hover:bg-primary/10"} ${isVapiSpeaking && "ring-2 ring-primary ring-offset-2"}`}
+                onClick={handleVoiceCall}
+                disabled={isVapiConnecting}
+                title={isVapiConnected ? "Termina chiamata" : `Chiama ${avatar.name}`}
+              >
+                {isVapiConnecting ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
+                ) : isVapiConnected ? (
+                  <PhoneOff className="w-5 h-5" />
                 ) : (
-                  <Volume2 className="w-5 h-5" />
+                  <Phone className="w-5 h-5" />
+                )}
+                {isVapiSpeaking && (
+                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-primary" />
+                  </span>
                 )}
               </Button>
-            )}
-            
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <MoreVertical className="w-5 h-5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-popover">
-                <DropdownMenuItem 
-                  onClick={handleClearHistory}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Cancella cronologia
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <MoreVertical className="w-5 h-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-popover">
+                  <DropdownMenuItem 
+                    onClick={handleClearHistory}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Cancella cronologia
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Messages */}
-      <main className="flex-1 overflow-y-auto px-4 py-6">
-        <div className="container mx-auto max-w-2xl space-y-4">
-          <AnimatePresence initial={false}>
-            {messages.map((message) => (
-              <motion.div
-                key={message.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className={`flex ${
-                  message.role === "user" ? "justify-end" : "justify-start"
-                }`}
-              >
-                <div
-                  className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                    message.role === "user"
-                      ? "gradient-primary text-primary-foreground rounded-br-md"
-                      : "glass border border-border rounded-bl-md"
+        {/* Messages */}
+        <main className="flex-1 overflow-y-auto px-4 py-6">
+          <div className="container mx-auto max-w-2xl space-y-4">
+            <AnimatePresence initial={false}>
+              {messages.map((message) => (
+                <motion.div
+                  key={message.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className={`flex ${
+                    message.role === "user" ? "justify-end" : "justify-start"
                   }`}
                 >
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
-                  <p
-                    className={`text-xs mt-1 ${
+                  <div
+                    className={`max-w-[80%] rounded-2xl px-4 py-3 ${
                       message.role === "user"
-                        ? "text-primary-foreground/70"
-                        : "text-muted-foreground"
+                        ? "gradient-primary text-primary-foreground rounded-br-md"
+                        : "glass border border-border rounded-bl-md"
                     }`}
                   >
-                    {message.timestamp.toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </p>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                    <p
+                      className={`text-xs mt-1 ${
+                        message.role === "user"
+                          ? "text-primary-foreground/70"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      {message.timestamp.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+
+            {/* Typing Indicator */}
+            {isTyping && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex justify-start"
+              >
+                <div className="glass border border-border rounded-2xl rounded-bl-md px-4 py-3">
+                  <div className="flex gap-1">
+                    <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </div>
                 </div>
               </motion.div>
-            ))}
-          </AnimatePresence>
+            )}
 
-          {/* Typing Indicator */}
-          {isTyping && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex justify-start"
-            >
-              <div className="glass border border-border rounded-2xl rounded-bl-md px-4 py-3">
-                <div className="flex gap-1">
-                  <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "300ms" }} />
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          <div ref={messagesEndRef} />
-        </div>
-      </main>
-
-      {/* Input */}
-      <footer className="glass border-t border-border sticky bottom-0">
-        <div className="container mx-auto max-w-2xl px-4 py-4">
-          <div className="flex items-center gap-3">
-            <Input
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder={`Scrivi a ${avatar.name}...`}
-              className="flex-1 bg-input border-border py-6"
-              disabled={isLoading}
-            />
-            <Button
-              onClick={handleSend}
-              disabled={!inputValue.trim() || isLoading}
-              className="gradient-primary glow-primary h-12 w-12 p-0"
-            >
-              {isLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <Send className="w-5 h-5" />
-              )}
-            </Button>
+            <div ref={messagesEndRef} />
           </div>
-        </div>
-      </footer>
+        </main>
+
+        {/* Input */}
+        <footer className="glass border-t border-border p-4">
+          <div className="container mx-auto max-w-2xl">
+            <div className="flex gap-3">
+              <Input
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder={`Scrivi a ${avatar.name}...`}
+                className="flex-1 bg-background/50"
+                disabled={isLoading}
+              />
+              <Button
+                onClick={handleSend}
+                disabled={!inputValue.trim() || isLoading}
+                className="gradient-primary"
+              >
+                {isLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Send className="w-5 h-5" />
+                )}
+              </Button>
+            </div>
+          </div>
+        </footer>
       </div>
     </>
   );

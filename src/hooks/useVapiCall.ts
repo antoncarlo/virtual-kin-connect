@@ -1,9 +1,9 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface UseVapiCallProps {
   assistantId?: string;
-  publicKey?: string;
   onTranscript?: (text: string, isFinal: boolean) => void;
   onSpeechStart?: () => void;
   onSpeechEnd?: () => void;
@@ -21,7 +21,6 @@ interface VapiMessage {
 
 export function useVapiCall({
   assistantId,
-  publicKey,
   onTranscript,
   onSpeechStart,
   onSpeechEnd,
@@ -33,7 +32,31 @@ export function useVapiCall({
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [vapiPublicKey, setVapiPublicKey] = useState<string | null>(null);
   const vapiRef = useRef<any>(null);
+
+  // Fetch Vapi public key from edge function
+  const fetchVapiPublicKey = useCallback(async () => {
+    if (vapiPublicKey) return vapiPublicKey;
+    
+    try {
+      const response = await supabase.functions.invoke('vapi-public-key');
+      
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+      
+      const key = response.data?.publicKey;
+      if (key) {
+        setVapiPublicKey(key);
+        return key;
+      }
+      throw new Error('No public key returned');
+    } catch (error) {
+      console.error('Failed to fetch Vapi public key:', error);
+      throw error;
+    }
+  }, [vapiPublicKey]);
 
   // Load Vapi SDK dynamically
   const loadVapiSDK = useCallback(async () => {
@@ -67,19 +90,15 @@ export function useVapiCall({
       return;
     }
 
-    const vapiPublicKey = publicKey || import.meta.env.VITE_VAPI_PUBLIC_KEY;
-    
-    if (!vapiPublicKey) {
-      toast({
-        title: "Errore",
-        description: "Chiave Vapi non configurata.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
       setIsConnecting(true);
+
+      // Get public key from backend
+      const publicKey = await fetchVapiPublicKey();
+      
+      if (!publicKey) {
+        throw new Error('Chiave Vapi non configurata');
+      }
 
       // Request microphone permission
       await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -88,7 +107,7 @@ export function useVapiCall({
       const VapiSDK = await loadVapiSDK();
       
       // Initialize Vapi instance
-      const vapi = new VapiSDK(vapiPublicKey);
+      const vapi = new VapiSDK(publicKey);
       vapiRef.current = vapi;
 
       // Set up event listeners
@@ -106,10 +125,6 @@ export function useVapiCall({
         setIsConnected(false);
         setIsSpeaking(false);
         onCallEnd?.();
-        toast({
-          title: "Chiamata terminata",
-          description: "La chiamata è stata terminata.",
-        });
       });
 
       vapi.on('speech-start', () => {
@@ -156,14 +171,14 @@ export function useVapiCall({
       } else {
         toast({
           title: "Errore",
-          description: "Impossibile avviare la chiamata. Riprova.",
+          description: (error as Error).message || "Impossibile avviare la chiamata. Riprova.",
           variant: "destructive",
         });
       }
       
       onError?.(error as Error);
     }
-  }, [assistantId, publicKey, loadVapiSDK, onTranscript, onSpeechStart, onSpeechEnd, onCallStart, onCallEnd, onError, toast]);
+  }, [assistantId, fetchVapiPublicKey, loadVapiSDK, onTranscript, onSpeechStart, onSpeechEnd, onCallStart, onCallEnd, onError, toast]);
 
   const endCall = useCallback(() => {
     if (vapiRef.current) {
