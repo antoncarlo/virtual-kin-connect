@@ -9,6 +9,7 @@ import {
   Volume2,
   VolumeX,
   Trash2,
+  Video,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +20,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useVoiceCall } from "@/hooks/useVoiceCall";
 import { useChatHistory } from "@/hooks/useChatHistory";
 import { VoiceCallButton, VoiceCallButtonRef } from "@/components/VoiceCallButton";
+import { VapiCallButton, VapiCallButtonRef } from "@/components/VapiCallButton";
 import { IncomingCallModal } from "@/components/IncomingCallModal";
+import { VideoCallModal } from "@/components/VideoCallModal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,9 +41,11 @@ export default function Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [showIncomingCall, setShowIncomingCall] = useState(false);
+  const [showVideoCall, setShowVideoCall] = useState(false);
   const [pendingCallRequest, setPendingCallRequest] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const voiceCallRef = useRef<VoiceCallButtonRef>(null);
+  const vapiCallRef = useRef<VapiCallButtonRef>(null);
 
   const avatar = avatars.find((a) => a.id === avatarId);
   
@@ -356,6 +361,15 @@ export default function Chat() {
         onReject={handleRejectCall}
       />
       
+      {/* Video Call Modal */}
+      <VideoCallModal
+        isOpen={showVideoCall}
+        onClose={() => setShowVideoCall(false)}
+        avatarName={avatar.name}
+        avatarImage={avatar.imageUrl}
+        avatarModelUrl={avatar.rpmAvatarUrl}
+      />
+      
       <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="glass border-b border-border sticky top-0 z-50">
@@ -381,7 +395,30 @@ export default function Chat() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Voice Call Button */}
+            {/* Video Call Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-primary hover:bg-primary/10"
+              onClick={() => setShowVideoCall(true)}
+              title={`Videochiamata con ${avatar.name}`}
+            >
+              <Video className="w-5 h-5" />
+            </Button>
+            
+            {/* Vapi Voice Call Button (if configured) */}
+            {avatar.vapiAssistantId && (
+              <VapiCallButton 
+                ref={vapiCallRef}
+                assistantId={avatar.vapiAssistantId} 
+                avatarName={avatar.name}
+                onUserTranscript={async (transcript) => {
+                  await addMessage("user", transcript);
+                }}
+              />
+            )}
+            
+            {/* ElevenLabs Voice Call Button */}
             <VoiceCallButton 
               ref={voiceCallRef}
               agentId={avatar.agentId} 

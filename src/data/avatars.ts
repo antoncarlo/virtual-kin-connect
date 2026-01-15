@@ -16,6 +16,8 @@ export interface Avatar {
   voicePreviewUrl?: string;
   voiceId: string;
   agentId?: string; // ElevenLabs Conversational AI Agent ID
+  vapiAssistantId?: string; // Vapi.ai Assistant ID for calls
+  rpmAvatarUrl?: string; // ReadyPlayerMe 3D avatar URL
   gradient: string;
 }
 
