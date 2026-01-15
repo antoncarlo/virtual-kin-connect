@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Heart, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
+import { Mail, Lock, ArrowRight, Loader2, Sparkles } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import kindredIcon from "@/assets/kindred-icon.png";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -31,16 +32,16 @@ export default function Login() {
       if (error) throw error;
 
       toast({
-        title: "Welcome back!",
-        description: "You've successfully signed in.",
+        title: "Bentornato!",
+        description: "Accesso effettuato con successo.",
       });
 
       navigate("/dashboard");
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Login failed",
-        description: error.message || "Invalid credentials. Please try again.",
+        title: "Accesso fallito",
+        description: error.message || "Credenziali non valide. Riprova.",
       });
     } finally {
       setIsLoading(false);
@@ -51,9 +52,25 @@ export default function Login() {
     <div className="min-h-screen bg-background flex">
       {/* Left Side - Visual */}
       <div className="hidden lg:flex flex-1 items-center justify-center relative overflow-hidden">
-        <div className="absolute inset-0 gradient-primary opacity-20" />
-        <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-primary/30 rounded-full blur-[100px]" />
-        <div className="absolute bottom-1/4 left-1/4 w-96 h-96 bg-accent/30 rounded-full blur-[100px]" />
+        <div className="absolute inset-0 gradient-cosmic" />
+        
+        {/* Animated orbs */}
+        <motion.div 
+          className="absolute top-1/4 right-1/4 w-[400px] h-[400px] bg-primary/15 rounded-full blur-[150px]"
+          animate={{ 
+            scale: [1, 1.2, 1],
+            x: [0, 30, 0],
+          }}
+          transition={{ duration: 8, repeat: Infinity }}
+        />
+        <motion.div 
+          className="absolute bottom-1/4 left-1/4 w-[350px] h-[350px] bg-accent/15 rounded-full blur-[150px]"
+          animate={{ 
+            scale: [1.2, 1, 1.2],
+            x: [0, -30, 0],
+          }}
+          transition={{ duration: 10, repeat: Infinity }}
+        />
         
         <div className="relative z-10 text-center px-12">
           <motion.div
@@ -61,14 +78,20 @@ export default function Login() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
           >
+            <motion.img 
+              src={kindredIcon} 
+              alt="Kindred" 
+              className="w-24 h-24 mx-auto mb-6"
+              animate={{ rotate: [0, 5, -5, 0] }}
+              transition={{ duration: 4, repeat: Infinity }}
+            />
             <h2 className="text-4xl font-display font-bold mb-4">
-              Welcome Back to
+              Bentornato su
               <br />
-              <span className="text-gradient">SoulMate.ai</span>
+              <span className="text-gradient">Kindred</span>
             </h2>
             <p className="text-lg text-muted-foreground max-w-md">
-              Your AI companions are waiting for you. Continue your meaningful
-              conversations.
+              I tuoi compagni AI ti stanno aspettando. Riprendi le tue conversazioni significative.
             </p>
           </motion.div>
         </div>
@@ -82,18 +105,18 @@ export default function Login() {
           className="w-full max-w-md"
         >
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 mb-8">
-            <Heart className="w-8 h-8 text-accent fill-accent/20" />
+          <Link to="/" className="flex items-center gap-3 mb-8">
+            <img src={kindredIcon} alt="Kindred" className="w-10 h-10" />
             <span className="text-xl font-display font-bold text-gradient">
-              SoulMate.ai
+              Kindred
             </span>
           </Link>
 
           <h1 className="text-3xl font-display font-bold mb-2">
-            Sign in to your account
+            Accedi al tuo account
           </h1>
           <p className="text-muted-foreground mb-8">
-            Continue your AI companionship journey
+            Continua il tuo viaggio con i compagni AI
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -104,8 +127,8 @@ export default function Login() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="Enter your email"
-                  className="pl-10 bg-input border-border"
+                  placeholder="Inserisci la tua email"
+                  className="pl-10 bg-card border-border h-12"
                   value={formData.email}
                   onChange={(e) =>
                     setFormData({ ...formData, email: e.target.value })
@@ -122,7 +145,7 @@ export default function Login() {
                   href="#"
                   className="text-sm text-primary hover:underline"
                 >
-                  Forgot password?
+                  Password dimenticata?
                 </a>
               </div>
               <div className="relative">
@@ -130,8 +153,8 @@ export default function Login() {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Enter your password"
-                  className="pl-10 bg-input border-border"
+                  placeholder="Inserisci la password"
+                  className="pl-10 bg-card border-border h-12"
                   value={formData.password}
                   onChange={(e) =>
                     setFormData({ ...formData, password: e.target.value })
@@ -143,26 +166,41 @@ export default function Login() {
 
             <Button
               type="submit"
-              className="w-full gradient-primary glow-primary py-6 text-lg"
+              className="w-full gradient-primary glow-primary h-12 text-lg"
               disabled={isLoading}
             >
               {isLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
                 <>
-                  Sign In
+                  Accedi
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </>
               )}
             </Button>
           </form>
 
-          <p className="text-center text-sm text-muted-foreground mt-6">
-            Don't have an account?{" "}
-            <Link to="/signup" className="text-primary hover:underline">
-              Sign up
-            </Link>
-          </p>
+          <div className="mt-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              Non hai un account?{" "}
+              <Link to="/signup" className="text-primary font-medium hover:underline">
+                Registrati
+              </Link>
+            </p>
+          </div>
+
+          {/* Features reminder */}
+          <motion.div 
+            className="mt-8 p-4 rounded-xl glass"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+          >
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <Sparkles className="w-5 h-5 text-gold" />
+              <span>Chat, chiamate e videochiamate con AI empatica</span>
+            </div>
+          </motion.div>
         </motion.div>
       </div>
     </div>
