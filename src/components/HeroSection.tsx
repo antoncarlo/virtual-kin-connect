@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, useScroll, useTransform } from "framer-motion";
 import { ArrowRight, Sparkles, Play, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -9,6 +9,17 @@ export function HeroSection() {
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const sectionRef = useRef<HTMLElement>(null);
+  
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ["start start", "end start"]
+  });
+  
+  const backgroundY = useTransform(scrollYProgress, [0, 1], [0, 300]);
+  const textY = useTransform(scrollYProgress, [0, 1], [0, 150]);
+  const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
+  const scale = useTransform(scrollYProgress, [0, 0.5], [1, 0.9]);
 
   const handlePlayVideo = () => {
     if (videoRef.current) {
@@ -30,12 +41,12 @@ export function HeroSection() {
   };
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
+    <section ref={sectionRef} className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
       {/* Background Effects - Light & Fresh */}
       <div className="absolute inset-0 gradient-cosmic" />
       
-      {/* Animated mesh gradient */}
-      <div className="absolute inset-0 overflow-hidden">
+      {/* Animated mesh gradient with parallax */}
+      <motion.div className="absolute inset-0 overflow-hidden" style={{ y: backgroundY }}>
         <motion.div 
           className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-primary/8 rounded-full blur-[200px]"
           animate={{ 
@@ -62,7 +73,7 @@ export function HeroSection() {
           }}
           transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
         />
-      </div>
+      </motion.div>
 
       {/* Animated particles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -97,7 +108,10 @@ export function HeroSection() {
         }}
       />
 
-      <div className="container mx-auto px-4 relative z-10">
+      <motion.div 
+        className="container mx-auto px-4 relative z-10"
+        style={{ y: textY, opacity, scale }}
+      >
         <div className="max-w-5xl mx-auto text-center">
           {/* Badge */}
           <motion.div
@@ -142,15 +156,14 @@ export function HeroSection() {
             </motion.span>
           </motion.h1>
 
-          {/* Subtitle */}
+          {/* Subtitle - smaller and impactful */}
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-2xl mx-auto leading-relaxed"
+            className="text-base md:text-lg text-muted-foreground mb-12 max-w-xl mx-auto"
           >
-            Experience meaningful conversations with AI companions who 
-            truly listen, understand, and evolve with you.
+            Mai più soli. Il tuo compagno AI che ascolta, capisce e c'è sempre.
           </motion.p>
 
           {/* CTA Buttons */}
@@ -303,7 +316,7 @@ export function HeroSection() {
             ))}
           </motion.div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Scroll Indicator */}
       <motion.div
