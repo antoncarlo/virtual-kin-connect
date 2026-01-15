@@ -32,16 +32,16 @@ export default function Login() {
       if (error) throw error;
 
       toast({
-        title: "Bentornato!",
-        description: "Accesso effettuato con successo.",
+        title: "Welcome back!",
+        description: "Successfully signed in.",
       });
 
       navigate("/dashboard");
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Accesso fallito",
-        description: error.message || "Credenziali non valide. Riprova.",
+        title: "Sign in failed",
+        description: error.message || "Invalid credentials. Please try again.",
       });
     } finally {
       setIsLoading(false);
@@ -86,12 +86,12 @@ export default function Login() {
               transition={{ duration: 4, repeat: Infinity }}
             />
             <h2 className="text-4xl font-display font-bold mb-4">
-              Bentornato su
+              Welcome back to
               <br />
               <span className="text-gradient">Kindred</span>
             </h2>
             <p className="text-lg text-muted-foreground max-w-md">
-              I tuoi compagni AI ti stanno aspettando. Riprendi le tue conversazioni significative.
+              Your AI companions are waiting for you. Resume your meaningful conversations.
             </p>
           </motion.div>
         </div>
@@ -113,10 +113,10 @@ export default function Login() {
           </Link>
 
           <h1 className="text-3xl font-display font-bold mb-2">
-            Accedi al tuo account
+            Sign in to your account
           </h1>
           <p className="text-muted-foreground mb-8">
-            Continua il tuo viaggio con i compagni AI
+            Continue your journey with AI companions
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -127,7 +127,7 @@ export default function Login() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="Inserisci la tua email"
+                  placeholder="Enter your email"
                   className="pl-10 bg-card border-border h-12"
                   value={formData.email}
                   onChange={(e) =>
@@ -145,7 +145,7 @@ export default function Login() {
                   href="#"
                   className="text-sm text-primary hover:underline"
                 >
-                  Password dimenticata?
+                  Forgot password?
                 </a>
               </div>
               <div className="relative">
@@ -153,7 +153,7 @@ export default function Login() {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Inserisci la password"
+                  placeholder="Enter your password"
                   className="pl-10 bg-card border-border h-12"
                   value={formData.password}
                   onChange={(e) =>
@@ -173,7 +173,7 @@ export default function Login() {
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
                 <>
-                  Accedi
+                  Sign In
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </>
               )}
@@ -182,9 +182,9 @@ export default function Login() {
 
           <div className="mt-8 text-center">
             <p className="text-sm text-muted-foreground">
-              Non hai un account?{" "}
+              Don't have an account?{" "}
               <Link to="/signup" className="text-primary font-medium hover:underline">
-                Registrati
+                Sign Up
               </Link>
             </p>
           </div>
@@ -198,7 +198,7 @@ export default function Login() {
           >
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
               <Sparkles className="w-5 h-5 text-gold" />
-              <span>Chat, chiamate e videochiamate con AI empatica</span>
+              <span>Chat, voice calls & video calls with empathetic AI</span>
             </div>
           </motion.div>
         </motion.div>

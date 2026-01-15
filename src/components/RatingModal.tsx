@@ -36,8 +36,8 @@ export function RatingModal({
   const handleSubmit = async () => {
     if (rating === 0) {
       toast({
-        title: "Seleziona una valutazione",
-        description: "Per favore, seleziona almeno una stella.",
+        title: "Select a rating",
+        description: "Please select at least one star.",
         variant: "destructive",
       });
       return;
@@ -47,16 +47,16 @@ export function RatingModal({
 
     if (error) {
       toast({
-        title: "Errore",
-        description: "Impossibile salvare la valutazione. Riprova.",
+        title: "Error",
+        description: "Unable to save rating. Please try again.",
         variant: "destructive",
       });
       return;
     }
 
     toast({
-      title: "Grazie per il feedback! 💜",
-      description: "La tua opinione ci aiuta a migliorare.",
+      title: "Thanks for your feedback! 💜",
+      description: "Your opinion helps us improve.",
     });
 
     setRating(0);
@@ -69,7 +69,7 @@ export function RatingModal({
       <DialogContent className="glass border-gradient max-w-md">
         <DialogHeader>
           <DialogTitle className="text-center text-xl font-display">
-            Come è andata con {avatarName}?
+            How was your experience with {avatarName}?
           </DialogTitle>
         </DialogHeader>
 
@@ -104,21 +104,21 @@ export function RatingModal({
               animate={{ opacity: 1, y: 0 }}
               className="text-center text-muted-foreground"
             >
-              {rating === 1 && "Pessimo 😞"}
-              {rating === 2 && "Scarso 😕"}
-              {rating === 3 && "Nella media 😐"}
-              {rating === 4 && "Buono 😊"}
-              {rating === 5 && "Fantastico! 🤩"}
+              {rating === 1 && "Poor 😞"}
+              {rating === 2 && "Below average 😕"}
+              {rating === 3 && "Average 😐"}
+              {rating === 4 && "Good 😊"}
+              {rating === 5 && "Fantastic! 🤩"}
             </motion.p>
           )}
 
           {/* Feedback Textarea */}
           <div>
             <label className="text-sm font-medium mb-2 block">
-              Vuoi aggiungere un commento? (opzionale)
+              Want to add a comment? (optional)
             </label>
             <Textarea
-              placeholder="Racconta com'è stata l'esperienza..."
+              placeholder="Tell us about your experience..."
               value={feedback}
               onChange={(e) => setFeedback(e.target.value)}
               className="bg-secondary/50 resize-none"
@@ -129,14 +129,14 @@ export function RatingModal({
           {/* Actions */}
           <div className="flex gap-3">
             <Button variant="outline" onClick={onClose} className="flex-1">
-              Salta
+              Skip
             </Button>
             <Button
               onClick={handleSubmit}
               disabled={isSubmitting}
               className="flex-1 gradient-primary"
             >
-              {isSubmitting ? "Invio..." : "Invia"}
+              {isSubmitting ? "Sending..." : "Submit"}
               <Send className="w-4 h-4 ml-2" />
             </Button>
           </div>

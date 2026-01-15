@@ -42,16 +42,16 @@ export default function SignUp() {
       if (error) throw error;
 
       toast({
-        title: "Account creato!",
-        description: "Benvenuto su Kindred. Trova il tuo compagno perfetto.",
+        title: "Account created!",
+        description: "Welcome to Kindred. Find your perfect companion.",
       });
 
       navigate("/dashboard");
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Registrazione fallita",
-        description: error.message || "Qualcosa è andato storto. Riprova.",
+        title: "Sign up failed",
+        description: error.message || "Something went wrong. Please try again.",
       });
     } finally {
       setIsLoading(false);
@@ -59,11 +59,11 @@ export default function SignUp() {
   };
 
   const features = [
-    "Chat illimitate con AI empatica",
-    "Chiamate vocali realistiche",
-    "Videochiamate animate",
-    "Memoria delle conversazioni",
-    "Disponibilità 24/7",
+    "Unlimited chat with empathetic AI",
+    "Realistic voice calls",
+    "Animated video calls",
+    "Conversation memory",
+    "24/7 availability",
   ];
 
   return (
@@ -84,21 +84,21 @@ export default function SignUp() {
           </Link>
 
           <h1 className="text-3xl font-display font-bold mb-2">
-            Crea il tuo account
+            Create your account
           </h1>
           <p className="text-muted-foreground mb-8">
-            Inizia il tuo viaggio con compagni AI che ti capiscono
+            Start your journey with AI companions who understand you
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="name">Nome completo</Label>
+              <Label htmlFor="name">Full name</Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <Input
                   id="name"
                   type="text"
-                  placeholder="Il tuo nome"
+                  placeholder="Your name"
                   className="pl-10 bg-card border-border h-12"
                   value={formData.name}
                   onChange={(e) =>
@@ -116,7 +116,7 @@ export default function SignUp() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="La tua email"
+                  placeholder="Your email"
                   className="pl-10 bg-card border-border h-12"
                   value={formData.email}
                   onChange={(e) =>
@@ -134,7 +134,7 @@ export default function SignUp() {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Crea una password"
+                  placeholder="Create a password"
                   className="pl-10 bg-card border-border h-12"
                   value={formData.password}
                   onChange={(e) =>
@@ -144,7 +144,7 @@ export default function SignUp() {
                   minLength={6}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">Minimo 6 caratteri</p>
+              <p className="text-xs text-muted-foreground">Minimum 6 characters</p>
             </div>
 
             <Button
@@ -156,7 +156,7 @@ export default function SignUp() {
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
                 <>
-                  Inizia Gratis
+                  Get Started Free
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </>
               )}
@@ -164,16 +164,16 @@ export default function SignUp() {
           </form>
 
           <p className="text-center text-sm text-muted-foreground mt-6">
-            Hai già un account?{" "}
+            Already have an account?{" "}
             <Link to="/login" className="text-primary font-medium hover:underline">
-              Accedi
+              Sign In
             </Link>
           </p>
 
           <p className="text-center text-xs text-muted-foreground mt-4">
-            Registrandoti accetti i nostri{" "}
-            <a href="#" className="text-primary hover:underline">Termini di Servizio</a>
-            {" "}e la{" "}
+            By signing up you agree to our{" "}
+            <a href="#" className="text-primary hover:underline">Terms of Service</a>
+            {" "}and{" "}
             <a href="#" className="text-primary hover:underline">Privacy Policy</a>
           </p>
         </motion.div>
@@ -215,12 +215,12 @@ export default function SignUp() {
               transition={{ duration: 4, repeat: Infinity }}
             />
             <h2 className="text-4xl font-display font-bold mb-4">
-              Trova il Tuo
+              Find Your
               <br />
-              <span className="text-gradient">Compagno Perfetto</span>
+              <span className="text-gradient">Perfect Companion</span>
             </h2>
             <p className="text-lg text-muted-foreground mb-8">
-              Unisciti a migliaia di utenti che hanno trovato connessioni significative con i loro compagni AI Kindred.
+              Join thousands of users who have found meaningful connections with their Kindred AI companions.
             </p>
             
             {/* Features list */}

@@ -92,8 +92,8 @@ export default function Dashboard() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     toast({
-      title: "Disconnesso",
-      description: "A presto!",
+      title: "Signed out",
+      description: "See you soon!",
     });
   };
 
@@ -103,10 +103,10 @@ export default function Dashboard() {
 
   const navItems = [
     { id: "home" as TabType, label: "Home", icon: Home },
-    { id: "avatars" as TabType, label: "I Miei Avatar", icon: Users },
-    { id: "history" as TabType, label: "Cronologia", icon: History },
-    { id: "tokens" as TabType, label: "Token", icon: Zap },
-    { id: "settings" as TabType, label: "Impostazioni", icon: Settings },
+    { id: "avatars" as TabType, label: "My Avatars", icon: Users },
+    { id: "history" as TabType, label: "History", icon: History },
+    { id: "tokens" as TabType, label: "Tokens", icon: Zap },
+    { id: "settings" as TabType, label: "Settings", icon: Settings },
   ];
 
   if (isLoading) {
@@ -183,12 +183,12 @@ export default function Dashboard() {
               {/* Token Balance */}
               <div className="mt-4 p-3 rounded-xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-muted-foreground">Token disponibili</span>
+                  <span className="text-sm text-muted-foreground">Available tokens</span>
                   <Zap className="w-4 h-4 text-gold" />
                 </div>
                 <div className="flex items-baseline gap-2">
                   <span className="text-2xl font-bold">{tokenBalance}</span>
-                  <span className="text-xs text-muted-foreground">token</span>
+                  <span className="text-xs text-muted-foreground">tokens</span>
                 </div>
                 <Progress value={tokenBalance / 5} className="mt-2 h-1" />
               </div>
@@ -230,7 +230,7 @@ export default function Dashboard() {
                 onClick={handleLogout}
               >
                 <LogOut className="w-5 h-5 mr-3" />
-                Esci
+                Log Out
               </Button>
             </div>
           </motion.aside>
@@ -325,17 +325,17 @@ function HomeTab({
     >
       <div className="mb-8">
         <h1 className="text-3xl md:text-4xl font-display font-bold mb-2">
-          Bentornato, <span className="text-gradient">{user?.user_metadata?.full_name || "Amico"}</span>
+          Welcome back, <span className="text-gradient">{user?.user_metadata?.full_name || "Friend"}</span>
         </h1>
-        <p className="text-muted-foreground">I tuoi compagni AI ti stanno aspettando</p>
+        <p className="text-muted-foreground">Your AI companions are waiting for you</p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[
-          { icon: MessageCircle, label: "Messaggi", value: messageCount.toString(), color: "text-primary" },
-          { icon: Heart, label: "Preferiti", value: favorites.length.toString(), color: "text-red-500" },
-          { icon: Video, label: "Video", value: "0", color: "text-pink-500" },
-          { icon: Zap, label: "Token", value: tokenBalance.toString(), color: "text-gold" },
+          { icon: MessageCircle, label: "Messages", value: messageCount.toString(), color: "text-primary" },
+          { icon: Heart, label: "Favorites", value: favorites.length.toString(), color: "text-red-500" },
+          { icon: Video, label: "Videos", value: "0", color: "text-pink-500" },
+          { icon: Zap, label: "Tokens", value: tokenBalance.toString(), color: "text-gold" },
         ].map((stat) => (
           <motion.div key={stat.label} whileHover={{ y: -4 }} className="glass border-gradient p-4 rounded-xl">
             <stat.icon className={`w-6 h-6 ${stat.color} mb-2`} />
@@ -347,7 +347,7 @@ function HomeTab({
 
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-display font-semibold">I tuoi Kindred</h2>
+          <h2 className="text-xl font-display font-semibold">Your Kindred</h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {(favoriteAvatars.length > 0 ? favoriteAvatars : avatars).slice(0, 3).map((avatar, index) => (
@@ -364,8 +364,8 @@ function AvatarsTab({ onSelectAvatar, favorites }: { onSelectAvatar: (avatar: Av
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
       <div className="mb-8">
-        <h1 className="text-3xl font-display font-bold mb-2">I Miei Avatar</h1>
-        <p className="text-muted-foreground">Scegli un compagno per iniziare una conversazione</p>
+        <h1 className="text-3xl font-display font-bold mb-2">My Avatars</h1>
+        <p className="text-muted-foreground">Choose a companion to start a conversation</p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {avatars.map((avatar, index) => (
@@ -381,14 +381,14 @@ function HistoryTab({ insights }: { insights: any[] }) {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
       <div className="mb-8">
-        <h1 className="text-3xl font-display font-bold mb-2">Cronologia Chat</h1>
-        <p className="text-muted-foreground">Rivedi le tue conversazioni passate</p>
+        <h1 className="text-3xl font-display font-bold mb-2">Chat History</h1>
+        <p className="text-muted-foreground">Review your past conversations</p>
       </div>
       {insights.length === 0 ? (
         <div className="glass border-gradient rounded-xl p-8 text-center">
           <History className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold mb-2">Nessuna conversazione</h3>
-          <p className="text-muted-foreground text-sm">Le tue conversazioni appariranno qui</p>
+          <h3 className="text-lg font-semibold mb-2">No conversations yet</h3>
+          <p className="text-muted-foreground text-sm">Your conversations will appear here</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -438,17 +438,17 @@ function TokensTab({ tokenBalance, referralCode, referrals, onGenerateCode, tota
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
       <div className="mb-8">
-        <h1 className="text-3xl font-display font-bold mb-2">I Miei Token</h1>
-        <p className="text-muted-foreground">Acquista token per chiamate vocali e videochiamate</p>
+        <h1 className="text-3xl font-display font-bold mb-2">My Tokens</h1>
+        <p className="text-muted-foreground">Purchase tokens for voice and video calls</p>
       </div>
 
       <div className="glass border-gradient rounded-xl p-6 mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-muted-foreground mb-1">Saldo attuale</p>
+            <p className="text-sm text-muted-foreground mb-1">Current balance</p>
             <div className="flex items-baseline gap-2">
               <span className="text-4xl font-bold text-gradient">{tokenBalance}</span>
-              <span className="text-muted-foreground">token</span>
+              <span className="text-muted-foreground">tokens</span>
             </div>
           </div>
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gold to-accent flex items-center justify-center">
@@ -460,18 +460,18 @@ function TokensTab({ tokenBalance, referralCode, referrals, onGenerateCode, tota
       {/* Referral Section */}
       <div className="glass border-gradient rounded-xl p-6 mb-8">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Gift className="w-5 h-5 text-gold" /> Invita Amici
+          <Gift className="w-5 h-5 text-gold" /> Invite Friends
         </h3>
-        <p className="text-sm text-muted-foreground mb-4">Guadagna 50 token per ogni amico che si iscrive!</p>
+        <p className="text-sm text-muted-foreground mb-4">Earn 50 tokens for every friend who signs up!</p>
         <div className="flex gap-2">
-          <Input value={referralCode || "Genera il tuo codice"} readOnly className="bg-secondary/50" />
+          <Input value={referralCode || "Generate your code"} readOnly className="bg-secondary/50" />
           <Button onClick={handleCopyCode} className="gradient-primary">
             {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
           </Button>
         </div>
         {referrals.length > 0 && (
           <p className="text-sm text-muted-foreground mt-3">
-            {referrals.length} amici invitati • {totalBonusTokens} token guadagnati
+            {referrals.length} friends invited • {totalBonusTokens} tokens earned
           </p>
         )}
       </div>
@@ -484,13 +484,13 @@ function SettingsTab({ user, profile, onUpgrade }: { user: User | null; profile:
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
       <div className="mb-8">
-        <h1 className="text-3xl font-display font-bold mb-2">Impostazioni</h1>
-        <p className="text-muted-foreground">Gestisci il tuo account e le preferenze</p>
+        <h1 className="text-3xl font-display font-bold mb-2">Settings</h1>
+        <p className="text-muted-foreground">Manage your account and preferences</p>
       </div>
 
       <div className="space-y-6">
         <div className="glass border-gradient rounded-xl p-6">
-          <h3 className="text-lg font-semibold mb-4">Profilo</h3>
+          <h3 className="text-lg font-semibold mb-4">Profile</h3>
           <div className="flex items-center gap-4">
             <Avatar className="w-16 h-16 border-2 border-primary/30">
               <AvatarImage src={profile?.avatar_url || user?.user_metadata?.avatar_url} />
@@ -499,7 +499,7 @@ function SettingsTab({ user, profile, onUpgrade }: { user: User | null; profile:
               </AvatarFallback>
             </Avatar>
             <div>
-              <p className="font-medium">{profile?.display_name || user?.user_metadata?.full_name || "Utente"}</p>
+              <p className="font-medium">{profile?.display_name || user?.user_metadata?.full_name || "User"}</p>
               <p className="text-sm text-muted-foreground">{user?.email}</p>
               {profile?.bio && <p className="text-xs text-muted-foreground mt-1">{profile.bio}</p>}
             </div>
@@ -508,14 +508,14 @@ function SettingsTab({ user, profile, onUpgrade }: { user: User | null; profile:
 
         <div className="glass border-gradient rounded-xl p-6">
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <CreditCard className="w-5 h-5" /> Abbonamento
+            <CreditCard className="w-5 h-5" /> Subscription
           </h3>
           <div className="flex items-center justify-between">
             <div>
               <Badge className="bg-primary/20 text-primary">
                 <Sparkles className="w-3 h-3 mr-1" /> {profile?.subscription_tier || "Free"}
               </Badge>
-              <p className="text-sm text-muted-foreground mt-1">{profile?.tokens_balance || 0} token disponibili</p>
+              <p className="text-sm text-muted-foreground mt-1">{profile?.tokens_balance || 0} tokens available</p>
             </div>
             <Button className="gradient-primary" onClick={onUpgrade}>Upgrade</Button>
           </div>

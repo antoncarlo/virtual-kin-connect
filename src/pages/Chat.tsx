@@ -409,7 +409,7 @@ export default function Chat() {
               <div>
                 <h1 className="font-semibold text-foreground">{avatar.name}</h1>
                 <p className="text-xs text-primary">
-                  {isVapiConnected ? "In chiamata..." : isVapiSpeaking ? "Sta parlando..." : "Disponibile"}
+                  {isVapiConnected ? "On call..." : isVapiSpeaking ? "Speaking..." : "Available"}
                 </p>
               </div>
             </div>
@@ -538,7 +538,7 @@ export default function Chat() {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder={`Scrivi a ${avatar.name}...`}
+                placeholder={`Message ${avatar.name}...`}
                 className="flex-1 bg-background/50"
                 disabled={isLoading}
               />

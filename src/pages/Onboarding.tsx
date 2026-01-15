@@ -14,20 +14,20 @@ import kindredIcon from "@/assets/kindred-icon.png";
 const steps = [
   {
     id: "welcome",
-    title: "Benvenuto in Kindred",
-    description: "Il tuo spazio sicuro per connessioni genuine con compagni AI che ti capiscono davvero.",
+    title: "Welcome to Kindred",
+    description: "Your safe space for genuine connections with AI companions who truly understand you.",
     icon: Sparkles,
   },
   {
     id: "features",
-    title: "Cosa puoi fare",
-    description: "Chat illimitate, chiamate vocali e videochiamate con i tuoi compagni AI preferiti.",
+    title: "What you can do",
+    description: "Unlimited chats, voice calls and video calls with your favorite AI companions.",
     icon: Heart,
   },
   {
     id: "profile",
-    title: "Personalizza il tuo profilo",
-    description: "Raccontaci qualcosa di te per rendere le conversazioni più personali.",
+    title: "Personalize your profile",
+    description: "Tell us a bit about yourself to make conversations more personal.",
     icon: MessageCircle,
   },
 ];
@@ -115,23 +115,23 @@ export default function Onboarding() {
             .eq("user_id", user.id);
 
           toast({
-            title: "Codice referral applicato! 🎉",
-            description: "Hai ricevuto 50 token bonus!",
+            title: "Referral code applied! 🎉",
+            description: "You received 50 bonus tokens!",
           });
         }
       }
 
       toast({
-        title: "Benvenuto in Kindred!",
-        description: "Il tuo profilo è pronto. Inizia a esplorare!",
+        title: "Welcome to Kindred!",
+        description: "Your profile is ready. Start exploring!",
       });
 
       navigate("/dashboard");
     } catch (error) {
       console.error("Onboarding error:", error);
       toast({
-        title: "Errore",
-        description: "Qualcosa è andato storto. Riprova.",
+        title: "Error",
+        description: "Something went wrong. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -189,15 +189,15 @@ export default function Onboarding() {
               <div className="space-y-4 mb-8">
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/50 text-left">
                   <MessageCircle className="w-5 h-5 text-primary flex-shrink-0" />
-                  <span className="text-sm">Chat illimitate con i tuoi compagni</span>
+                  <span className="text-sm">Unlimited chats with your companions</span>
                 </div>
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/50 text-left">
                   <Phone className="w-5 h-5 text-accent flex-shrink-0" />
-                  <span className="text-sm">Chiamate vocali realistiche</span>
+                  <span className="text-sm">Realistic voice calls</span>
                 </div>
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/50 text-left">
                   <Video className="w-5 h-5 text-pink-500 flex-shrink-0" />
-                  <span className="text-sm">Videochiamate con avatar 3D</span>
+                  <span className="text-sm">Video calls with 3D avatars</span>
                 </div>
               </div>
             )}
@@ -206,7 +206,7 @@ export default function Onboarding() {
               <div className="grid grid-cols-3 gap-4 mb-8">
                 {[
                   { icon: MessageCircle, label: "Chat", color: "text-primary" },
-                  { icon: Phone, label: "Voce", color: "text-accent" },
+                  { icon: Phone, label: "Voice", color: "text-accent" },
                   { icon: Video, label: "Video", color: "text-pink-500" },
                 ].map((feature) => (
                   <div key={feature.label} className="text-center">
@@ -223,10 +223,10 @@ export default function Onboarding() {
               <div className="space-y-4 mb-8 text-left">
                 <div>
                   <label className="text-sm font-medium mb-2 block">
-                    Come vuoi essere chiamato?
+                    What should we call you?
                   </label>
                   <Input
-                    placeholder="Il tuo nome o nickname"
+                    placeholder="Your name or nickname"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                     className="bg-secondary/50"
@@ -234,10 +234,10 @@ export default function Onboarding() {
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-2 block">
-                    Qualcosa su di te (opzionale)
+                    Something about you (optional)
                   </label>
                   <Input
-                    placeholder="Es: Amo la musica e i viaggi"
+                    placeholder="E.g., I love music and travel"
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
                     className="bg-secondary/50"
@@ -245,10 +245,10 @@ export default function Onboarding() {
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-2 block">
-                    Codice referral (opzionale)
+                    Referral code (optional)
                   </label>
                   <Input
-                    placeholder="Es: ABC123"
+                    placeholder="E.g., ABC123"
                     value={referralCode}
                     onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
                     className="bg-secondary/50"
@@ -263,13 +263,13 @@ export default function Onboarding() {
               {currentStep > 0 && (
                 <Button variant="outline" onClick={handleBack} className="flex-1">
                   <ChevronLeft className="w-4 h-4 mr-1" />
-                  Indietro
+                  Back
                 </Button>
               )}
               
               {currentStep < steps.length - 1 ? (
                 <Button onClick={handleNext} className="flex-1 gradient-primary">
-                  Avanti
+                  Next
                   <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
               ) : (
@@ -278,7 +278,7 @@ export default function Onboarding() {
                   className="flex-1 gradient-primary"
                   disabled={isLoading}
                 >
-                  {isLoading ? "Caricamento..." : "Inizia!"}
+                  {isLoading ? "Loading..." : "Get Started!"}
                   <Check className="w-4 h-4 ml-1" />
                 </Button>
               )}
@@ -293,7 +293,7 @@ export default function Onboarding() {
             className="w-full mt-4 text-muted-foreground"
             onClick={() => setCurrentStep(steps.length - 1)}
           >
-            Salta introduzione
+            Skip introduction
           </Button>
         )}
       </motion.div>

@@ -88,8 +88,8 @@ export function SubscriptionModal({
     setTimeout(() => {
       setIsProcessing(false);
       toast({
-        title: "Pagamenti in arrivo! 🚀",
-        description: "I pagamenti saranno disponibili presto. Ti avviseremo!",
+        title: "Payments coming soon! 🚀",
+        description: "Payments will be available soon. We'll notify you!",
       });
       onClose();
     }, 1500);
@@ -100,10 +100,10 @@ export function SubscriptionModal({
       <DialogContent className="glass border-gradient max-w-3xl p-0 overflow-hidden">
         <DialogHeader className="p-6 pb-0">
           <DialogTitle className="text-2xl font-display text-center">
-            Scegli il tuo piano
+            Choose your plan
           </DialogTitle>
           <p className="text-center text-muted-foreground">
-            Sblocca tutto il potenziale di Kindred
+            Unlock the full potential of Kindred
           </p>
         </DialogHeader>
 
@@ -128,7 +128,7 @@ export function SubscriptionModal({
               >
                 {plan.popular && (
                   <Badge className="absolute -top-2 left-1/2 -translate-x-1/2 bg-primary">
-                    Più popolare
+                    Most Popular
                   </Badge>
                 )}
 
@@ -174,10 +174,10 @@ export function SubscriptionModal({
                   }}
                 >
                   {isCurrentPlan
-                    ? "Piano attuale"
+                    ? "Current Plan"
                     : isProcessing && isSelected
-                    ? "Elaborazione..."
-                    : "Scegli"}
+                    ? "Processing..."
+                    : "Choose"}
                 </Button>
               </motion.div>
             );
@@ -185,7 +185,7 @@ export function SubscriptionModal({
         </div>
 
         <div className="p-4 bg-secondary/30 text-center text-sm text-muted-foreground">
-          Tutti i piani includono 7 giorni di prova gratuita. Cancella quando vuoi.
+          All plans include a 7-day free trial. Cancel anytime.
         </div>
       </DialogContent>
     </Dialog>
