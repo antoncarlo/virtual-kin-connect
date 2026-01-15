@@ -19,6 +19,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useSessionInsights } from "@/hooks/useSessionInsights";
 import { useReferrals } from "@/hooks/useReferrals";
+import { SubscriptionModal } from "@/components/SubscriptionModal";
 import type { User } from "@supabase/supabase-js";
 import kindredIcon from "@/assets/kindred-icon.png";
 
@@ -33,7 +34,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<TabType>("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [messageCount, setMessageCount] = useState(0);
-  
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const { profile } = useProfile();
   const { favorites } = useFavorites();
   const { insights } = useSessionInsights();
@@ -279,11 +280,23 @@ export default function Dashboard() {
               />
             )}
             {activeTab === "settings" && (
-              <SettingsTab key="settings" user={user} profile={profile} />
+              <SettingsTab 
+                key="settings" 
+                user={user} 
+                profile={profile} 
+                onUpgrade={() => setShowSubscriptionModal(true)}
+              />
             )}
           </AnimatePresence>
         </div>
       </main>
+      
+      {/* Subscription Modal */}
+      <SubscriptionModal
+        isOpen={showSubscriptionModal}
+        onClose={() => setShowSubscriptionModal(false)}
+        currentPlan={plan}
+      />
     </div>
   );
 }
@@ -467,7 +480,7 @@ function TokensTab({ tokenBalance, referralCode, referrals, onGenerateCode, tota
 }
 
 // Settings Tab  
-function SettingsTab({ user, profile }: { user: User | null; profile: any }) {
+function SettingsTab({ user, profile, onUpgrade }: { user: User | null; profile: any; onUpgrade: () => void }) {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
       <div className="mb-8">
@@ -504,7 +517,7 @@ function SettingsTab({ user, profile }: { user: User | null; profile: any }) {
               </Badge>
               <p className="text-sm text-muted-foreground mt-1">{profile?.tokens_balance || 0} token disponibili</p>
             </div>
-            <Button className="gradient-primary">Upgrade</Button>
+            <Button className="gradient-primary" onClick={onUpgrade}>Upgrade</Button>
           </div>
         </div>
       </div>
