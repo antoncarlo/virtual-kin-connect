@@ -22,13 +22,13 @@ export function HeroSection() {
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
-      {/* Background Effects */}
+      {/* Background Effects - Light & Fresh */}
       <div className="absolute inset-0 gradient-cosmic" />
       
-      {/* Animated orbs */}
+      {/* Animated orbs - softer */}
       <div className="absolute inset-0 overflow-hidden">
         <motion.div 
-          className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-primary/15 rounded-full blur-[150px]"
+          className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[180px]"
           animate={{ 
             scale: [1, 1.2, 1],
             x: [0, 30, 0],
@@ -37,7 +37,7 @@ export function HeroSection() {
           transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
         />
         <motion.div 
-          className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-accent/15 rounded-full blur-[150px]"
+          className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-accent/10 rounded-full blur-[180px]"
           animate={{ 
             scale: [1.2, 1, 1.2],
             x: [0, -30, 0],
@@ -46,7 +46,7 @@ export function HeroSection() {
           transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
         />
         <motion.div 
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-500/10 rounded-full blur-[180px]"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-secondary/20 rounded-full blur-[200px]"
           animate={{ 
             scale: [1, 1.1, 1],
             rotate: [0, 180, 360],
