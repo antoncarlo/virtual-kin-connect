@@ -93,8 +93,8 @@ export function AvatarGallery() {
           </p>
         </motion.div>
 
-        {/* Avatar Grid - 2 columns */}
-        <div className="grid grid-cols-2 gap-4 max-w-2xl mx-auto">
+        {/* Avatar Grid - 2 cols mobile, 3 cols desktop */}
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
           {avatars.map((avatar, index) => (
             <AvatarCard
               key={avatar.id}
