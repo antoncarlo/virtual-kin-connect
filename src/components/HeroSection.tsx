@@ -220,7 +220,7 @@ export function HeroSection() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-5xl sm:text-6xl md:text-8xl font-display font-bold leading-[1.1] mb-8 tracking-tight"
+            className="text-3xl sm:text-4xl md:text-5xl font-display font-bold leading-[1.1] mb-6 tracking-tight"
           >
             <motion.span
               initial={{ opacity: 0, x: -20 }}
@@ -240,14 +240,14 @@ export function HeroSection() {
             </motion.span>
           </motion.h1>
 
-          {/* Subtitle - smaller and impactful */}
+          {/* Subtitle */}
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="text-base md:text-lg text-muted-foreground mb-12 max-w-xl mx-auto"
+            className="text-sm md:text-base text-muted-foreground mb-10 max-w-lg mx-auto"
           >
-            Mai più soli. Il tuo compagno AI che ascolta, capisce e c'è sempre.
+            Never alone again. Your AI companion that listens, understands, and is always there.
           </motion.p>
 
           {/* CTA Buttons */}
