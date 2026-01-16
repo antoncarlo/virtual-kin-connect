@@ -41,6 +41,36 @@ export type Database = {
         }
         Relationships: []
       }
+      crisis_logs: {
+        Row: {
+          action_taken: string
+          avatar_id: string
+          crisis_type: string
+          detected_at: string
+          id: string
+          message_content: string
+          user_id: string
+        }
+        Insert: {
+          action_taken: string
+          avatar_id: string
+          crisis_type: string
+          detected_at?: string
+          id?: string
+          message_content: string
+          user_id: string
+        }
+        Update: {
+          action_taken?: string
+          avatar_id?: string
+          crisis_type?: string
+          detected_at?: string
+          id?: string
+          message_content?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       favorites: {
         Row: {
           avatar_id: string
@@ -62,6 +92,33 @@ export type Database = {
         }
         Relationships: []
       }
+      knowledge_base: {
+        Row: {
+          category: string
+          content: string
+          created_at: string
+          id: string
+          source: string | null
+          title: string
+        }
+        Insert: {
+          category: string
+          content: string
+          created_at?: string
+          id?: string
+          source?: string | null
+          title: string
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string
+          id?: string
+          source?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -71,10 +128,14 @@ export type Database = {
           has_completed_onboarding: boolean
           id: string
           notification_preferences: Json | null
+          safe_space_sound: string | null
+          safe_space_theme: string | null
           stripe_customer_id: string | null
           subscription_status: string | null
           subscription_tier: string | null
           tokens_balance: number
+          trial_ends_at: string | null
+          trial_started_at: string | null
           updated_at: string
           user_id: string
         }
@@ -86,10 +147,14 @@ export type Database = {
           has_completed_onboarding?: boolean
           id?: string
           notification_preferences?: Json | null
+          safe_space_sound?: string | null
+          safe_space_theme?: string | null
           stripe_customer_id?: string | null
           subscription_status?: string | null
           subscription_tier?: string | null
           tokens_balance?: number
+          trial_ends_at?: string | null
+          trial_started_at?: string | null
           updated_at?: string
           user_id: string
         }
@@ -101,10 +166,14 @@ export type Database = {
           has_completed_onboarding?: boolean
           id?: string
           notification_preferences?: Json | null
+          safe_space_sound?: string | null
+          safe_space_theme?: string | null
           stripe_customer_id?: string | null
           subscription_status?: string | null
           subscription_tier?: string | null
           tokens_balance?: number
+          trial_ends_at?: string | null
+          trial_started_at?: string | null
           updated_at?: string
           user_id?: string
         }

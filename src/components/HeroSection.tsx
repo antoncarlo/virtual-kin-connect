@@ -250,8 +250,8 @@ export function HeroSection() {
                 className="gradient-primary glow-primary text-lg px-10 py-7 rounded-2xl font-semibold group shimmer"
                 asChild
               >
-                <Link to="/signup">
-                  Start Your Journey
+                <Link to="/demo">
+                  Try Demo Free
                   <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </Link>
               </Button>
@@ -264,7 +264,7 @@ export function HeroSection() {
                 onClick={handlePlayVideo}
               >
                 <Play className="mr-2 w-5 h-5 group-hover:scale-110 transition-transform" />
-                Watch Demo
+                Watch Video
               </Button>
             </motion.div>
           </motion.div>

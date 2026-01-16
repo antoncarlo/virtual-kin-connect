@@ -29,6 +29,9 @@ export function Footer() {
               <a href="#pricing" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Pricing
               </a>
+              <Link to="/demo" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
+                Try Demo
+              </Link>
               <a href="#avatars" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Companions
               </a>
@@ -55,6 +58,9 @@ export function Footer() {
           <div>
             <h4 className="font-semibold text-foreground mb-4">Legal</h4>
             <nav className="space-y-3">
+              <Link to="/our-promise" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
+                Our Promise
+              </Link>
               <a href="#" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Privacy Policy
               </a>
