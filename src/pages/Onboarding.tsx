@@ -3,31 +3,38 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ChevronRight, ChevronLeft, Sparkles, Heart, 
-  MessageCircle, Phone, Video, Check 
+  MessageCircle, Phone, Video, Check, Home
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { SafeSpaceSelector, themes, sounds } from "@/components/SafeSpaceSelector";
 import kindredIcon from "@/assets/kindred-icon.png";
 
 const steps = [
   {
     id: "welcome",
     title: "Welcome to Kindred",
-    description: "Your safe space for genuine connections with AI companions who truly understand you.",
+    description: "Your journey to a safe, supportive space begins here.",
     icon: Sparkles,
   },
   {
+    id: "safe-space",
+    title: "Create Your Safe Space",
+    description: "How do you imagine your perfect sanctuary? This will personalize your experience.",
+    icon: Home,
+  },
+  {
     id: "features",
-    title: "What you can do",
-    description: "Unlimited chats, voice calls and video calls with your favorite AI companions.",
+    title: "What You Can Do",
+    description: "Unlimited chats, voice calls and video calls with companions who truly listen.",
     icon: Heart,
   },
   {
     id: "profile",
-    title: "Personalize your profile",
-    description: "Tell us a bit about yourself to make conversations more personal.",
+    title: "A Little About You",
+    description: "Help us make conversations more personal. You can always change this later.",
     icon: MessageCircle,
   },
 ];
@@ -40,6 +47,8 @@ export default function Onboarding() {
   const [bio, setBio] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [referralCode, setReferralCode] = useState("");
+  const [selectedTheme, setSelectedTheme] = useState("forest");
+  const [selectedSound, setSelectedSound] = useState("rain");
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
@@ -62,13 +71,21 @@ export default function Onboarding() {
         return;
       }
 
-      // Update profile
+      // Calculate trial end date (7 days from now)
+      const trialEndsAt = new Date();
+      trialEndsAt.setDate(trialEndsAt.getDate() + 7);
+
+      // Update profile with safe space preferences and trial
       const { error: profileError } = await supabase
         .from("profiles")
         .update({
           display_name: displayName || null,
           bio: bio || null,
           has_completed_onboarding: true,
+          safe_space_theme: selectedTheme,
+          safe_space_sound: selectedSound,
+          trial_started_at: new Date().toISOString(),
+          trial_ends_at: trialEndsAt.toISOString(),
         })
         .eq("user_id", user.id);
 
@@ -121,9 +138,11 @@ export default function Onboarding() {
         }
       }
 
+      const themeName = themes.find(t => t.id === selectedTheme)?.name || "your space";
+      
       toast({
-        title: "Welcome to Kindred!",
-        description: "Your profile is ready. Start exploring!",
+        title: "Your space is ready! ✨",
+        description: `Welcome to ${themeName}. Your 7-day free trial has started.`,
       });
 
       navigate("/dashboard");
@@ -147,7 +166,7 @@ export default function Onboarding() {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-md"
+        className="w-full max-w-lg"
       >
         {/* Logo */}
         <div className="text-center mb-8">
@@ -171,38 +190,55 @@ export default function Onboarding() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="glass border-gradient rounded-2xl p-8 text-center"
+            className="glass border-gradient rounded-2xl p-8"
           >
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
-              <Icon className="w-8 h-8 text-primary" />
-            </div>
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <Icon className="w-8 h-8 text-primary" />
+              </div>
 
-            <h1 className="text-2xl font-display font-bold mb-2">
-              {currentStepData.title}
-            </h1>
-            <p className="text-muted-foreground mb-8">
-              {currentStepData.description}
-            </p>
+              <h1 className="text-2xl font-display font-bold mb-2">
+                {currentStepData.title}
+              </h1>
+              <p className="text-muted-foreground text-sm">
+                {currentStepData.description}
+              </p>
+            </div>
 
             {/* Step-specific content */}
             {currentStep === 0 && (
               <div className="space-y-4 mb-8">
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/50 text-left">
                   <MessageCircle className="w-5 h-5 text-primary flex-shrink-0" />
-                  <span className="text-sm">Unlimited chats with your companions</span>
+                  <span className="text-sm">Chat freely, anytime you need</span>
                 </div>
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/50 text-left">
                   <Phone className="w-5 h-5 text-accent flex-shrink-0" />
-                  <span className="text-sm">Realistic voice calls</span>
+                  <span className="text-sm">Voice calls when you want to talk</span>
                 </div>
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/50 text-left">
                   <Video className="w-5 h-5 text-pink-500 flex-shrink-0" />
-                  <span className="text-sm">Video calls with 3D avatars</span>
+                  <span className="text-sm">Video calls with 3D companions</span>
+                </div>
+                <div className="text-center mt-4 p-3 rounded-xl bg-primary/5 border border-primary/20">
+                  <p className="text-sm font-medium text-primary">7-Day Free Trial</p>
+                  <p className="text-xs text-muted-foreground">No credit card required</p>
                 </div>
               </div>
             )}
 
             {currentStep === 1 && (
+              <div className="mb-6">
+                <SafeSpaceSelector
+                  selectedTheme={selectedTheme}
+                  selectedSound={selectedSound}
+                  onThemeChange={setSelectedTheme}
+                  onSoundChange={setSelectedSound}
+                />
+              </div>
+            )}
+
+            {currentStep === 2 && (
               <div className="grid grid-cols-3 gap-4 mb-8">
                 {[
                   { icon: MessageCircle, label: "Chat", color: "text-primary" },
@@ -219,7 +255,7 @@ export default function Onboarding() {
               </div>
             )}
 
-            {currentStep === 2 && (
+            {currentStep === 3 && (
               <div className="space-y-4 mb-8 text-left">
                 <div>
                   <label className="text-sm font-medium mb-2 block">
@@ -278,7 +314,7 @@ export default function Onboarding() {
                   className="flex-1 gradient-primary"
                   disabled={isLoading}
                 >
-                  {isLoading ? "Loading..." : "Get Started!"}
+                  {isLoading ? "Creating your space..." : "Enter My Space"}
                   <Check className="w-4 h-4 ml-1" />
                 </Button>
               )}
@@ -293,7 +329,7 @@ export default function Onboarding() {
             className="w-full mt-4 text-muted-foreground"
             onClick={() => setCurrentStep(steps.length - 1)}
           >
-            Skip introduction
+            Skip to profile
           </Button>
         )}
       </motion.div>

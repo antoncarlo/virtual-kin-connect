@@ -6,48 +6,50 @@ import { useState } from "react";
 
 const plans = [
   {
-    name: "Starter",
+    name: "Free Trial",
     avatars: 1,
-    price: 49,
+    price: 0,
+    priceNote: "7 days free",
     icon: Sparkles,
     popular: false,
     features: [
       "1 AI companion avatar",
       "Unlimited chat messages",
       "Voice calls included",
-      "Conversation memory",
-      "24/7 availability",
+      "Full conversation memory",
+      "No credit card required",
     ],
   },
   {
-    name: "Plus",
+    name: "Essential",
     avatars: 2,
-    price: 69,
+    price: 19,
+    priceNote: "/month",
     icon: Star,
     popular: true,
     features: [
       "2 AI companion avatars",
       "Unlimited chat messages",
       "Voice calls included",
-      "Conversation memory",
+      "Full conversation memory",
       "Priority support",
       "Video calls",
     ],
   },
   {
     name: "Premium",
-    avatars: 3,
-    price: 110,
+    avatars: 6,
+    price: 29,
+    priceNote: "/month",
     icon: Crown,
     popular: false,
     features: [
-      "3 AI companion avatars",
-      "Unlimited chat messages",
-      "Voice calls included",
-      "Conversation memory",
+      "All 6 AI companions",
+      "Unlimited everything",
+      "Voice & video calls",
+      "Full conversation memory",
       "Priority support",
-      "Video calls",
-      "Early access to new avatars",
+      "Early access to new features",
     ],
   },
 ];
@@ -122,8 +124,17 @@ export function PricingSection() {
                 </p>
 
                 <div className="mb-6">
-                  <span className="text-4xl font-display font-bold">${plan.price}</span>
-                  <span className="text-muted-foreground">/month</span>
+                  {plan.price === 0 ? (
+                    <>
+                      <span className="text-4xl font-display font-bold">Free</span>
+                      <span className="text-muted-foreground ml-2">{plan.priceNote}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-4xl font-display font-bold">${plan.price}</span>
+                      <span className="text-muted-foreground">{plan.priceNote}</span>
+                    </>
+                  )}
                 </div>
 
                 <ul className="space-y-2.5 mb-6">
@@ -141,8 +152,8 @@ export function PricingSection() {
                   variant={plan.popular ? "default" : "outline"}
                   asChild
                 >
-                  <Link to="/signup">
-                    Get Started
+                  <Link to={plan.price === 0 ? "/demo" : "/signup"}>
+                    {plan.price === 0 ? "Start Free Trial" : "Get Started"}
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Link>
                 </Button>
