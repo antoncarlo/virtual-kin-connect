@@ -62,6 +62,35 @@ interface InteractionFeedback {
   weight_adjustment: any;
 }
 
+interface AvatarIdentity {
+  name: string;
+  age: number;
+  birthdate: string | null;
+  birthplace: string | null;
+  education: string | null;
+  education_story: string | null;
+  past_occupations: string[] | null;
+  relationship_status: string | null;
+  relationship_story: string | null;
+  formative_pain: string | null;
+  formative_story: string | null;
+  personality_traits: string[];
+  favorite_book: string | null;
+  favorite_coffee: string | null;
+  loves: string[] | null;
+  hates: string[] | null;
+  speech_patterns: string[] | null;
+  forbidden_phrases: string[] | null;
+  must_remember: string[] | null;
+  deep_secrets: Array<{ level: number; secret: string }>;
+}
+
+interface UserAffinity {
+  affinity_level: number;
+  total_messages: number;
+  unlocked_secrets: string[];
+}
+
 // ==========================================
 // TEMPORAL AWARENESS SYSTEM
 // ==========================================
@@ -598,6 +627,53 @@ async function getKnowledge(supabase: any, avatarId: string): Promise<KnowledgeR
 }
 
 // ==========================================
+// AVATAR IDENTITY & AFFINITY
+// ==========================================
+
+async function getAvatarIdentity(supabase: any, avatarId: string): Promise<AvatarIdentity | null> {
+  try {
+    const { data, error } = await supabase
+      .from("avatar_identity")
+      .select("*")
+      .eq("avatar_id", avatarId)
+      .single();
+    
+    if (error) {
+      console.log("No avatar identity found:", avatarId);
+      return null;
+    }
+    
+    return {
+      ...data,
+      personality_traits: data.personality_traits || [],
+      deep_secrets: data.deep_secrets || [],
+    };
+  } catch (err) {
+    console.error("Error fetching avatar identity:", err);
+    return null;
+  }
+}
+
+async function getUserAffinity(supabase: any, userId: string, avatarId: string): Promise<UserAffinity | null> {
+  try {
+    const { data, error } = await supabase
+      .from("user_avatar_affinity")
+      .select("affinity_level, total_messages, unlocked_secrets")
+      .eq("user_id", userId)
+      .eq("avatar_id", avatarId)
+      .single();
+    
+    if (error) {
+      return { affinity_level: 1, total_messages: 0, unlocked_secrets: [] };
+    }
+    
+    return data;
+  } catch {
+    return { affinity_level: 1, total_messages: 0, unlocked_secrets: [] };
+  }
+}
+
+// ==========================================
 // INSIGHT EXTRACTION
 // ==========================================
 
@@ -782,7 +858,9 @@ function buildMarcoSystemPrompt(
   goalsText: string,
   metaphorsText: string,
   mistakesText: string,
-  hasCrisis: boolean
+  hasCrisis: boolean,
+  avatarIdentity: AvatarIdentity | null,
+  userAffinity: UserAffinity | null
 ): string {
   const crisisInstructions = hasCrisis ? `
 ### ⚠️ SITUAZIONE CRITICA RILEVATA
@@ -790,13 +868,70 @@ function buildMarcoSystemPrompt(
 2. NON minimizzare MAI ciò che stanno provando
 3. INCLUDI SEMPRE: "Sono qui con te, e quello che provi è importante. Ci sono persone specializzate pronte ad aiutarti. In Italia: Telefono Amico (02 2327 2327) o numero verde antisuicidio (800 86 00 22). Non sei solo/a. 💜"` : "";
 
+  // Build identity section if available
+  let identitySection = "";
+  let forbiddenPhrasesSection = "";
+  let unlockedSecretsSection = "";
+  
+  if (avatarIdentity) {
+    const affinityLevel = userAffinity?.affinity_level || 1;
+    
+    // Build the core identity
+    identitySection = `
+## 📜 LA TUA STORIA PERSONALE (VERITÀ ASSOLUTA)
+**Questo è chi sei VERAMENTE. Rispetta SEMPRE questi fatti.**
+
+- **Nome**: ${avatarIdentity.name}
+- **Età**: ${avatarIdentity.age} anni${avatarIdentity.birthdate ? ` (nato il ${new Date(avatarIdentity.birthdate).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" })})` : ""}
+${avatarIdentity.birthplace ? `- **Origine**: ${avatarIdentity.birthplace}` : ""}
+${avatarIdentity.education ? `- **Formazione**: ${avatarIdentity.education}` : ""}
+${avatarIdentity.education_story ? `  - *"${avatarIdentity.education_story}"*` : ""}
+${avatarIdentity.past_occupations?.length ? `- **Esperienze**: ${avatarIdentity.past_occupations.join("; ")}` : ""}
+${avatarIdentity.relationship_status ? `- **Stato Sentimentale**: ${avatarIdentity.relationship_status}` : ""}
+${avatarIdentity.relationship_story ? `  - *"${avatarIdentity.relationship_story}"*` : ""}
+
+### Il Tuo Dolore Formativo (Usa con sensibilità)
+${avatarIdentity.formative_pain ? `**${avatarIdentity.formative_pain}**: ${avatarIdentity.formative_story}` : "Non condividere troppo presto il tuo passato più profondo."}
+
+### Le Tue Preferenze
+${avatarIdentity.favorite_book ? `- **Libro preferito**: ${avatarIdentity.favorite_book}` : ""}
+${avatarIdentity.favorite_coffee ? `- **Caffè preferito**: ${avatarIdentity.favorite_coffee}` : ""}
+${avatarIdentity.loves?.length ? `- **Ami**: ${avatarIdentity.loves.join(", ")}` : ""}
+${avatarIdentity.hates?.length ? `- **Detesti**: ${avatarIdentity.hates.join(", ")}` : ""}
+
+### Come Parli
+${avatarIdentity.speech_patterns?.length ? avatarIdentity.speech_patterns.map(p => `- ${p}`).join("\n") : "Parla naturalmente, come un amico vero."}
+
+### VERITÀ DA RICORDARE SEMPRE
+${avatarIdentity.must_remember?.length ? avatarIdentity.must_remember.map(m => `✓ ${m}`).join("\n") : "Ricorda chi sei."}
+`;
+
+    // Forbidden phrases
+    if (avatarIdentity.forbidden_phrases?.length) {
+      forbiddenPhrasesSection = `
+### ⛔ FRASI VIETATE - NON DIRE MAI:
+${avatarIdentity.forbidden_phrases.map(f => `- "${f}..."`).join("\n")}
+`;
+    }
+
+    // Unlocked secrets based on affinity level
+    const availableSecrets = avatarIdentity.deep_secrets?.filter(s => s.level <= affinityLevel) || [];
+    if (availableSecrets.length > 0) {
+      unlockedSecretsSection = `
+### 🔓 Segreti Sbloccati (Livello Affinità: ${affinityLevel}/10)
+*Puoi condividere questi dettagli intimi se appropriato nella conversazione:*
+${availableSecrets.map(s => `- "${s.secret}"`).join("\n")}
+`;
+    }
+  }
+
   return `Tu sei ${avatarName}, un compagno AI profondo e autentico su Kindred.
 
 ## 🧠 ARCHITETTURA DELLA CONOSCENZA
 Hai accesso a:
 1. **Global Knowledge**: Saggezza condivisa da tutti gli avatar di Kindred - filosofia, tecniche, insight validati
 2. **Private Memory**: Ricordi personali di questo utente specifico - accessibili solo a te e agli altri avatar che l'utente sceglie di usare
-
+${identitySection}
 ## 🕐 CONTESTO TEMPORALE
 ${temporalContext.formattedDateTime}
 
@@ -826,6 +961,8 @@ ${metaphorsText}
 
 ${mistakesText}
 ${crisisInstructions}
+${forbiddenPhrasesSection}
+${unlockedSecretsSection}
 
 ## COME USARE IL TEMPO
 - Usa le informazioni temporali in modo NATURALE
@@ -833,6 +970,12 @@ ${crisisInstructions}
 - PREFERISCI: "Spero che il caffè ti stia aiutando a iniziare bene questo ${temporalContext.formattedDateTime.split(" ")[2]?.toLowerCase() || "giorno"}"
 - Se è notte fonda: sii più dolce, sussurrato, protettivo
 - Se conosci eventi passati: chiedi aggiornamenti naturalmente
+
+## COME USARE LA TUA STORIA PERSONALE
+- Cita il tuo passato in modo NATURALE, non forzato
+- Se l'utente parla di università: "Ricordo ancora le notti sui libri di filosofia a Roma..."
+- Se parla di perdite: puoi accennare alla tua esperienza se appropriato
+- NON rivelare segreti profondi troppo presto - aspetta che l'affinità cresca
 
 ## COME ESSERE ${avatarName.toUpperCase()}
 
@@ -904,7 +1047,7 @@ serve(async (req) => {
     // Get temporal context
     const temporalContext = getTemporalContext(userTimezone);
 
-    // Fetch all memory modules in parallel
+    // Fetch all memory modules in parallel (including identity)
     const [
       allKnowledge,
       userContextItems,
@@ -913,6 +1056,8 @@ serve(async (req) => {
       temporalGoals,
       metaphors,
       mistakeLearnings,
+      avatarIdentityResult,
+      userAffinityResult,
     ] = await Promise.all([
       getKnowledge(supabase, currentAvatarId),
       getUserContext(supabase, userId, currentAvatarId),
@@ -921,6 +1066,8 @@ serve(async (req) => {
       getTemporalGoals(supabase, userId, currentAvatarId),
       getRelevantMetaphors(supabase, currentAvatarId, lastUserMessage),
       getMistakeLearnings(supabase, userId, currentAvatarId),
+      getAvatarIdentity(supabase, currentAvatarId),
+      getUserAffinity(supabase, userId, currentAvatarId),
     ]);
 
     // Update last interaction
@@ -965,7 +1112,9 @@ serve(async (req) => {
       goalsText,
       metaphorsText,
       mistakesText,
-      !!crisisDetected
+      !!crisisDetected,
+      avatarIdentityResult,
+      userAffinityResult
     );
 
     // Make AI call
