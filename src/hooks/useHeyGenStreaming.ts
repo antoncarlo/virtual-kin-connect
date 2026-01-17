@@ -18,6 +18,13 @@ interface SessionInfo {
   access_token: string;
 }
 
+// Text buffer for optimized lip-sync
+interface TextBuffer {
+  text: string;
+  timestamp: number;
+  emotion?: string;
+}
+
 export function useHeyGenStreaming({
   avatarId,
   voiceId,
@@ -35,10 +42,71 @@ export function useHeyGenStreaming({
   const roomRef = useRef<Room | null>(null);
   const sessionInfoRef = useRef<SessionInfo | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
-  const isStartingRef = useRef(false); // Prevent duplicate calls
+  const isStartingRef = useRef(false);
+  const textQueueRef = useRef<TextBuffer[]>([]);
+  const processingRef = useRef(false);
+  const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Process text queue with minimal latency
+  const processTextQueue = useCallback(async () => {
+    if (processingRef.current || textQueueRef.current.length === 0 || !sessionInfoRef.current) {
+      return;
+    }
+
+    processingRef.current = true;
+    const item = textQueueRef.current.shift()!;
+
+    try {
+      setIsSpeaking(true);
+      onSpeaking?.(true);
+
+      const response = await supabase.functions.invoke('heygen-streaming', {
+        body: {
+          action: 'send-task',
+          sessionId: sessionInfoRef.current.session_id,
+          text: item.text,
+          emotion: item.emotion,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      // Estimate speech duration based on text length and speaking rate
+      // Average speaking rate: ~150 words/min = ~2.5 words/sec = ~13 chars/sec
+      const estimatedDuration = Math.max(item.text.length * 75, 1500);
+      
+      // Clear previous timeout
+      if (speakingTimeoutRef.current) {
+        clearTimeout(speakingTimeoutRef.current);
+      }
+
+      speakingTimeoutRef.current = setTimeout(() => {
+        setIsSpeaking(false);
+        onSpeaking?.(false);
+        processingRef.current = false;
+        
+        // Process next item if available
+        if (textQueueRef.current.length > 0) {
+          processTextQueue();
+        }
+      }, estimatedDuration);
+
+    } catch (error) {
+      console.error('Send text error:', error);
+      setIsSpeaking(false);
+      onSpeaking?.(false);
+      processingRef.current = false;
+      
+      // Try next item
+      if (textQueueRef.current.length > 0) {
+        processTextQueue();
+      }
+    }
+  }, [onSpeaking]);
 
   const startSession = useCallback(async (videoElement?: HTMLVideoElement) => {
-    // Prevent duplicate calls
     if (isStartingRef.current || isConnected || sessionInfoRef.current) {
       console.log('HeyGen session already in progress or connected, skipping...');
       return;
@@ -46,7 +114,6 @@ export function useHeyGenStreaming({
 
     isStartingRef.current = true;
     console.log('Starting HeyGen session with avatarId:', avatarId);
-    
 
     try {
       setIsConnecting(true);
@@ -56,8 +123,8 @@ export function useHeyGenStreaming({
       const createResponse = await supabase.functions.invoke('heygen-streaming', {
         body: {
           action: 'create-session',
-          avatarId: avatarId || 'default',
-          voiceId: voiceId,
+          avatarId: avatarId || 'josh_lite3_20230714',
+          voiceId: voiceId || 'it-IT-DiegoNeural',
         },
       });
 
@@ -76,9 +143,6 @@ export function useHeyGenStreaming({
       
       if (!sessionData.data?.session_id) {
         throw new Error('Failed to create HeyGen session - no session_id returned');
-      }
-      if (!sessionData.data?.session_id) {
-        throw new Error('Failed to create HeyGen session');
       }
 
       sessionInfoRef.current = {
@@ -151,7 +215,7 @@ export function useHeyGenStreaming({
 
       toast({
         title: "Avatar connesso",
-        description: "Streaming avatar HeyGen attivo",
+        description: "Streaming avatar HeyGen attivo in HD",
       });
 
     } catch (error) {
@@ -171,45 +235,90 @@ export function useHeyGenStreaming({
     }
   }, [avatarId, voiceId, isConnected, onConnected, onDisconnected, onError, toast]);
 
-  const sendText = useCallback(async (text: string) => {
-    if (!sessionInfoRef.current) {
-      console.error('No active session');
+  // Optimized text sending with queue for minimal latency
+  const sendText = useCallback(async (text: string, emotion?: string) => {
+    if (!sessionInfoRef.current || !text.trim()) {
+      console.error('No active session or empty text');
       return;
     }
 
-    try {
-      setIsSpeaking(true);
-      onSpeaking?.(true);
+    // Add to queue
+    textQueueRef.current.push({
+      text: text.trim(),
+      timestamp: Date.now(),
+      emotion,
+    });
 
-      const response = await supabase.functions.invoke('heygen-streaming', {
+    // Start processing if not already
+    processTextQueue();
+  }, [processTextQueue]);
+
+  // Send gesture (wave, nod, etc.)
+  const sendGesture = useCallback(async (gesture: "wave" | "nod" | "smile") => {
+    if (!sessionInfoRef.current) return;
+
+    try {
+      await supabase.functions.invoke('heygen-streaming', {
         body: {
-          action: 'send-task',
+          action: 'send-gesture',
           sessionId: sessionInfoRef.current.session_id,
-          text: text,
+          gesture,
         },
       });
-
-      if (response.error) {
-        throw new Error(response.error.message);
-      }
-
-      // Avatar will speak for approximately text.length * 50ms
-      const speakDuration = Math.max(text.length * 50, 2000);
-      setTimeout(() => {
-        setIsSpeaking(false);
-        onSpeaking?.(false);
-      }, speakDuration);
-
     } catch (error) {
-      console.error('Send text error:', error);
+      console.error('Gesture error:', error);
+    }
+  }, []);
+
+  // Set emotional state
+  const setEmotion = useCallback(async (emotion: "neutral" | "happy" | "sad" | "surprised" | "serious") => {
+    if (!sessionInfoRef.current) return;
+
+    try {
+      await supabase.functions.invoke('heygen-streaming', {
+        body: {
+          action: 'set-emotion',
+          sessionId: sessionInfoRef.current.session_id,
+          emotion,
+        },
+      });
+    } catch (error) {
+      console.error('Emotion error:', error);
+    }
+  }, []);
+
+  // Interrupt current speech
+  const interrupt = useCallback(async () => {
+    if (!sessionInfoRef.current) return;
+
+    try {
+      // Clear queue
+      textQueueRef.current = [];
+      processingRef.current = false;
+      
+      await supabase.functions.invoke('heygen-streaming', {
+        body: {
+          action: 'interrupt',
+          sessionId: sessionInfoRef.current.session_id,
+        },
+      });
+      
       setIsSpeaking(false);
       onSpeaking?.(false);
+    } catch (error) {
+      console.error('Interrupt error:', error);
     }
   }, [onSpeaking]);
 
   const stopSession = useCallback(async () => {
     console.log('Stopping HeyGen session...');
     isStartingRef.current = false;
+    textQueueRef.current = [];
+    processingRef.current = false;
+    
+    if (speakingTimeoutRef.current) {
+      clearTimeout(speakingTimeoutRef.current);
+    }
     
     try {
       if (sessionInfoRef.current) {
@@ -256,6 +365,9 @@ export function useHeyGenStreaming({
     mediaStream,
     startSession,
     sendText,
+    sendGesture,
+    setEmotion,
+    interrupt,
     stopSession,
   };
 }

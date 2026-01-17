@@ -22,7 +22,7 @@ import { useSessionInsights } from "@/hooks/useSessionInsights";
 import { useHybridCall } from "@/hooks/useHybridCall";
 import { IncomingCallModal } from "@/components/IncomingCallModal";
 import { VideoCallModal } from "@/components/VideoCallModal";
-import { HeyGenVideoCall } from "@/components/HeyGenVideoCall";
+import { ImmersiveVideoCall } from "@/components/video-call";
 import { ChatBubble } from "@/components/chat/ChatBubble";
 import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { ChatInput } from "@/components/chat/ChatInput";
@@ -500,13 +500,15 @@ export default function Chat() {
         onReject={handleRejectCall}
       />
       
-      {/* Video Call Modal - Use HeyGen if available, otherwise fallback */}
+      {/* Video Call Modal - Use Immersive HeyGen if available, otherwise fallback */}
       {avatar.heygenAvatarId ? (
-        <HeyGenVideoCall
+        <ImmersiveVideoCall
           isOpen={showVideoCall}
           onClose={() => setShowVideoCall(false)}
           avatarName={avatar.name}
           avatarImage={avatar.imageUrl}
+          avatarId={avatar.id}
+          avatarPersonality={avatar.personality}
           heygenAvatarId={avatar.heygenAvatarId}
           heygenVoiceId={avatar.heygenVoiceId}
           vapiAssistantId={avatar.vapiAssistantId}
