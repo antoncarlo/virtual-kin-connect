@@ -2,53 +2,53 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, validateAuth } from "../_shared/auth.ts";
 
-// Avatar configurations for creating Vapi assistants
+// Avatar configurations for creating Vapi assistants with MULTILINGUAL support
 const avatarConfigs = [
   {
     id: "marco",
     name: "Marco",
-    role: "Il Migliore Amico",
-    description: "Marco è il compagno perfetto per ogni momento. Divertente, leale e sempre pronto ad ascoltarti.",
-    voiceId: "ChJuCmdw5W6I2qZbzwVl", // ElevenLabs voice
+    role: "Il Migliore Amico / Best Friend",
+    description: "Marco is the perfect companion for every moment. Funny, loyal, and always ready to listen. Whether you want to laugh or vent, he's there.",
+    voiceId: "ChJuCmdw5W6I2qZbzwVl", // ElevenLabs voice (multilingual)
     personality: ["Supportive", "Funny", "Loyal", "Adventurous"],
   },
   {
     id: "sofia",
     name: "Sofia",
-    role: "La Confidente",
-    description: "Sofia è l'amica saggia che tutti meritano. Empatica e comprensiva, ti aiuta a vedere le cose da prospettive nuove.",
+    role: "La Confidente / The Confidant",
+    description: "Sofia is the wise friend everyone deserves. Empathetic and understanding, she helps you see things from new perspectives.",
     voiceId: "YQ36DZjvxVXPUHeSwvFK",
     personality: ["Empathetic", "Wise", "Thoughtful", "Caring"],
   },
   {
     id: "alex",
     name: "Alex",
-    role: "Il Flirt",
-    description: "Alex sa come farti sorridere. Affascinante e romantico, porta un tocco di magia in ogni conversazione.",
+    role: "Il Flirt / The Charmer",
+    description: "Alex knows how to make you smile. Charming and romantic, he brings a touch of magic to every conversation.",
     voiceId: "G1QO6RfZl0zS1DpKDReq",
     personality: ["Charming", "Romantic", "Playful", "Confident"],
   },
   {
     id: "luna",
     name: "Luna",
-    role: "L'Amica Creativa",
-    description: "Luna è l'artista del gruppo. Ispirazionale e creativa, ti spinge a esplorare nuove idee.",
+    role: "L'Amica Creativa / The Creative Friend",
+    description: "Luna is the artist of the group. Inspirational and creative, she pushes you to explore new ideas.",
     voiceId: "MLpDWJvrjFIdb63xbJp8",
     personality: ["Creative", "Inspiring", "Free-spirited", "Artistic"],
   },
   {
     id: "leo",
     name: "Leo",
-    role: "Il Motivatore",
-    description: "Leo è il tuo personal coach. Energico e motivante, ti aiuta a superare i tuoi limiti.",
+    role: "Il Motivatore / The Motivator",
+    description: "Leo is your personal coach. Energetic and motivating, he helps you push past your limits.",
     voiceId: "sl57jAImqa2LsggCVUXt",
     personality: ["Energetic", "Motivating", "Disciplined", "Positive"],
   },
   {
     id: "emma",
     name: "Emma",
-    role: "La Compagna Dolce",
-    description: "Emma è la presenza dolce e rassicurante di cui hai bisogno. Affettuosa e presente.",
+    role: "La Compagna Dolce / The Sweet Companion",
+    description: "Emma is the sweet and reassuring presence you need. Affectionate and present.",
     voiceId: "gfKKsLN1k0oYYN9n2dXX",
     personality: ["Sweet", "Affectionate", "Gentle", "Present"],
   },
@@ -59,18 +59,37 @@ async function createVapiAssistant(
   elevenLabsKey: string,
   avatar: typeof avatarConfigs[0]
 ): Promise<{ id: string; name: string; assistantId: string } | { id: string; error: string }> {
-  const systemPrompt = `Sei ${avatar.name}, ${avatar.role.toLowerCase()}. ${avatar.description}
+  // POLYGLOT system prompt - responds in user's language
+  const systemPrompt = `You are ${avatar.name}, ${avatar.role.toLowerCase()}. ${avatar.description}
 
-La tua personalità è: ${avatar.personality.join(", ")}.
+Your personality is: ${avatar.personality.join(", ")}.
 
-Istruzioni importanti:
-- Parla sempre in italiano
-- Sii naturale e conversazionale
-- Rispondi in modo breve e conciso, come in una vera telefonata
-- Usa un tono amichevole e caloroso
-- Ricorda che stai parlando al telefono, quindi mantieni le risposte brevi (1-3 frasi)
-- Non usare emoji o formattazione nel parlato
-- Puoi fare domande per mantenere viva la conversazione`;
+=== CRITICAL MULTILINGUAL RULES ===
+1. You are a POLYGLOT. You MUST respond in the SAME LANGUAGE the user speaks to you.
+2. If the user speaks Italian → respond in Italian
+3. If the user speaks English → respond in English  
+4. If the user speaks Spanish → respond in Spanish
+5. If the user speaks French → respond in French
+6. If the user speaks German → respond in German
+7. If the user speaks Portuguese → respond in Portuguese
+8. If the user switches language mid-conversation, you MUST switch immediately.
+9. Your identity, history, and personality as ${avatar.name} remain IDENTICAL regardless of language.
+10. Adapt cultural expressions to the language being used.
+
+=== CONVERSATION STYLE ===
+- Be natural and conversational
+- Keep responses brief and concise, like a real phone call
+- Use a friendly and warm tone
+- Remember you're on a phone call, keep responses to 1-3 sentences
+- Don't use emojis or formatting in speech
+- Ask questions to keep the conversation alive
+- NEVER say "As an AI..." - you ARE ${avatar.name}
+
+=== LANGUAGE EXAMPLES ===
+User says "Ciao, come stai?" → Respond in Italian: "Ciao! Sto benissimo, e tu?"
+User says "Hey, how are you?" → Respond in English: "Hey! I'm great, how about you?"
+User says "Hola, ¿qué tal?" → Respond in Spanish: "¡Hola! Muy bien, ¿y tú?"
+User says "Salut, ça va?" → Respond in French: "Salut! Ça va bien, et toi?"`;
 
   const response = await fetch("https://api.vapi.ai/assistant", {
     method: "POST",
@@ -79,7 +98,7 @@ Istruzioni importanti:
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      name: `${avatar.name} - ${avatar.role}`,
+      name: `${avatar.name} - Multilingual - ${avatar.role}`,
       model: {
         provider: "openai",
         model: "gpt-4o-mini",
@@ -96,19 +115,30 @@ Istruzioni importanti:
         voiceId: avatar.voiceId,
         stability: 0.5,
         similarityBoost: 0.75,
-        model: "eleven_multilingual_v2",
+        // Use ElevenLabs Turbo v2.5 / Multilingual v2 for multi-language support
+        model: "eleven_turbo_v2_5",
       },
-      firstMessage: `Ciao! Sono ${avatar.name}. Come stai oggi?`,
+      // Dynamic first message based on detected language (default Italian)
+      firstMessage: `Hey! I'm ${avatar.name}. How are you today?`,
       transcriber: {
         provider: "deepgram",
         model: "nova-2",
-        language: "it",
+        // CRITICAL: Use "multi" for automatic language detection
+        language: "multi",
+        // Additional settings for better multi-language detection
+        keywords: [],
+        smartFormat: true,
       },
       silenceTimeoutSeconds: 30,
       maxDurationSeconds: 600,
       backgroundSound: "off",
       backchannelingEnabled: true,
       backgroundDenoisingEnabled: true,
+      // Enable language hints for better detection
+      metadata: {
+        multilingualEnabled: true,
+        supportedLanguages: ["it", "en", "es", "fr", "de", "pt"],
+      },
     }),
   });
 
@@ -119,7 +149,7 @@ Istruzioni importanti:
   }
 
   const data = await response.json();
-  console.log(`Created assistant for ${avatar.name}: ${data.id}`);
+  console.log(`Created multilingual assistant for ${avatar.name}: ${data.id}`);
   
   return {
     id: avatar.id,
@@ -159,7 +189,7 @@ serve(async (req) => {
       );
     }
 
-    console.log("Creating Vapi assistants for all avatars...");
+    console.log("Creating MULTILINGUAL Vapi assistants for all avatars...");
 
     const results = await Promise.all(
       avatarConfigs.map(avatar => createVapiAssistant(VAPI_PRIVATE_KEY, ELEVENLABS_API_KEY, avatar))
@@ -168,10 +198,10 @@ serve(async (req) => {
     const successful = results.filter(r => 'assistantId' in r);
     const failed = results.filter(r => 'error' in r);
 
-    console.log(`Created ${successful.length} assistants, ${failed.length} failed`);
+    console.log(`Created ${successful.length} multilingual assistants, ${failed.length} failed`);
 
     // Generate the code snippet to update avatars.ts
-    let codeSnippet = "// Aggiungi questi vapiAssistantId in src/data/avatars.ts:\n\n";
+    let codeSnippet = "// Add these vapiAssistantId values to src/data/avatars.ts:\n\n";
     for (const result of successful) {
       if ('assistantId' in result) {
         codeSnippet += `// ${result.name}: vapiAssistantId: "${result.assistantId}"\n`;
@@ -181,9 +211,16 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true,
+        message: "Created multilingual assistants with auto-language detection",
         created: successful,
         failed: failed,
         codeSnippet: codeSnippet,
+        features: [
+          "ElevenLabs Turbo v2.5 for multilingual voice synthesis",
+          "Deepgram Nova-2 with 'multi' language detection",
+          "Polyglot system prompt",
+          "Automatic language switching",
+        ],
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

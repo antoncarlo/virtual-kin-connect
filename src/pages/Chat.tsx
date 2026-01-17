@@ -22,6 +22,7 @@ import { useChatHistory } from "@/hooks/useChatHistory";
 import { useVapiCall } from "@/hooks/useVapiCall";
 import { useSessionInsights } from "@/hooks/useSessionInsights";
 import { useHybridCall } from "@/hooks/useHybridCall";
+import { useLanguage } from "@/hooks/useLanguage";
 import { IncomingCallModal } from "@/components/IncomingCallModal";
 import { VideoCallModal } from "@/components/VideoCallModal";
 import { ImmersiveVideoCall } from "@/components/video-call";
@@ -97,6 +98,9 @@ export default function Chat() {
     startSession,
     endSession,
   } = useSessionInsights(avatarId);
+
+  // Multilingual support hook
+  const { language, translations, detectFromMessage } = useLanguage();
 
   // Hybrid call hook for in-call chat messages
   const {
@@ -452,6 +456,11 @@ export default function Chat() {
           // Increment affinity message count
           await incrementMessages();
           await initiateCallIfRequested(userContent);
+          
+          // Detect language from assistant response for UI adaptation
+          if (finalContent) {
+            detectFromMessage(finalContent);
+          }
         }
       );
     } catch (error) {
@@ -471,8 +480,8 @@ export default function Chat() {
     await triggerSessionAnalysis();
     await clearHistory();
     toast({
-      title: "Cronologia cancellata",
-      description: `La chat con ${avatar?.name} è stata cancellata.`,
+      title: translations.historyCleared,
+      description: `${translations.clearHistory} ${avatar?.name}.`,
     });
   };
 
@@ -480,8 +489,8 @@ export default function Chat() {
   const handleManualAnalysis = async () => {
     if (messages.length < 4) {
       toast({
-        title: "Sessione troppo breve",
-        description: "Continua a chattare per permettere a Marco di conoscerti meglio.",
+        title: translations.sessionTooShort.split(".")[0],
+        description: translations.sessionTooShort,
       });
       return;
     }
@@ -491,8 +500,8 @@ export default function Chat() {
   const handleVoiceCall = async () => {
     if (!avatar?.vapiAssistantId) {
       toast({
-        title: "Chiamata non disponibile",
-        description: `Configura un assistente Vapi per ${avatar?.name}.`,
+        title: translations.connectionError,
+        description: `${avatar?.name} - ${translations.tryAgain}`,
         variant: "destructive",
       });
       return;
@@ -642,7 +651,7 @@ export default function Chat() {
                     className="gap-2"
                   >
                     <PhoneOff className="w-4 h-4" />
-                    End Call
+                    {translations.endCallButton}
                   </Button>
                 </motion.div>
               )}
@@ -667,8 +676,8 @@ export default function Chat() {
                         setShowGallery(true);
                       } else {
                         toast({
-                          title: "Premium Feature",
-                          description: "Upgrade to Premium to share memories with your avatars!",
+                          title: translations.premiumOnly,
+                          description: translations.premiumMemories,
                           variant: "default",
                         });
                       }
@@ -691,7 +700,7 @@ export default function Chat() {
                     className="gap-2"
                   >
                     <Brain className="w-4 h-4" />
-                    {isAnalyzing ? "Analizzando..." : "Analizza sessione"}
+                    {isAnalyzing ? translations.analyzing : translations.analyzing?.replace("...", "")}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
@@ -699,7 +708,7 @@ export default function Chat() {
                     className="text-destructive focus:text-destructive gap-2"
                   >
                     <Trash2 className="w-4 h-4" />
-                    Cancella cronologia
+                    {translations.clearHistory}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -764,6 +773,8 @@ export default function Chat() {
           isLoading={isLoading}
           isVoiceCallActive={isVapiConnected}
           avatarName={avatar.name}
+          language={language}
+          translations={translations}
         />
       </div>
     </>
