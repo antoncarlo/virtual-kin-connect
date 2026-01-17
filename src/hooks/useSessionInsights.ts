@@ -1,12 +1,32 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import { useToast } from "@/hooks/use-toast";
 
 type SessionInsight = Tables<"session_insights">;
+
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+interface SessionAnalysisResult {
+  mood: string;
+  intensity: number;
+  topics: string[];
+  key_insight: string;
+  entities_found: {
+    people: number;
+    events: number;
+  };
+}
 
 export function useSessionInsights(avatarId?: string) {
   const [insights, setInsights] = useState<SessionInsight[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const sessionStartTime = useRef<Date | null>(null);
+  const { toast } = useToast();
 
   const fetchInsights = useCallback(async () => {
     try {
@@ -62,9 +82,98 @@ export function useSessionInsights(avatarId?: string) {
     }
   };
 
+  // Start tracking session time
+  const startSession = useCallback(() => {
+    sessionStartTime.current = new Date();
+    console.log("Session started at:", sessionStartTime.current);
+  }, []);
+
+  // Perform post-session analysis
+  const analyzeSession = useCallback(async (
+    messages: ChatMessage[],
+    currentAvatarId: string
+  ): Promise<SessionAnalysisResult | null> => {
+    if (messages.length < 4) {
+      console.log("Session too short for analysis");
+      return null;
+    }
+
+    setIsAnalyzing(true);
+
+    try {
+      const sessionDuration = sessionStartTime.current
+        ? Math.floor((new Date().getTime() - sessionStartTime.current.getTime()) / 1000)
+        : undefined;
+
+      console.log("Starting session analysis...", {
+        messageCount: messages.length,
+        duration: sessionDuration,
+        avatarId: currentAvatarId,
+      });
+
+      const { data, error } = await supabase.functions.invoke("session-analysis", {
+        body: {
+          messages: messages.filter(m => m.role === "user" || m.role === "assistant"),
+          avatarId: currentAvatarId,
+          sessionDuration,
+        },
+      });
+
+      if (error) {
+        console.error("Session analysis error:", error);
+        return null;
+      }
+
+      if (data?.success && data.analysis) {
+        console.log("Session analysis complete:", data.analysis);
+        
+        // Refresh insights after analysis
+        await fetchInsights();
+
+        return data.analysis as SessionAnalysisResult;
+      }
+
+      return null;
+    } catch (err) {
+      console.error("Failed to analyze session:", err);
+      return null;
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [fetchInsights]);
+
+  // End session and trigger analysis
+  const endSession = useCallback(async (
+    messages: ChatMessage[],
+    currentAvatarId: string
+  ) => {
+    const result = await analyzeSession(messages, currentAvatarId);
+    
+    if (result) {
+      toast({
+        title: "Sessione analizzata 🧠",
+        description: `Ho capito meglio come ti senti: ${result.mood}`,
+      });
+    }
+
+    // Reset session timer
+    sessionStartTime.current = null;
+
+    return result;
+  }, [analyzeSession, toast]);
+
   useEffect(() => {
     fetchInsights();
   }, [fetchInsights]);
 
-  return { insights, isLoading, createInsight, refetch: fetchInsights };
+  return {
+    insights,
+    isLoading,
+    isAnalyzing,
+    createInsight,
+    refetch: fetchInsights,
+    startSession,
+    endSession,
+    analyzeSession,
+  };
 }

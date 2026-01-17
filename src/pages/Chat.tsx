@@ -10,6 +10,7 @@ import {
   PhoneOff,
   Video,
   Trash2,
+  Brain,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useChatHistory } from "@/hooks/useChatHistory";
 import { useVapiCall } from "@/hooks/useVapiCall";
+import { useSessionInsights } from "@/hooks/useSessionInsights";
 import { IncomingCallModal } from "@/components/IncomingCallModal";
 import { VideoCallModal } from "@/components/VideoCallModal";
 import { HeyGenVideoCall } from "@/components/HeyGenVideoCall";
@@ -26,6 +28,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -42,6 +45,8 @@ export default function Chat() {
   const [showIncomingCall, setShowIncomingCall] = useState(false);
   const [showVideoCall, setShowVideoCall] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const lastActivityTime = useRef<Date>(new Date());
+  const sessionAnalysisTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const avatar = avatars.find((a) => a.id === avatarId);
   
@@ -60,6 +65,13 @@ export default function Chat() {
     avatarId: avatarId || "", 
     welcomeMessage 
   });
+
+  // Session insights hook for post-session analysis
+  const {
+    isAnalyzing,
+    startSession,
+    endSession,
+  } = useSessionInsights(avatarId);
 
   // Vapi voice call hook
   const {
@@ -83,6 +95,18 @@ export default function Chat() {
     },
   });
 
+  // Start session tracking on mount
+  useEffect(() => {
+    startSession();
+    
+    // Cleanup: trigger analysis when leaving the page
+    return () => {
+      if (sessionAnalysisTimeout.current) {
+        clearTimeout(sessionAnalysisTimeout.current);
+      }
+    };
+  }, [startSession]);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
@@ -94,6 +118,34 @@ export default function Chat() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Auto-trigger session analysis after 2 minutes of inactivity
+  useEffect(() => {
+    const checkInactivity = () => {
+      const now = new Date();
+      const inactiveTime = now.getTime() - lastActivityTime.current.getTime();
+      
+      // If inactive for 2 minutes and has enough messages, trigger analysis
+      if (inactiveTime >= 120000 && messages.length >= 6) {
+        triggerSessionAnalysis();
+      }
+    };
+
+    const interval = setInterval(checkInactivity, 30000); // Check every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [messages.length]);
+
+  // Trigger session analysis
+  const triggerSessionAnalysis = useCallback(async () => {
+    if (!avatar || messages.length < 4) return;
+
+    const chatMessages = messages
+      .filter(m => m.role === "user" || m.role === "assistant")
+      .map(m => ({ role: m.role as "user" | "assistant", content: m.content }));
+
+    await endSession(chatMessages, avatar.id);
+  }, [avatar, messages, endSession]);
 
   const streamChat = useCallback(async (
     chatMessages: { role: "user" | "assistant"; content: string }[],
@@ -265,6 +317,9 @@ export default function Chat() {
   const handleSend = async () => {
     if (!inputValue.trim() || isLoading || !avatar) return;
 
+    // Update activity time for inactivity tracking
+    lastActivityTime.current = new Date();
+
     const userContent = inputValue.trim();
     setInputValue("");
     setIsLoading(true);
@@ -316,11 +371,25 @@ export default function Chat() {
   };
 
   const handleClearHistory = async () => {
+    // Trigger analysis before clearing
+    await triggerSessionAnalysis();
     await clearHistory();
     toast({
       title: "Cronologia cancellata",
       description: `La chat con ${avatar?.name} è stata cancellata.`,
     });
+  };
+
+  // Manual analysis trigger
+  const handleManualAnalysis = async () => {
+    if (messages.length < 4) {
+      toast({
+        title: "Sessione troppo breve",
+        description: "Continua a chattare per permettere a Marco di conoscerti meglio.",
+      });
+      return;
+    }
+    await triggerSessionAnalysis();
   };
 
   const handleVoiceCall = async () => {
@@ -458,6 +527,14 @@ export default function Chat() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-popover">
+                  <DropdownMenuItem 
+                    onClick={handleManualAnalysis}
+                    disabled={isAnalyzing || messages.length < 4}
+                  >
+                    <Brain className="w-4 h-4 mr-2" />
+                    {isAnalyzing ? "Analizzando..." : "Analizza sessione"}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem 
                     onClick={handleClearHistory}
                     className="text-destructive focus:text-destructive"
