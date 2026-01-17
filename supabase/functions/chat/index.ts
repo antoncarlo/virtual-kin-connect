@@ -683,6 +683,88 @@ async function logCrisis(supabase: any, userId: string, avatarId: string, messag
 }
 
 // ==========================================
+// GLOBAL KNOWLEDGE EXTRACTION (AUTO-LEARNING)
+// ==========================================
+
+async function extractGlobalKnowledge(
+  supabase: any,
+  userId: string,
+  avatarId: string,
+  messages: Message[],
+  apiKey: string
+): Promise<void> {
+  try {
+    // Only analyze user messages
+    const userMessages = messages
+      .filter((m) => m.role === "user")
+      .slice(-5)
+      .map((m) => m.content)
+      .join("\n");
+
+    if (userMessages.length < 100) return; // Not enough content
+
+    const extractionPrompt = `Analizza questi messaggi e identifica SOLO fatti oggettivi, saggezza universale o tecniche che potrebbero essere utili a TUTTI gli utenti (non informazioni personali).
+
+MESSAGGI:
+${userMessages}
+
+ESTRAI SOLO:
+- Citazioni sagge o filosofiche condivise dall'utente
+- Tecniche di benessere o mindfulness descritte
+- Insight universali sulla vita/relazioni
+- Fatti verificabili e utili
+
+IGNORA:
+- Informazioni personali (nomi, luoghi, eventi specifici)
+- Opinioni soggettive
+- Domande o lamenti
+
+Rispondi in JSON: {"facts": [{"fact": "descrizione", "category": "wisdom|philosophy|technique|insight", "confidence": 0.0-1.0}]}
+Se nulla di rilevante: {"facts": []}`;
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          { role: "system", content: "Estrai solo conoscenza universale. Rispondi SOLO in JSON." },
+          { role: "user", content: extractionPrompt },
+        ],
+        temperature: 0.2,
+      }),
+    });
+
+    if (!response.ok) return;
+
+    const aiResponse = await response.json();
+    const content = aiResponse.choices?.[0]?.message?.content || "{}";
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    
+    if (!jsonMatch) return;
+
+    const extracted = JSON.parse(jsonMatch[0]);
+    
+    for (const fact of extracted.facts || []) {
+      if (fact.confidence >= 0.75) {
+        await supabase.from("pending_knowledge").insert({
+          user_id: userId,
+          avatar_id: avatarId,
+          extracted_fact: fact.fact.substring(0, 1000),
+          source_message: userMessages.substring(0, 500),
+          fact_category: fact.category,
+          confidence: fact.confidence,
+          is_personal: false,
+        });
+        console.log(`Queued global knowledge: ${fact.fact.substring(0, 50)}...`);
+      }
+    }
+  } catch (error) {
+    console.error("Global knowledge extraction error:", error);
+  }
+}
+
+// ==========================================
 // ENHANCED SYSTEM PROMPT BUILDER
 // ==========================================
 
@@ -912,15 +994,19 @@ serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Background insight extraction
+    // Background insight extraction + knowledge extraction for global learning
     if (messages.length >= 4) {
       setTimeout(async () => {
         try {
+          // Extract user-specific insights (private memory)
           const { insights } = await extractInsights(messages, LOVABLE_API_KEY);
           if (insights.length > 0) {
             console.log(`Saving ${insights.length} insights for user ${userId}`);
             await saveInsights(supabase, userId, currentAvatarId, insights);
           }
+          
+          // Extract potential global knowledge for batch processing
+          await extractGlobalKnowledge(supabase, userId, currentAvatarId, messages, LOVABLE_API_KEY);
         } catch (error) {
           console.error("Background insight extraction error:", error);
         }
