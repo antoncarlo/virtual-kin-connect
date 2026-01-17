@@ -274,6 +274,7 @@ export default function Dashboard() {
                 onSelectAvatar={handleSelectAvatar}
                 onUpgrade={() => setShowSubscriptionModal(true)}
                 favorites={favorites}
+                onNavigateToTokens={() => setActiveTab("tokens")}
               />
             )}
             {activeTab === "avatars" && (
@@ -329,7 +330,8 @@ function HomeTab({
   insights,
   onSelectAvatar,
   onUpgrade,
-  favorites 
+  favorites,
+  onNavigateToTokens,
 }: { 
   user: User | null;
   messageCount: number;
@@ -341,6 +343,7 @@ function HomeTab({
   onSelectAvatar: (avatar: AvatarType) => void;
   onUpgrade: () => void;
   favorites: string[];
+  onNavigateToTokens: () => void;
 }) {
   const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Friend";
   
@@ -376,7 +379,7 @@ function HomeTab({
         plan={plan}
         trialDaysRemaining={trialDaysRemaining}
         tokensBalance={tokenBalance}
-        onUpgrade={onUpgrade}
+        onUpgrade={onNavigateToTokens}
       />
 
       {/* User Insights */}
