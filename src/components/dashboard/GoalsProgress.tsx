@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Quote, Target, CheckCircle, Sparkles, Info, Trophy } from "lucide-react";
+import { Heart, Target, CheckCircle, Sparkles, Info, Trophy, MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,22 +16,26 @@ interface Goal {
   avatar_id: string;
 }
 
+interface EmotionalSummary {
+  emotional_summary?: string;
+  main_topic?: string;
+  supportive_message?: string;
+}
+
 interface GoalsProgressProps {
-  lastAdvice: string | null;
   userId?: string;
 }
 
-const defaultAdvice =
-  "Ricorda: ogni piccolo passo avanti è una vittoria. Non devi fare tutto oggi, ma puoi fare qualcosa oggi.";
-
-export function GoalsProgress({ lastAdvice, userId }: GoalsProgressProps) {
+export function GoalsProgress({ userId }: GoalsProgressProps) {
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [emotionalData, setEmotionalData] = useState<EmotionalSummary | null>(null);
   const [loading, setLoading] = useState(true);
-  const displayAdvice = lastAdvice || defaultAdvice;
+  const [hasConversations, setHasConversations] = useState(false);
 
   useEffect(() => {
     if (userId) {
       fetchGoals();
+      fetchEmotionalSummary();
     }
   }, [userId]);
 
@@ -58,6 +62,36 @@ export function GoalsProgress({ lastAdvice, userId }: GoalsProgressProps) {
     }
   };
 
+  const fetchEmotionalSummary = async () => {
+    try {
+      // Get the latest session insight with emotional data
+      const { data, error } = await supabase
+        .from("session_insights")
+        .select("summary, mood, topic, key_points")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error && error.code !== "PGRST116") {
+        console.error("Error fetching emotional summary:", error);
+        return;
+      }
+
+      if (data) {
+        setHasConversations(true);
+        const keyPoints = data.key_points as EmotionalSummary | null;
+        setEmotionalData({
+          emotional_summary: data.mood || keyPoints?.emotional_summary,
+          main_topic: data.topic || keyPoints?.main_topic,
+          supportive_message: data.summary || keyPoints?.supportive_message,
+        });
+      }
+    } catch (err) {
+      console.error("Error:", err);
+    }
+  };
+
   const calculateProgress = (goal: Goal): number => {
     const notes = Array.isArray(goal.progress_notes) ? goal.progress_notes : [];
     if (notes.length === 0) return 10;
@@ -80,7 +114,7 @@ export function GoalsProgress({ lastAdvice, userId }: GoalsProgressProps) {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-      {/* Last Advice Card */}
+      {/* Emotional Recap Card */}
       <motion.div
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
@@ -98,21 +132,57 @@ export function GoalsProgress({ lastAdvice, userId }: GoalsProgressProps) {
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 rounded-lg bg-gradient-to-br from-primary/30 to-accent/30 backdrop-blur-sm">
-              <Quote className="w-5 h-5 text-white" />
+              <Heart className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h3 className="font-semibold text-white">Last Advice</h3>
-              <p className="text-xs text-white/60">From your recent conversations</p>
+              <h3 className="font-semibold text-white">Your Emotional Journey</h3>
+              <p className="text-xs text-white/60">How you've been feeling lately</p>
             </div>
           </div>
 
-          <blockquote className="text-white/90 text-sm leading-relaxed italic border-l-2 border-primary/50 pl-4">
-            "{displayAdvice}"
-          </blockquote>
+          {hasConversations && emotionalData ? (
+            <>
+              {emotionalData.emotional_summary && (
+                <div className="mb-3">
+                  <p className="text-xs text-white/50 mb-1">Current mood</p>
+                  <p className="text-white/90 text-sm font-medium">
+                    {emotionalData.emotional_summary}
+                  </p>
+                </div>
+              )}
+              
+              {emotionalData.main_topic && (
+                <div className="mb-3">
+                  <p className="text-xs text-white/50 mb-1">What's on your mind</p>
+                  <p className="text-white/80 text-sm italic">
+                    {emotionalData.main_topic}
+                  </p>
+                </div>
+              )}
+
+              {emotionalData.supportive_message && (
+                <blockquote className="text-white/90 text-sm leading-relaxed border-l-2 border-primary/50 pl-4 mt-4">
+                  "{emotionalData.supportive_message}"
+                </blockquote>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-4">
+              <MessageCircle className="w-8 h-8 mx-auto mb-2 text-white/30" />
+              <p className="text-sm text-white/60">Start chatting with your companions</p>
+              <p className="text-xs text-white/40 mt-1">
+                Your emotional journey will appear here after your conversations
+              </p>
+            </div>
+          )}
 
           <div className="mt-4 flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-gold" />
-            <span className="text-xs text-white/50">Your companions are tracking your journey</span>
+            <span className="text-xs text-white/50">
+              {hasConversations 
+                ? "Based on your recent conversations" 
+                : "Talk to an avatar to get started"}
+            </span>
           </div>
         </div>
       </motion.div>
@@ -148,8 +218,8 @@ export function GoalsProgress({ lastAdvice, userId }: GoalsProgressProps) {
                 </TooltipTrigger>
                 <TooltipContent side="left" className="max-w-[250px]">
                   <p className="text-sm">
-                    I tuoi obiettivi vengono rilevati automaticamente dalle conversazioni con tutti gli avatar.
-                    Quando raggiungi un obiettivo, ricevi <span className="font-bold text-gold">+5 crediti</span> bonus! 🎉
+                    Your goals are automatically detected from conversations with all avatars.
+                    Complete a goal to earn <span className="font-bold text-gold">+5 credits</span>! 🎉
                   </p>
                 </TooltipContent>
               </Tooltip>

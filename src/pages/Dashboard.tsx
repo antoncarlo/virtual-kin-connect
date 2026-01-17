@@ -350,8 +350,6 @@ function HomeTab({
   // Generate mock mood data from insights
   const moodData = generateMoodData(insights);
   
-  // Get last advice from insights
-  const lastAdvice = insights.length > 0 ? insights[0]?.summary : null;
   
   // Get avatar statuses
   const getAvatarStatus = (avatarId: string): "ready" | "reflecting" | "listening" => {
@@ -387,7 +385,7 @@ function HomeTab({
       />
 
       {/* Goals Progress */}
-      <GoalsProgress lastAdvice={lastAdvice} userId={user?.id} />
+      <GoalsProgress userId={user?.id} />
 
       {/* Premium Avatar Cards */}
       <div className="mb-8">

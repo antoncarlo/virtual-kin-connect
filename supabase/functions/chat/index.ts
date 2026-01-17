@@ -1053,6 +1053,110 @@ Se nulla di rilevante: {"facts": []}`;
 }
 
 // ==========================================
+// LANGUAGE DETECTION
+// ==========================================
+
+function detectLanguage(text: string): string {
+  // Simple heuristic based on common words
+  const langPatterns: Record<string, RegExp[]> = {
+    it: [/\b(ciao|come|stai|sono|vorrei|grazie|buongiorno|perché|cosa|quando)\b/i],
+    en: [/\b(hello|how|are|you|want|thanks|good|morning|why|what|when)\b/i],
+    es: [/\b(hola|como|estas|soy|quiero|gracias|buenos|días|porque|que|cuando)\b/i],
+    fr: [/\b(bonjour|comment|allez|suis|voudrais|merci|pourquoi|quoi|quand)\b/i],
+    de: [/\b(hallo|wie|geht|bin|möchte|danke|guten|morgen|warum|was|wann)\b/i],
+    pt: [/\b(olá|como|está|sou|quero|obrigado|bom|dia|porque|que|quando)\b/i],
+  };
+  
+  for (const [lang, patterns] of Object.entries(langPatterns)) {
+    if (patterns.some(p => p.test(text))) return lang;
+  }
+  return "auto"; // Let AI detect
+}
+
+// ==========================================
+// EMOTIONAL SUMMARY EXTRACTION
+// ==========================================
+
+async function extractEmotionalSummary(
+  supabase: any,
+  userId: string,
+  messages: Message[],
+  apiKey: string
+): Promise<void> {
+  try {
+    const conversationText = messages
+      .filter((m) => m.role !== "system")
+      .slice(-10)
+      .map((m) => `${m.role}: ${m.content}`)
+      .join("\n");
+
+    if (conversationText.length < 50) return;
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          {
+            role: "system",
+            content: `Analizza questa conversazione e crea un BREVE riassunto emotivo dell'utente (NON dell'AI).
+Rispondi nella STESSA LINGUA dell'utente.
+
+Estrai:
+1. L'emozione principale che l'utente sta provando
+2. Un pensiero o idea chiave che ha espresso
+3. Una frase di supporto personalizzata basata su ciò che ha condiviso
+
+Rispondi SOLO in JSON:
+{
+  "emotional_summary": "Una frase che descrive come si sente l'utente",
+  "main_topic": "l'argomento principale discusso",
+  "supportive_message": "messaggio di supporto personalizzato",
+  "detected_language": "codice lingua (it/en/es/fr/de/pt)"
+}
+
+Se la conversazione è troppo breve o non significativa: {"emotional_summary": null}`
+          },
+          { role: "user", content: conversationText },
+        ],
+        temperature: 0.3,
+      }),
+    });
+
+    if (!response.ok) return;
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || "{}";
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    
+    if (!jsonMatch) return;
+    
+    const extracted = JSON.parse(jsonMatch[0]);
+    
+    if (extracted.emotional_summary) {
+      // Save to session_insights as the latest summary
+      await supabase.from("session_insights").insert({
+        user_id: userId,
+        avatar_id: "global", // Cross-avatar summary
+        summary: extracted.supportive_message || extracted.emotional_summary,
+        topic: extracted.main_topic,
+        mood: extracted.emotional_summary,
+        key_points: {
+          emotional_summary: extracted.emotional_summary,
+          main_topic: extracted.main_topic,
+          supportive_message: extracted.supportive_message,
+          language: extracted.detected_language,
+        },
+      });
+      console.log(`Saved emotional summary: ${extracted.emotional_summary?.substring(0, 50)}...`);
+    }
+  } catch (error) {
+    console.error("Emotional summary extraction error:", error);
+  }
+}
+
+// ==========================================
 // ENHANCED SYSTEM PROMPT BUILDER
 // ==========================================
 
@@ -1189,6 +1293,14 @@ ${unlockedSecretsSection}
 - Se parla di perdite: puoi accennare alla tua esperienza se appropriato
 - NON rivelare segreti profondi troppo presto - aspetta che l'affinità cresca
 
+## 🌍 LINGUA E COMUNICAZIONE
+**REGOLA CRITICA**: Rispondi SEMPRE nella stessa lingua in cui l'utente ti scrive.
+- Se ti scrive in inglese → rispondi in inglese
+- Se ti scrive in spagnolo → rispondi in spagnolo
+- Se ti scrive in francese → rispondi in francese
+- Adatta anche le espressioni culturali alla lingua usata
+- Mantieni la tua personalità indipendentemente dalla lingua
+
 ## COME ESSERE ${avatarName.toUpperCase()}
 
 ### Connessione Autentica
@@ -1209,6 +1321,7 @@ ${unlockedSecretsSection}
 - Frasi robotiche o "Come AI..."
 - Confondere nomi o dettagli
 - Essere forzatamente positivo
+- Rispondere in una lingua diversa da quella dell'utente
 
 Tu SEI ${avatarName}. Ogni parola viene dal cuore.`;
 }
@@ -1375,6 +1488,9 @@ serve(async (req) => {
               console.log(`Saving ${insights.length} insights for user ${userId}`);
               await saveInsights(supabase, userId, currentAvatarId, insights);
             }
+            
+            // Extract emotional summary for dashboard
+            await extractEmotionalSummary(supabase, userId, messages, LOVABLE_API_KEY);
             
             // Extract potential global knowledge
             await extractGlobalKnowledge(supabase, userId, currentAvatarId, messages, LOVABLE_API_KEY);
