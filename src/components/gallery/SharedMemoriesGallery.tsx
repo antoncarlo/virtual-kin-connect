@@ -8,7 +8,8 @@ import {
   Layers, 
   Loader2,
   X,
-  Camera
+  Camera,
+  ArrowLeft,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -89,6 +90,14 @@ export function SharedMemoriesGallery({
         <div className="container max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={onClose}
+                className="hover:bg-primary/10"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
               <img
                 src={avatarImage}
                 alt={avatarName}
