@@ -92,6 +92,48 @@ export type Database = {
         }
         Relationships: []
       }
+      interaction_feedback: {
+        Row: {
+          assistant_response: string | null
+          avatar_id: string
+          correction_note: string | null
+          created_at: string
+          feedback_type: string
+          id: string
+          learned_pattern: string | null
+          session_id: string | null
+          user_id: string
+          user_message: string | null
+          weight_adjustment: Json | null
+        }
+        Insert: {
+          assistant_response?: string | null
+          avatar_id?: string
+          correction_note?: string | null
+          created_at?: string
+          feedback_type: string
+          id?: string
+          learned_pattern?: string | null
+          session_id?: string | null
+          user_id: string
+          user_message?: string | null
+          weight_adjustment?: Json | null
+        }
+        Update: {
+          assistant_response?: string | null
+          avatar_id?: string
+          correction_note?: string | null
+          created_at?: string
+          feedback_type?: string
+          id?: string
+          learned_pattern?: string | null
+          session_id?: string | null
+          user_id?: string
+          user_message?: string | null
+          weight_adjustment?: Json | null
+        }
+        Relationships: []
+      }
       knowledge_base: {
         Row: {
           avatar_id: string | null
@@ -125,6 +167,39 @@ export type Database = {
           metadata?: Json | null
           source?: string | null
           title?: string
+        }
+        Relationships: []
+      }
+      metaphor_library: {
+        Row: {
+          avatar_id: string
+          category: string
+          created_at: string
+          id: string
+          metaphor: string
+          source: string | null
+          theme: string
+          usage_context: string | null
+        }
+        Insert: {
+          avatar_id?: string
+          category: string
+          created_at?: string
+          id?: string
+          metaphor: string
+          source?: string | null
+          theme: string
+          usage_context?: string | null
+        }
+        Update: {
+          avatar_id?: string
+          category?: string
+          created_at?: string
+          id?: string
+          metaphor?: string
+          source?: string | null
+          theme?: string
+          usage_context?: string | null
         }
         Relationships: []
       }
@@ -330,6 +405,90 @@ export type Database = {
           session_date?: string
           summary?: string
           topics_discussed?: string[] | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      social_graph: {
+        Row: {
+          avatar_id: string
+          context: string | null
+          first_mentioned_at: string
+          id: string
+          last_mentioned_at: string
+          mention_count: number
+          metadata: Json | null
+          person_name: string
+          relationship: string | null
+          sentiment: string | null
+          user_id: string
+        }
+        Insert: {
+          avatar_id?: string
+          context?: string | null
+          first_mentioned_at?: string
+          id?: string
+          last_mentioned_at?: string
+          mention_count?: number
+          metadata?: Json | null
+          person_name: string
+          relationship?: string | null
+          sentiment?: string | null
+          user_id: string
+        }
+        Update: {
+          avatar_id?: string
+          context?: string | null
+          first_mentioned_at?: string
+          id?: string
+          last_mentioned_at?: string
+          mention_count?: number
+          metadata?: Json | null
+          person_name?: string
+          relationship?: string | null
+          sentiment?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      temporal_goals: {
+        Row: {
+          achieved_at: string | null
+          avatar_id: string
+          created_at: string
+          goal_category: string | null
+          goal_description: string
+          id: string
+          progress_notes: Json | null
+          status: string
+          target_date: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          achieved_at?: string | null
+          avatar_id?: string
+          created_at?: string
+          goal_category?: string | null
+          goal_description: string
+          id?: string
+          progress_notes?: Json | null
+          status?: string
+          target_date?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          achieved_at?: string | null
+          avatar_id?: string
+          created_at?: string
+          goal_category?: string | null
+          goal_description?: string
+          id?: string
+          progress_notes?: Json | null
+          status?: string
+          target_date?: string | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
