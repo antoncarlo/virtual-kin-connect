@@ -28,13 +28,13 @@ export default function SignUp() {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
-        navigate("/onboarding");
+        navigate("/dashboard");
       }
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        navigate("/onboarding");
+        navigate("/dashboard");
       }
     });
 
@@ -47,7 +47,7 @@ export default function SignUp() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/onboarding`,
+          redirectTo: `${window.location.origin}/dashboard`,
         },
       });
 
@@ -71,7 +71,7 @@ export default function SignUp() {
         email: formData.email,
         password: formData.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/onboarding`,
+          emailRedirectTo: `${window.location.origin}/dashboard`,
           data: {
             first_name: formData.firstName,
             last_name: formData.lastName,
