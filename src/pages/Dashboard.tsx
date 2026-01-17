@@ -25,6 +25,10 @@ import { UserInsights } from "@/components/dashboard/UserInsights";
 import { GoalsProgress } from "@/components/dashboard/GoalsProgress";
 import { PremiumAvatarCard } from "@/components/dashboard/PremiumAvatarCard";
 import { SubscriptionWidget } from "@/components/dashboard/SubscriptionWidget";
+import { ProfileSettings } from "@/components/settings/ProfileSettings";
+import { SecuritySettings } from "@/components/settings/SecuritySettings";
+import { BillingSettings } from "@/components/settings/BillingSettings";
+import { DangerZoneSettings } from "@/components/settings/DangerZoneSettings";
 import type { User } from "@supabase/supabase-js";
 import kindredIcon from "@/assets/kindred-icon.png";
 
@@ -107,6 +111,7 @@ export default function Dashboard() {
       title: "Signed out",
       description: "See you soon!",
     });
+    navigate("/");
   };
 
   const handleSelectAvatar = (avatar: AvatarType) => {
@@ -303,6 +308,7 @@ export default function Dashboard() {
                 user={user} 
                 profile={profile} 
                 onUpgrade={() => setShowSubscriptionModal(true)}
+                onProfileUpdate={() => {}}
               />
             )}
           </AnimatePresence>
@@ -565,7 +571,12 @@ function TokensTab({ tokenBalance, referralCode, referrals, onGenerateCode, tota
 }
 
 // Settings Tab  
-function SettingsTab({ user, profile, onUpgrade }: { user: User | null; profile: any; onUpgrade: () => void }) {
+function SettingsTab({ user, profile, onUpgrade, onProfileUpdate }: { 
+  user: User | null; 
+  profile: any; 
+  onUpgrade: () => void;
+  onProfileUpdate: () => void;
+}) {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
       <div className="mb-8">
@@ -574,37 +585,10 @@ function SettingsTab({ user, profile, onUpgrade }: { user: User | null; profile:
       </div>
 
       <div className="space-y-6">
-        <div className="glass border-gradient rounded-xl p-6">
-          <h3 className="text-lg font-semibold mb-4">Profile</h3>
-          <div className="flex items-center gap-4">
-            <Avatar className="w-16 h-16 border-2 border-primary/30">
-              <AvatarImage src={profile?.avatar_url || user?.user_metadata?.avatar_url} />
-              <AvatarFallback className="bg-primary/10 text-primary text-xl">
-                {user?.email?.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="font-medium">{profile?.display_name || user?.user_metadata?.full_name || "User"}</p>
-              <p className="text-sm text-muted-foreground">{user?.email}</p>
-              {profile?.bio && <p className="text-xs text-muted-foreground mt-1">{profile.bio}</p>}
-            </div>
-          </div>
-        </div>
-
-        <div className="glass border-gradient rounded-xl p-6">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <CreditCard className="w-5 h-5" /> Subscription
-          </h3>
-          <div className="flex items-center justify-between">
-            <div>
-              <Badge className="bg-primary/20 text-primary">
-                <Sparkles className="w-3 h-3 mr-1" /> {profile?.subscription_tier || "Free"}
-              </Badge>
-              <p className="text-sm text-muted-foreground mt-1">{profile?.tokens_balance || 0} tokens available</p>
-            </div>
-            <Button className="gradient-primary" onClick={onUpgrade}>Upgrade</Button>
-          </div>
-        </div>
+        <ProfileSettings user={user} profile={profile} onProfileUpdate={onProfileUpdate} />
+        <SecuritySettings />
+        <BillingSettings profile={profile} onUpgrade={onUpgrade} />
+        <DangerZoneSettings user={user} />
       </div>
     </motion.div>
   );

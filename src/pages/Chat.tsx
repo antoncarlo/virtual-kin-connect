@@ -11,6 +11,7 @@ import {
   Sparkles,
   Image,
   User,
+  Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -32,6 +33,7 @@ import { HybridCallBanner } from "@/components/chat/HybridCallBanner";
 import { SharedMemoriesGallery } from "@/components/gallery/SharedMemoriesGallery";
 import { AboutAvatarPanel } from "@/components/avatar/AboutAvatarPanel";
 import { useAvatarIdentity } from "@/hooks/useAvatarIdentity";
+import { useProfile } from "@/hooks/useProfile";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -84,6 +86,10 @@ export default function Chat() {
     unlockedSecrets,
     incrementMessages,
   } = useAvatarIdentity(avatarId || "");
+
+  // Profile for premium check
+  const { profile } = useProfile();
+  const isPremium = profile?.subscription_tier === "Premium" || profile?.subscription_tier === "Pro";
 
   // Session insights hook for post-session analysis
   const {
@@ -656,11 +662,28 @@ export default function Chat() {
                     Chi è {avatar.name}
                   </DropdownMenuItem>
                   <DropdownMenuItem 
-                    onClick={() => setShowGallery(true)}
+                    onClick={() => {
+                      if (isPremium) {
+                        setShowGallery(true);
+                      } else {
+                        toast({
+                          title: "Premium Feature",
+                          description: "Upgrade to Premium to share memories with your avatars!",
+                          variant: "default",
+                        });
+                      }
+                    }}
                     className="gap-2"
                   >
-                    <Image className="w-4 h-4" />
+                    {isPremium ? (
+                      <Image className="w-4 h-4" />
+                    ) : (
+                      <Lock className="w-4 h-4 text-muted-foreground" />
+                    )}
                     Ricordi condivisi
+                    {!isPremium && (
+                      <span className="ml-auto text-xs text-gold">Premium</span>
+                    )}
                   </DropdownMenuItem>
                   <DropdownMenuItem 
                     onClick={handleManualAnalysis}
