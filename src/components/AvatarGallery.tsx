@@ -1,7 +1,9 @@
 import { motion } from "framer-motion";
 import { AvatarCard } from "./AvatarCard";
 import { avatars, type Avatar } from "@/data/avatars";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Play, Sparkles } from "lucide-react";
 
 export function AvatarGallery() {
   const navigate = useNavigate();
@@ -35,7 +37,7 @@ export function AvatarGallery() {
         </motion.div>
 
         {/* Avatar Grid - Two cards centered */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto mb-10">
           {avatars.map((avatar, index) => (
             <AvatarCard
               key={avatar.id}
@@ -45,6 +47,35 @@ export function AvatarGallery() {
             />
           ))}
         </div>
+
+        {/* Try Demo CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.2 }}
+          className="max-w-xl mx-auto"
+        >
+          <div className="glass rounded-2xl p-6 border border-primary/20 text-center">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
+              <Sparkles className="w-4 h-4" />
+              Try Before You Sign Up
+            </div>
+            <h3 className="text-xl font-display font-semibold mb-2">
+              Experience a Demo Conversation
+            </h3>
+            <p className="text-muted-foreground text-sm mb-5">
+              Not sure if Kindred is right for you? Try a quick demo conversation 
+              with one of our AI companions—no account needed.
+            </p>
+            <Button asChild size="lg" className="gradient-primary gap-2">
+              <Link to="/demo">
+                <Play className="w-4 h-4" />
+                Try Demo Now
+              </Link>
+            </Button>
+          </div>
+        </motion.div>
       </div>
     </section>
   );
