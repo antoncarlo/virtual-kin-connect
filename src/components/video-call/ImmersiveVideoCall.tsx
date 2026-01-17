@@ -34,6 +34,7 @@ import { VisionUpload } from "./VisionUpload";
 import { CinematicFilter } from "./CinematicFilter";
 import { LoadingTransition } from "./LoadingTransition";
 import { ResponsiveVideoContainer } from "./ResponsiveVideoContainer";
+import { WebRTCDebugPanel, useWebRTCDebugLogs } from "./WebRTCDebugPanel";
 
 interface ImmersiveVideoCallProps {
   isOpen: boolean;
@@ -86,6 +87,9 @@ export function ImmersiveVideoCall({
 
   // Temporal context for dynamic backgrounds
   const temporalContext = useTemporalContext();
+
+  // WebRTC Debug logs
+  const { logs: debugLogs, connectionState, iceConnectionState, iceGatheringState, addLog, clearLogs, updateConnectionStates } = useWebRTCDebugLogs();
 
   // Audio-Video sync for Vapi-HeyGen bridge
   const { 
@@ -190,6 +194,8 @@ export function ImmersiveVideoCall({
     onSpeaking: handleHeyGenSpeaking,
     onError: handleHeyGenError,
     onProcessing: handleHeyGenProcessing,
+    onDebugLog: addLog,
+    onConnectionStateChange: updateConnectionStates,
   });
 
   // Idle gestures for natural movement during silence

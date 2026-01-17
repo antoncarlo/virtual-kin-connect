@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { DebugLog } from "@/components/video-call/WebRTCDebugPanel";
 
 interface UseHeyGenStreamingProps {
   avatarId?: string;
@@ -10,6 +11,8 @@ interface UseHeyGenStreamingProps {
   onSpeaking?: (isSpeaking: boolean) => void;
   onError?: (error: Error) => void;
   onProcessing?: (isProcessing: boolean) => void;
+  onDebugLog?: (step: string, status: DebugLog["status"], details?: string) => void;
+  onConnectionStateChange?: (pc: RTCPeerConnection | null) => void;
 }
 
 interface SessionInfo {
@@ -17,11 +20,6 @@ interface SessionInfo {
   sdp: RTCSessionDescriptionInit;
   ice_servers2: RTCIceServer[];
 }
-
-// Debug logger
-const log = (step: string, data?: unknown) => {
-  console.log(`[HeyGen WebRTC] ${step}`, data ? data : "");
-};
 
 export function useHeyGenStreaming({
   avatarId,
@@ -31,6 +29,8 @@ export function useHeyGenStreaming({
   onSpeaking,
   onError,
   onProcessing,
+  onDebugLog,
+  onConnectionStateChange,
 }: UseHeyGenStreamingProps = {}) {
   const { toast } = useToast();
   const [isConnecting, setIsConnecting] = useState(false);
@@ -48,9 +48,16 @@ export function useHeyGenStreaming({
   const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const iceCandidatesRef = useRef<RTCIceCandidate[]>([]);
 
+  // Debug logger that also sends to UI
+  const log = useCallback((step: string, status: DebugLog["status"] = "info", details?: string) => {
+    console.log(`[HeyGen WebRTC] ${step}`, details || "");
+    onDebugLog?.(step, status, details);
+  }, [onDebugLog]);
+
   // Create WebRTC peer connection with HeyGen's ICE servers
   const createPeerConnection = useCallback((iceServers: RTCIceServer[]) => {
-    log("Creating RTCPeerConnection", { iceServers });
+    log("Creating RTCPeerConnection", "pending", `${iceServers.length} ICE servers`);
+    onConnectionStateChange?.(null);
     
     const pc = new RTCPeerConnection({
       iceServers: iceServers.length > 0 ? iceServers : [
@@ -60,10 +67,13 @@ export function useHeyGenStreaming({
       iceCandidatePoolSize: 10,
     });
 
+    // Update connection states for debug panel
+    const updateStates = () => onConnectionStateChange?.(pc);
+
     // Handle ICE candidates
     pc.onicecandidate = async (event) => {
       if (event.candidate) {
-        log("ICE Candidate received", event.candidate.candidate.substring(0, 50));
+        log("ICE Candidate received", "info", event.candidate.candidate.substring(0, 50));
         iceCandidatesRef.current.push(event.candidate);
         
         // Send ICE candidate to HeyGen
@@ -81,25 +91,26 @@ export function useHeyGenStreaming({
               },
             });
           } catch (error) {
-            log("ICE candidate send error", error);
+            log("ICE candidate send error", "error", String(error));
           }
         }
       } else {
-        log("ICE gathering complete");
+        log("ICE gathering complete", "success");
       }
     };
 
     pc.oniceconnectionstatechange = () => {
-      log("ICE connection state", pc.iceConnectionState);
+      updateStates();
+      log("ICE connection state", "info", pc.iceConnectionState);
       
       if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") {
-        log("✅ Video Stream Connected!");
+        log("✅ Video Stream Connected!", "success");
         setIsConnected(true);
         setIsConnecting(false);
         setConnectionError(null);
         onConnected?.();
       } else if (pc.iceConnectionState === "failed" || pc.iceConnectionState === "disconnected") {
-        log("❌ ICE connection failed/disconnected");
+        log("❌ ICE connection failed/disconnected", "error");
         setConnectionError("Connessione video persa");
         if (pc.iceConnectionState === "failed") {
           onError?.(new Error("WebRTC connection failed"));
@@ -108,7 +119,8 @@ export function useHeyGenStreaming({
     };
 
     pc.onconnectionstatechange = () => {
-      log("Connection state", pc.connectionState);
+      updateStates();
+      log("Connection state", "info", pc.connectionState);
       
       if (pc.connectionState === "connected") {
         setIsConnected(true);
@@ -122,9 +134,14 @@ export function useHeyGenStreaming({
       }
     };
 
+    pc.onicegatheringstatechange = () => {
+      updateStates();
+      log("ICE gathering state", "info", pc.iceGatheringState);
+    };
+
     // Handle incoming media tracks
     pc.ontrack = (event) => {
-      log("🎥 Track received", { kind: event.track.kind, id: event.track.id });
+      log("🎥 Track received", "success", `${event.track.kind} - ${event.track.id.substring(0, 8)}`);
       
       if (!mediaStreamRef.current) {
         mediaStreamRef.current = new MediaStream();
@@ -134,18 +151,17 @@ export function useHeyGenStreaming({
       mediaStreamRef.current.addTrack(event.track);
       setMediaStream(new MediaStream(mediaStreamRef.current.getTracks()));
       
-      log("✅ Video Stream Attached", { 
-        tracks: mediaStreamRef.current.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled }))
-      });
+      const trackInfo = mediaStreamRef.current.getTracks().map(t => t.kind).join(", ");
+      log("✅ Video Stream Attached", "success", `Tracks: ${trackInfo}`);
     };
 
     return pc;
-  }, [onConnected, onDisconnected, onError]);
+  }, [log, onConnected, onDisconnected, onError, onConnectionStateChange]);
 
   // Start HeyGen streaming session
   const startSession = useCallback(async (videoElement?: HTMLVideoElement) => {
     if (isStartingRef.current || isConnected || sessionInfoRef.current) {
-      log("Session already in progress, skipping...");
+      log("Session already in progress, skipping...", "info");
       return;
     }
 
@@ -154,11 +170,11 @@ export function useHeyGenStreaming({
     setConnectionError(null);
     iceCandidatesRef.current = [];
     
-    log("🚀 Starting HeyGen session", { avatarId, voiceId });
+    log("🚀 Starting HeyGen session", "pending", `Avatar: ${avatarId}`);
 
     try {
       // Step 1: Create new streaming session
-      log("Step 1: Creating session...");
+      log("Step 1: Creating session...", "pending");
       const createResponse = await supabase.functions.invoke('heygen-streaming', {
         body: {
           action: 'create-session',
@@ -167,22 +183,18 @@ export function useHeyGenStreaming({
         },
       });
 
-      log("Create session response", createResponse);
-
       if (createResponse.error) {
+        log("Create session failed", "error", createResponse.error.message);
         throw new Error(`Create session failed: ${createResponse.error.message}`);
       }
 
       const sessionData = createResponse.data;
       if (!sessionData?.data?.session_id) {
+        log("Invalid session response", "error", "No session_id");
         throw new Error(`Invalid session response: ${JSON.stringify(sessionData)}`);
       }
 
-      log("✅ Session Created", { 
-        session_id: sessionData.data.session_id,
-        hasSdp: !!sessionData.data.sdp,
-        hasIceServers: !!sessionData.data.ice_servers2
-      });
+      log("✅ Session Created", "success", sessionData.data.session_id.substring(0, 12) + "...");
 
       // Store session info
       sessionInfoRef.current = {
@@ -192,29 +204,31 @@ export function useHeyGenStreaming({
       };
 
       // Step 2: Create RTCPeerConnection
-      log("Step 2: Creating RTCPeerConnection...");
+      log("Step 2: Creating RTCPeerConnection...", "pending");
       const pc = createPeerConnection(sessionInfoRef.current.ice_servers2);
       peerConnectionRef.current = pc;
+      log("RTCPeerConnection created", "success");
 
       // Add transceiver for receiving video and audio
       pc.addTransceiver("video", { direction: "recvonly" });
       pc.addTransceiver("audio", { direction: "recvonly" });
+      log("Transceivers added", "success", "video + audio");
 
       // Step 3: Set remote description (HeyGen's offer)
-      log("Step 3: Setting remote description...");
+      log("Step 3: Setting remote description...", "pending");
       if (sessionInfoRef.current.sdp) {
         await pc.setRemoteDescription(new RTCSessionDescription(sessionInfoRef.current.sdp));
-        log("✅ Remote description set");
+        log("✅ Remote description set", "success");
       }
 
       // Step 4: Create answer
-      log("Step 4: Creating answer...");
+      log("Step 4: Creating answer...", "pending");
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      log("✅ Local description set (answer)");
+      log("✅ Local description set", "success", "SDP answer ready");
 
       // Step 5: Send answer to HeyGen via start-session
-      log("Step 5: Starting session with SDP answer...");
+      log("Step 5: Sending SDP answer to HeyGen...", "pending");
       const startResponse = await supabase.functions.invoke('heygen-streaming', {
         body: {
           action: 'start-session',
@@ -223,23 +237,23 @@ export function useHeyGenStreaming({
         },
       });
 
-      log("Start session response", startResponse);
-
       if (startResponse.error) {
+        log("Start session failed", "error", startResponse.error.message);
         throw new Error(`Start session failed: ${startResponse.error.message}`);
       }
 
-      log("✅ SDP Exchange Complete");
+      log("✅ SDP Exchange Complete", "success");
 
       // Attach stream to video element when ready
       if (videoElement && mediaStreamRef.current) {
-        log("Attaching stream to video element");
+        log("Attaching stream to video element", "pending");
         videoElement.srcObject = mediaStreamRef.current;
-        videoElement.play().catch(e => log("Video play error", e));
+        videoElement.play().catch(e => log("Video play error", "error", String(e)));
+        log("Stream attached to video", "success");
       }
 
       // Step 6: Send initial task to pre-warm avatar
-      log("Step 6: Pre-warming avatar...");
+      log("Step 6: Pre-warming avatar...", "pending");
       setTimeout(async () => {
         try {
           await supabase.functions.invoke('heygen-streaming', {
@@ -249,9 +263,9 @@ export function useHeyGenStreaming({
               text: " ", // Empty space to trigger avatar render
             },
           });
-          log("✅ Avatar pre-warmed");
+          log("✅ Avatar pre-warmed", "success");
         } catch (e) {
-          log("Pre-warm failed (non-critical)", e);
+          log("Pre-warm failed (non-critical)", "error", String(e));
         }
       }, 2000);
 
@@ -268,6 +282,7 @@ export function useHeyGenStreaming({
       
       const err = error as Error;
       setConnectionError(err.message);
+      log("❌ Connection failed", "error", err.message);
       onError?.(err);
       
       toast({
@@ -276,16 +291,16 @@ export function useHeyGenStreaming({
         variant: "destructive",
       });
     }
-  }, [avatarId, voiceId, isConnected, createPeerConnection, onError, toast]);
+  }, [avatarId, voiceId, isConnected, createPeerConnection, log, onError, toast]);
 
   // Send text for avatar to speak
   const sendText = useCallback(async (text: string, emotion?: string) => {
     if (!sessionInfoRef.current || !text.trim()) {
-      log("sendText: No active session or empty text");
+      log("sendText: No active session or empty text", "info");
       return;
     }
 
-    log("📢 Sending text to avatar", text.substring(0, 50));
+    log("📢 Sending text to avatar", "pending", text.substring(0, 50));
     
     setIsSpeaking(true);
     setIsProcessing(true);
@@ -306,7 +321,7 @@ export function useHeyGenStreaming({
         throw new Error(response.error.message);
       }
 
-      log("✅ Text sent successfully");
+      log("✅ Text sent successfully", "success");
 
       // Estimate speech duration (~15 chars/second for Italian)
       const estimatedDuration = Math.max(text.length * 65, 1500);
@@ -323,7 +338,7 @@ export function useHeyGenStreaming({
       }, estimatedDuration);
 
     } catch (error) {
-      log("sendText error", error);
+      log("sendText error", "error", String(error));
       setIsSpeaking(false);
       setIsProcessing(false);
       onSpeaking?.(false);
