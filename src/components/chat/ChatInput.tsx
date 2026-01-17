@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Send, Mic, MicOff, Loader2, Phone, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { SupportedLanguage, speechRecognitionLanguages, Translations } from "@/lib/i18n";
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -13,6 +14,8 @@ interface ChatInputProps {
   isVoiceCallActive?: boolean;
   placeholder?: string;
   avatarName?: string;
+  language?: SupportedLanguage;
+  translations?: Partial<Translations>;
 }
 
 export function ChatInput({
@@ -24,12 +27,19 @@ export function ChatInput({
   isVoiceCallActive = false,
   placeholder,
   avatarName = "Marco",
+  language = "auto",
+  translations,
 }: ChatInputProps) {
   const [value, setValue] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
+
+  // Get speech recognition language code
+  const getSpeechLang = () => {
+    return speechRecognitionLanguages[language] || "it-IT";
+  };
 
   // Check for speech recognition support
   useEffect(() => {
@@ -40,7 +50,8 @@ export function ChatInput({
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = false;
       recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = "it-IT";
+      // Use dynamic language based on detected/selected language
+      recognitionRef.current.lang = getSpeechLang();
 
       recognitionRef.current.onresult = (event: any) => {
         const transcript = Array.from(event.results)
@@ -63,7 +74,14 @@ export function ChatInput({
         recognitionRef.current.stop();
       }
     };
-  }, []);
+  }, [language]);
+
+  // Update speech recognition language when language changes
+  useEffect(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.lang = getSpeechLang();
+    }
+  }, [language]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -121,7 +139,9 @@ export function ChatInput({
               )}
             >
               <Phone className="w-3.5 h-3.5" />
-              {isVoiceCallActive ? "End Call" : `Call ${avatarName}`}
+              {isVoiceCallActive 
+                ? (translations?.endCallButton || "End Call") 
+                : `${translations?.callButton || "Call"} ${avatarName}`}
             </Button>
           )}
           {onVideoCall && (
@@ -132,6 +152,7 @@ export function ChatInput({
               className="gap-2 text-xs hover:bg-primary/10 hover:text-primary hover:border-primary/50"
             >
               <Video className="w-3.5 h-3.5" />
+              {translations?.videoButton || "Video"}
               Video
             </Button>
           )}
@@ -145,8 +166,9 @@ export function ChatInput({
               ref={textareaRef}
               value={value}
               onChange={(e) => setValue(e.target.value)}
+              lang={getSpeechLang().split("-")[0]}
               onKeyDown={handleKeyDown}
-              placeholder={placeholder || `Message ${avatarName}...`}
+              placeholder={placeholder || translations?.messagePlaceholder || `Message ${avatarName}...`}
               disabled={disabled || isLoading}
               rows={1}
               className={cn(
@@ -211,7 +233,7 @@ export function ChatInput({
                   className="absolute -top-8 left-4 text-xs text-destructive flex items-center gap-2"
                 >
                   <span className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
-                  Listening...
+                  {translations?.listening || "Listening..."}
                 </motion.div>
               )}
             </AnimatePresence>
