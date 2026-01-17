@@ -28,13 +28,6 @@ const privacyFeatures = [
   },
 ];
 
-const mentalHealthResources = [
-  { name: "National Suicide Prevention Lifeline (US)", phone: "988", description: "24/7 free, confidential support" },
-  { name: "Crisis Text Line (US)", phone: "Text HOME to 741741", description: "Free 24/7 text support" },
-  { name: "Telefono Amico (Italy)", phone: "02 2327 2327", description: "Ascolto e supporto telefonico" },
-  { name: "Samaritans (UK)", phone: "116 123", description: "Free 24/7 emotional support" },
-  { name: "International Association for Suicide Prevention", phone: "https://www.iasp.info/resources/Crisis_Centres/", description: "Find help in your country" },
-];
 
 export default function OurPromise() {
   return (
@@ -194,56 +187,20 @@ export default function OurPromise() {
             </div>
           </motion.section>
 
-          {/* Mental Health Resources */}
-          <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="mb-16"
-          >
-            <h2 className="text-2xl font-display font-bold text-center mb-8">
-              Mental Health Resources
-            </h2>
-            
-            <div className="space-y-3">
-              {mentalHealthResources.map((resource, index) => (
-                <motion.div
-                  key={resource.name}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4 + index * 0.05 }}
-                  className="flex items-center justify-between p-4 rounded-xl bg-card border border-border/50"
-                >
-                  <div>
-                    <h4 className="font-semibold text-sm">{resource.name}</h4>
-                    <p className="text-xs text-muted-foreground">{resource.description}</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="font-mono text-sm text-primary font-semibold">{resource.phone}</span>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </motion.section>
 
           {/* CTA */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
+            transition={{ delay: 0.4 }}
             className="text-center"
           >
             <p className="text-muted-foreground mb-4">
               Ready to experience a safe, supportive space?
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button asChild className="gradient-primary">
-                <Link to="/signup">Start 7-Day Free Trial</Link>
-              </Button>
-              <Button asChild variant="outline">
-                <Link to="/demo">Try Demo First</Link>
-              </Button>
-            </div>
+            <Button asChild className="gradient-primary">
+              <Link to="/signup">Start 7-Day Free Trial</Link>
+            </Button>
           </motion.div>
         </div>
       </div>
