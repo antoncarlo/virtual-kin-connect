@@ -604,6 +604,15 @@ export function ImmersiveVideoCall({
               )}
             </AnimatePresence>
 
+            {/* WebRTC Debug Panel */}
+            <WebRTCDebugPanel
+              logs={debugLogs}
+              isVisible={true}
+              connectionState={connectionState}
+              iceConnectionState={iceConnectionState}
+              iceGatheringState={iceGatheringState}
+            />
+
             {/* Top Status Bar - Glassmorphism */}
             <motion.div
               initial={{ y: -100, opacity: 0 }}
