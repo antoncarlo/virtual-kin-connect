@@ -1,8 +1,7 @@
-import { motion } from "framer-motion";
-import { MessageCircle, Clock, TrendingUp, Brain } from "lucide-react";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { MessageCircle, Clock, TrendingUp, Brain, Info, X } from "lucide-react";
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   Tooltip,
@@ -10,6 +9,13 @@ import {
   Area,
   AreaChart,
 } from "recharts";
+import {
+  Tooltip as UITooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 
 interface UserInsightsProps {
   totalConversations: number;
@@ -33,9 +39,31 @@ export function UserInsights({
   totalMinutes,
   moodData,
 }: UserInsightsProps) {
+  const [showMoodDetail, setShowMoodDetail] = useState(false);
   const displayMoodData = moodData.length > 0 ? moodData : defaultMoodData;
   const averageMood =
     displayMoodData.reduce((sum, d) => sum + d.mood, 0) / displayMoodData.length;
+
+  // Generate mood explanation based on data
+  const generateMoodExplanation = () => {
+    const highDays = displayMoodData.filter(d => d.mood >= 7);
+    const lowDays = displayMoodData.filter(d => d.mood < 6);
+    const avgScore = averageMood.toFixed(1);
+    
+    let explanation = `Il tuo punteggio medio questa settimana è ${avgScore}/10. `;
+    
+    if (highDays.length > 0) {
+      explanation += `Nei giorni ${highDays.map(d => d.day).join(", ")} hai mostrato un umore più positivo (${highDays.map(d => d.label.toLowerCase()).join(", ")}). `;
+    }
+    
+    if (lowDays.length > 0) {
+      explanation += `Durante ${lowDays.map(d => d.day).join(", ")}, i tuoi avatar hanno percepito un momento più riflessivo o di tensione. `;
+    }
+    
+    explanation += "Questo punteggio è calcolato analizzando le tue conversazioni, le emozioni espresse e il tono delle interazioni con i tuoi compagni AI.";
+    
+    return explanation;
+  };
 
   const stats = [
     {
@@ -113,17 +141,42 @@ export function UserInsights({
           border: "1px solid hsla(var(--border))",
         }}
       >
+        {/* Info Icon in top right */}
+        <TooltipProvider>
+          <UITooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-4 right-4 h-8 w-8 text-muted-foreground hover:text-foreground"
+              >
+                <Info className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="max-w-xs">
+              <p className="text-sm">
+                L'Emotional Journey traccia il tuo umore settimanale basandosi sulle conversazioni con i tuoi avatar AI. 
+                Clicca sul grafico per vedere i dettagli.
+              </p>
+            </TooltipContent>
+          </UITooltip>
+        </TooltipProvider>
+
         <div className="flex items-center gap-3 mb-6">
           <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20">
             <Brain className="w-5 h-5 text-primary" />
           </div>
           <div>
             <h3 className="font-semibold text-foreground">Emotional Journey</h3>
-            <p className="text-xs text-muted-foreground">Your mood over the last week</p>
+            <p className="text-xs text-muted-foreground">Il tuo umore nell'ultima settimana</p>
           </div>
         </div>
 
-        <div className="h-48">
+        {/* Clickable chart area */}
+        <div 
+          className="h-48 cursor-pointer hover:opacity-90 transition-opacity"
+          onClick={() => setShowMoodDetail(true)}
+        >
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={displayMoodData}>
               <defs>
@@ -167,7 +220,87 @@ export function UserInsights({
             </AreaChart>
           </ResponsiveContainer>
         </div>
+
+        {/* Click hint */}
+        <p className="text-xs text-muted-foreground text-center mt-2">
+          Clicca sul grafico per vedere l'analisi dettagliata
+        </p>
       </motion.div>
+
+      {/* Mood Detail Modal */}
+      <AnimatePresence>
+        {showMoodDetail && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowMoodDetail(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative max-w-lg w-full rounded-2xl p-6"
+              style={{
+                background: "hsl(var(--card))",
+                border: "1px solid hsl(var(--border))",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-4 right-4"
+                onClick={() => setShowMoodDetail(false)}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20">
+                  <Brain className="w-5 h-5 text-primary" />
+                </div>
+                <h3 className="font-semibold text-lg text-foreground">
+                  Analisi del tuo Emotional Journey
+                </h3>
+              </div>
+
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-secondary/30">
+                  <p className="text-sm text-foreground leading-relaxed">
+                    {generateMoodExplanation()}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-7 gap-2">
+                  {displayMoodData.map((day) => (
+                    <div 
+                      key={day.day}
+                      className="text-center p-2 rounded-lg"
+                      style={{
+                        background: day.mood >= 7 
+                          ? "hsla(150, 60%, 50%, 0.2)" 
+                          : day.mood >= 5 
+                            ? "hsla(45, 60%, 50%, 0.2)" 
+                            : "hsla(0, 60%, 50%, 0.2)"
+                      }}
+                    >
+                      <p className="text-xs font-medium text-muted-foreground">{day.day}</p>
+                      <p className="text-lg font-bold text-foreground">{day.mood}</p>
+                      <p className="text-[10px] text-muted-foreground truncate">{day.label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="text-xs text-muted-foreground text-center">
+                  Questi dati vengono aggiornati settimanalmente. Potrai confrontare i tuoi progressi nel tempo.
+                </p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

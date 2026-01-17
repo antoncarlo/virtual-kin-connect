@@ -16,7 +16,35 @@ const inspirationalQuotes = [
   "Sii paziente con te stesso. La crescita richiede tempo.",
   "Oggi è un buon giorno per essere gentile con te stesso.",
   "Non devi essere perfetto, devi solo essere presente.",
+  "Il coraggio non è assenza di paura, ma decidere che c'è qualcosa di più importante.",
+  "Anche le piccole luci possono illuminare grandi stanze.",
+  "Non sei quello che ti è successo, sei quello che scegli di diventare.",
+  "Il cambiamento inizia nel momento in cui decidi di accoglierti.",
+  "Ogni respiro è una nuova possibilità.",
+  "La tua vulnerabilità è la tua forza più grande.",
+  "Permetti a te stesso di essere un lavoro in corso.",
+  "Le ferite sono la prova che hai vissuto, non che hai fallito.",
+  "Non devi avere tutte le risposte oggi.",
+  "Il tuo ritmo è perfetto per il tuo viaggio.",
+  "Celebra ogni piccola vittoria, sono loro che costruiscono il cammino.",
+  "La pace interiore inizia quando smetti di confrontarti con gli altri.",
 ];
+
+// Generate a unique quote based on user ID and current date
+function getUserDailyQuote(userId?: string): string {
+  const dayOfYear = Math.floor(
+    (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) /
+      (1000 * 60 * 60 * 24)
+  );
+  
+  // Create a simple hash from userId to give each user a different starting point
+  const userOffset = userId 
+    ? userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+    : 0;
+  
+  const index = (dayOfYear + userOffset) % inspirationalQuotes.length;
+  return inspirationalQuotes[index];
+}
 
 function getTimeOfDay(): { greeting: string; icon: typeof Sun; period: string } {
   const hour = new Date().getHours();
@@ -31,17 +59,9 @@ function getTimeOfDay(): { greeting: string; icon: typeof Sun; period: string } 
   }
 }
 
-function getDailyQuote(): string {
-  const dayOfYear = Math.floor(
-    (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) /
-      (1000 * 60 * 60 * 24)
-  );
-  return inspirationalQuotes[dayOfYear % inspirationalQuotes.length];
-}
-
 export function DashboardHeader({ user, displayName }: DashboardHeaderProps) {
   const { greeting, icon: TimeIcon, period } = getTimeOfDay();
-  const dailyQuote = getDailyQuote();
+  const dailyQuote = getUserDailyQuote(user?.id);
 
   return (
     <motion.div
