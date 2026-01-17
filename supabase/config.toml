@@ -17,3 +17,12 @@ verify_jwt = false
 
 [functions.create-vapi-assistants-retry]
 verify_jwt = false
+
+[functions.heygen-streaming]
+verify_jwt = false
+
+[functions.video-narration]
+verify_jwt = false
+
+[functions.generate-embeddings]
+verify_jwt = false

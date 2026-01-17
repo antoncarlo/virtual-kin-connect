@@ -115,6 +115,7 @@ export default function Chat() {
         avatarRole: avatar.role,
         avatarTagline: avatar.tagline,
         avatarDescription: avatar.description,
+        avatarId: avatar.id,
       }),
     });
 

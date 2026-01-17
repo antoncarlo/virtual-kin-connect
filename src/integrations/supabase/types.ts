@@ -94,26 +94,35 @@ export type Database = {
       }
       knowledge_base: {
         Row: {
+          avatar_id: string | null
           category: string
           content: string
           created_at: string
+          embedding: string | null
           id: string
+          metadata: Json | null
           source: string | null
           title: string
         }
         Insert: {
+          avatar_id?: string | null
           category: string
           content: string
           created_at?: string
+          embedding?: string | null
           id?: string
+          metadata?: Json | null
           source?: string | null
           title: string
         }
         Update: {
+          avatar_id?: string | null
           category?: string
           content?: string
           created_at?: string
+          embedding?: string | null
           id?: string
+          metadata?: Json | null
           source?: string | null
           title?: string
         }
@@ -286,12 +295,125 @@ export type Database = {
         }
         Relationships: []
       }
+      session_summaries: {
+        Row: {
+          avatar_id: string
+          created_at: string
+          embedding: string | null
+          emotions_detected: string[] | null
+          id: string
+          insights: Json | null
+          session_date: string
+          summary: string
+          topics_discussed: string[] | null
+          user_id: string
+        }
+        Insert: {
+          avatar_id: string
+          created_at?: string
+          embedding?: string | null
+          emotions_detected?: string[] | null
+          id?: string
+          insights?: Json | null
+          session_date?: string
+          summary: string
+          topics_discussed?: string[] | null
+          user_id: string
+        }
+        Update: {
+          avatar_id?: string
+          created_at?: string
+          embedding?: string | null
+          emotions_detected?: string[] | null
+          id?: string
+          insights?: Json | null
+          session_date?: string
+          summary?: string
+          topics_discussed?: string[] | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_context: {
+        Row: {
+          avatar_id: string
+          confidence: number | null
+          context_type: string
+          created_at: string
+          embedding: string | null
+          expires_at: string | null
+          id: string
+          key: string
+          updated_at: string
+          user_id: string
+          value: string
+        }
+        Insert: {
+          avatar_id: string
+          confidence?: number | null
+          context_type: string
+          created_at?: string
+          embedding?: string | null
+          expires_at?: string | null
+          id?: string
+          key: string
+          updated_at?: string
+          user_id: string
+          value: string
+        }
+        Update: {
+          avatar_id?: string
+          confidence?: number | null
+          context_type?: string
+          created_at?: string
+          embedding?: string | null
+          expires_at?: string | null
+          id?: string
+          key?: string
+          updated_at?: string
+          user_id?: string
+          value?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      search_knowledge: {
+        Args: {
+          filter_avatar_id?: string
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          category: string
+          content: string
+          id: string
+          similarity: number
+          source: string
+          title: string
+        }[]
+      }
+      search_user_context: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          p_avatar_id: string
+          p_user_id: string
+          query_embedding: string
+        }
+        Returns: {
+          confidence: number
+          context_type: string
+          id: string
+          key: string
+          similarity: number
+          value: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
