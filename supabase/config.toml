@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.knowledge-sync]
 verify_jwt = false
+
+[functions.call-summary]
+verify_jwt = false
