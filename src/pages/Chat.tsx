@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useChatHistory } from "@/hooks/useChatHistory";
 import { useVapiCall } from "@/hooks/useVapiCall";
 import { useSessionInsights } from "@/hooks/useSessionInsights";
+import { useHybridCall } from "@/hooks/useHybridCall";
 import { IncomingCallModal } from "@/components/IncomingCallModal";
 import { VideoCallModal } from "@/components/VideoCallModal";
 import { HeyGenVideoCall } from "@/components/HeyGenVideoCall";
@@ -25,6 +26,7 @@ import { ChatBubble } from "@/components/chat/ChatBubble";
 import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { WelcomeBackMessage } from "@/components/chat/WelcomeBackMessage";
+import { HybridCallBanner } from "@/components/chat/HybridCallBanner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -75,6 +77,20 @@ export default function Chat() {
     endSession,
   } = useSessionInsights(avatarId);
 
+  // Hybrid call hook for in-call chat messages
+  const {
+    isCallActive,
+    startCallTracking,
+    addTranscript,
+    endCallAndGenerateSummary,
+  } = useHybridCall({
+    avatarId: avatarId || "",
+    avatarName: avatar?.name || "Marco",
+    onChatMessage: async (message) => {
+      await addMessage(message.role, message.content);
+    },
+  });
+
   // Vapi voice call hook
   const {
     isConnecting: isVapiConnecting,
@@ -87,13 +103,20 @@ export default function Chat() {
     onTranscript: async (text, isFinal) => {
       if (isFinal && text) {
         await addMessage("user", text);
+        // Also track for hybrid mode
+        addTranscript("user", text);
       }
     },
-    onCallEnd: () => {
+    onCallStart: () => {
+      startCallTracking();
+    },
+    onCallEnd: async () => {
       toast({
         title: "Chiamata terminata",
-        description: `La chiamata con ${avatar?.name} è terminata.`,
+        description: `Generando riepilogo...`,
       });
+      // Generate post-call summary
+      await endCallAndGenerateSummary();
     },
   });
 
@@ -591,6 +614,13 @@ export default function Chat() {
             </div>
           </div>
         </header>
+
+        {/* Hybrid Call Banner */}
+        <HybridCallBanner
+          isActive={isVapiConnected || isCallActive}
+          avatarName={avatar.name}
+          isSpeaking={isVapiSpeaking}
+        />
 
         {/* Messages */}
         <main className="flex-1 overflow-y-auto px-4 py-6">
