@@ -189,11 +189,15 @@ export function ImmersiveVideoCall({
     },
   });
 
-  // Vapi for voice conversation
+  // Vapi for voice conversation with enhanced state management
   const {
+    connectionState: vapiConnectionState,
     isConnecting: isVapiConnecting,
     isConnected: isVapiConnected,
     isSpeaking: isVapiSpeaking,
+    isUserSpeaking: isVapiUserSpeaking,
+    hasReceivedFirstResponse,
+    microphoneStatus,
     startCall: startVapiCall,
     endCall: endVapiCall,
     toggleMute: toggleVapiMute,
@@ -201,6 +205,16 @@ export function ImmersiveVideoCall({
     assistantId: vapiAssistantId,
     onTranscript: handleVapiTranscript,
     onCallStart: handleVapiCallStart,
+    onUserSpeechStart: handleVapiSpeechStart,
+    onUserSpeechEnd: handleVapiSpeechEnd,
+    onConnectionStateChange: (state) => {
+      console.log('Vapi connection state:', state);
+      if (state === "error" || state === "reconnecting") {
+        setConnectionQuality("poor");
+      } else if (state === "connected") {
+        setConnectionQuality("excellent");
+      }
+    },
   });
 
   // Handle vision result
@@ -370,16 +384,17 @@ export function ImmersiveVideoCall({
     }
   }, [isOpen, isInitialized, heygenAvatarId, vapiAssistantId, startLocalCamera, startHeyGenSession, startVapiCall, stopLocalCamera, stopHeyGenSession, endVapiCall]);
 
-  // Call duration timer
+  // Call duration timer - only start after first response (welcome message)
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isVapiConnected || isHeyGenConnected) {
+    // Only start timer when we've received the first response from Marco
+    if (hasReceivedFirstResponse && (isVapiConnected || isHeyGenConnected)) {
       interval = setInterval(() => {
         setCallDuration((prev) => prev + 1);
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [isVapiConnected, isHeyGenConnected]);
+  }, [isVapiConnected, isHeyGenConnected, hasReceivedFirstResponse]);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -423,9 +438,10 @@ export function ImmersiveVideoCall({
     }
   };
 
-  const isConnecting = isHeyGenConnecting || isVapiConnecting;
+  const isConnecting = isHeyGenConnecting || isVapiConnecting || vapiConnectionState === "checking-permissions";
   const isConnected = isHeyGenConnected || isVapiConnected;
   const isSpeaking = isHeyGenSpeaking || isVapiSpeaking;
+  const isUserCurrentlySpeaking = isUserSpeaking || isVapiUserSpeaking;
 
   return (
     <AnimatePresence>
@@ -529,7 +545,21 @@ export function ImmersiveVideoCall({
                       )}
                     </h3>
                     <p className="text-xs text-white/60">
-                      {isSpeaking ? "Sta parlando..." : isConnected ? formatDuration(callDuration) : "Connessione..."}
+                      {vapiConnectionState === "checking-permissions" 
+                        ? "Verifica permessi..." 
+                        : vapiConnectionState === "reconnecting"
+                        ? "Riconnessione..."
+                        : microphoneStatus === "denied"
+                        ? "Microfono bloccato"
+                        : isSpeaking 
+                        ? "Sta parlando..." 
+                        : isUserCurrentlySpeaking
+                        ? "Ti sto ascoltando..."
+                        : isConnected && hasReceivedFirstResponse
+                        ? formatDuration(callDuration) 
+                        : isConnected
+                        ? "In attesa..."
+                        : "Connessione..."}
                     </p>
                   </div>
                 </div>
