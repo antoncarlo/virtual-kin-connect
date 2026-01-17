@@ -369,27 +369,24 @@ export function ImmersiveVideoCall({
     if (isOpen && !isInitialized) {
       setIsInitialized(true);
       setShowWelcome(true);
+      setLoadingStage("initializing");
       startLocalCamera();
 
-      // Enter fullscreen on mobile
-      if (window.innerWidth < 768) {
-        document.documentElement.requestFullscreen?.().catch(() => {});
-        setIsFullscreen(true);
-      }
-
-      // Start HeyGen session
-      const heygenTimer = setTimeout(() => {
-        if (heygenAvatarId && heygenVideoRef.current) {
-          startHeyGenSession(heygenVideoRef.current);
+      // Start Vapi call first (more reliable)
+      const vapiTimer = setTimeout(() => {
+        if (vapiAssistantId) {
+          setLoadingStage("connecting");
+          startVapiCall();
         }
       }, 500);
 
-      // Start Vapi call
-      const vapiTimer = setTimeout(() => {
-        if (vapiAssistantId) {
-          startVapiCall();
+      // Start HeyGen session after Vapi
+      const heygenTimer = setTimeout(() => {
+        if (heygenAvatarId && heygenVideoRef.current) {
+          setLoadingStage("stabilizing");
+          startHeyGenSession(heygenVideoRef.current);
         }
-      }, 1500);
+      }, 1000);
 
       return () => {
         clearTimeout(heygenTimer);
