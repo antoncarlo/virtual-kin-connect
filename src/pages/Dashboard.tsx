@@ -20,6 +20,11 @@ import { useFavorites } from "@/hooks/useFavorites";
 import { useSessionInsights } from "@/hooks/useSessionInsights";
 import { useReferrals } from "@/hooks/useReferrals";
 import { SubscriptionModal } from "@/components/SubscriptionModal";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { UserInsights } from "@/components/dashboard/UserInsights";
+import { MarcoMemory } from "@/components/dashboard/MarcoMemory";
+import { PremiumAvatarCard } from "@/components/dashboard/PremiumAvatarCard";
+import { SubscriptionWidget } from "@/components/dashboard/SubscriptionWidget";
 import type { User } from "@supabase/supabase-js";
 import kindredIcon from "@/assets/kindred-icon.png";
 
@@ -34,6 +39,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<TabType>("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [messageCount, setMessageCount] = useState(0);
+  const [totalMinutes, setTotalMinutes] = useState(0);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const { profile } = useProfile();
   const { favorites } = useFavorites();
@@ -43,6 +49,11 @@ export default function Dashboard() {
   // Get token balance from profile
   const tokenBalance = profile?.tokens_balance || 0;
   const plan = profile?.subscription_tier || "Free";
+  
+  // Calculate trial days remaining
+  const trialDaysRemaining = profile?.trial_ends_at 
+    ? Math.max(0, Math.ceil((new Date(profile.trial_ends_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : 7;
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -62,6 +73,7 @@ export default function Dashboard() {
       } else {
         setUser(session.user);
         fetchMessageCount(session.user.id);
+        fetchTotalDuration(session.user.id);
       }
       setIsLoading(false);
     });
@@ -75,6 +87,18 @@ export default function Dashboard() {
       .select("*", { count: "exact", head: true })
       .eq("user_id", userId);
     setMessageCount(count || 0);
+  };
+
+  const fetchTotalDuration = async (userId: string) => {
+    const { data } = await supabase
+      .from("session_insights")
+      .select("duration_seconds")
+      .eq("user_id", userId);
+    
+    if (data) {
+      const totalSeconds = data.reduce((sum, s) => sum + (s.duration_seconds || 0), 0);
+      setTotalMinutes(Math.floor(totalSeconds / 60));
+    }
   };
 
   const handleLogout = async () => {
@@ -242,8 +266,13 @@ export default function Dashboard() {
                 key="home"
                 user={user} 
                 messageCount={messageCount}
+                totalMinutes={totalMinutes}
                 tokenBalance={tokenBalance}
+                plan={plan}
+                trialDaysRemaining={trialDaysRemaining}
+                insights={insights}
                 onSelectAvatar={handleSelectAvatar}
+                onUpgrade={() => setShowSubscriptionModal(true)}
                 favorites={favorites}
               />
             )}
@@ -289,62 +318,132 @@ export default function Dashboard() {
   );
 }
 
-// Home Tab Component
+// Home Tab Component - Redesigned
 function HomeTab({ 
   user, 
-  messageCount, 
+  messageCount,
+  totalMinutes,
   tokenBalance,
+  plan,
+  trialDaysRemaining,
+  insights,
   onSelectAvatar,
+  onUpgrade,
   favorites 
 }: { 
   user: User | null;
   messageCount: number;
+  totalMinutes: number;
   tokenBalance: number;
+  plan: string;
+  trialDaysRemaining: number;
+  insights: any[];
   onSelectAvatar: (avatar: AvatarType) => void;
+  onUpgrade: () => void;
   favorites: string[];
 }) {
-  const favoriteAvatars = avatars.filter(a => favorites.includes(a.id));
+  const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Friend";
   
+  // Generate mock mood data from insights
+  const moodData = generateMoodData(insights);
+  
+  // Get last advice from insights
+  const lastAdvice = insights.length > 0 ? insights[0]?.summary : null;
+  
+  // Mock goals (would come from temporal_goals table)
+  const goals: any[] = [];
+  
+  // Get avatar statuses
+  const getAvatarStatus = (avatarId: string): "ready" | "reflecting" | "listening" => {
+    const hasRecentChat = insights.some(
+      i => i.avatar_id === avatarId && 
+      new Date(i.created_at) > new Date(Date.now() - 24 * 60 * 60 * 1000)
+    );
+    return hasRecentChat ? "reflecting" : "ready";
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
     >
-      <div className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-display font-bold mb-2">
-          Welcome back, <span className="text-gradient">{user?.user_metadata?.full_name || "Friend"}</span>
-        </h1>
-        <p className="text-muted-foreground">Your AI companions are waiting for you</p>
-      </div>
+      {/* Dynamic Header */}
+      <DashboardHeader user={user} displayName={displayName} />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        {[
-          { icon: MessageCircle, label: "Messages", value: messageCount.toString(), color: "text-primary" },
-          { icon: Heart, label: "Favorites", value: favorites.length.toString(), color: "text-red-500" },
-          { icon: Video, label: "Videos", value: "0", color: "text-pink-500" },
-          { icon: Zap, label: "Tokens", value: tokenBalance.toString(), color: "text-gold" },
-        ].map((stat) => (
-          <motion.div key={stat.label} whileHover={{ y: -4 }} className="glass border-gradient p-4 rounded-xl">
-            <stat.icon className={`w-6 h-6 ${stat.color} mb-2`} />
-            <div className="text-2xl font-bold">{stat.value}</div>
-            <div className="text-sm text-muted-foreground">{stat.label}</div>
-          </motion.div>
-        ))}
-      </div>
+      {/* Subscription Widget */}
+      <SubscriptionWidget
+        plan={plan}
+        trialDaysRemaining={trialDaysRemaining}
+        tokensBalance={tokenBalance}
+        onUpgrade={onUpgrade}
+      />
 
+      {/* User Insights */}
+      <UserInsights
+        totalConversations={insights.length}
+        totalMinutes={totalMinutes}
+        moodData={moodData}
+      />
+
+      {/* Marco's Memory */}
+      <MarcoMemory lastAdvice={lastAdvice} goals={goals} />
+
+      {/* Premium Avatar Cards */}
       <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-display font-semibold">Your Kindred</h2>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-display font-semibold text-foreground">Your Kindred</h2>
+            <p className="text-sm text-muted-foreground">Start a conversation with your AI companions</p>
+          </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {(favoriteAvatars.length > 0 ? favoriteAvatars : avatars).slice(0, 3).map((avatar, index) => (
-            <AvatarCard key={avatar.id} avatar={avatar} index={index} onSelect={onSelectAvatar} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {avatars.map((avatar, index) => (
+            <PremiumAvatarCard
+              key={avatar.id}
+              avatar={avatar}
+              onSelect={onSelectAvatar}
+              status={getAvatarStatus(avatar.id)}
+              index={index}
+            />
           ))}
         </div>
       </div>
     </motion.div>
   );
+}
+
+// Helper function to generate mood data from insights
+function generateMoodData(insights: any[]) {
+  const days = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
+  const moodMap: { [key: string]: number } = {
+    happy: 9,
+    content: 8,
+    calm: 7,
+    peaceful: 7,
+    reflective: 6,
+    neutral: 5,
+    anxious: 4,
+    sad: 3,
+    stressed: 3,
+  };
+
+  return days.map((day, index) => {
+    const dayInsights = insights.filter(i => {
+      const date = new Date(i.created_at);
+      return date.getDay() === (index + 1) % 7;
+    });
+    
+    const avgMood = dayInsights.length > 0
+      ? dayInsights.reduce((sum, i) => sum + (moodMap[i.mood?.toLowerCase()] || 6), 0) / dayInsights.length
+      : 6 + Math.random() * 2;
+
+    return {
+      day,
+      mood: Math.round(avgMood * 10) / 10,
+      label: dayInsights[0]?.mood || "Balanced",
+    };
+  });
 }
 
 // Avatars Tab
