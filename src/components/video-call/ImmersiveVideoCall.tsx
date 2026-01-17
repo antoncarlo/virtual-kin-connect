@@ -602,13 +602,14 @@ export function ImmersiveVideoCall({
               </div>
             </motion.div>
 
-            {/* Quick Chat Overlay */}
+            {/* Quick Chat Overlay with RAG Integration */}
             <QuickChatOverlay
               isOpen={showQuickChat}
               onClose={() => setShowQuickChat(false)}
               avatarName={avatarName}
               avatarImage={avatarImage}
               avatarId={avatarId}
+              avatarPersonality={avatarPersonality}
               onSendMessage={(text) => {
                 sendHeyGenText(text);
                 setAssistantTranscript(text);

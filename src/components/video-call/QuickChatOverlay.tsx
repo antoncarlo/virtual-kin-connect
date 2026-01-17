@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Send, Loader2 } from "lucide-react";
+import { X, Send, Loader2, Brain, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +17,7 @@ interface QuickChatOverlayProps {
   avatarName: string;
   avatarImage: string;
   avatarId: string;
+  avatarPersonality?: string[];
   onSendMessage: (text: string) => void;
 }
 
@@ -26,23 +27,88 @@ export function QuickChatOverlay({
   avatarName,
   avatarImage,
   avatarId,
+  avatarPersonality = [],
   onSendMessage,
 }: QuickChatOverlayProps) {
   const [inputValue, setInputValue] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [ragContext, setRagContext] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isOpen) {
       inputRef.current?.focus();
+      // Pre-fetch some RAG context on open
+      fetchRagContext();
     }
   }, [isOpen]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Fetch RAG context for the current user
+  const fetchRagContext = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      // Fetch user context
+      const { data: userContext } = await supabase
+        .from("user_context")
+        .select("key, value, context_type")
+        .eq("user_id", session.user.id)
+        .eq("avatar_id", avatarId)
+        .limit(10);
+
+      // Fetch social graph
+      const { data: socialGraph } = await supabase
+        .from("social_graph")
+        .select("person_name, relationship, context")
+        .eq("user_id", session.user.id)
+        .eq("avatar_id", avatarId)
+        .limit(5);
+
+      // Fetch recent session insights
+      const { data: insights } = await supabase
+        .from("session_insights")
+        .select("topic, summary, mood")
+        .eq("user_id", session.user.id)
+        .eq("avatar_id", avatarId)
+        .order("created_at", { ascending: false })
+        .limit(3);
+
+      // Build context string
+      let context = "";
+      
+      if (userContext && userContext.length > 0) {
+        context += "Ricordi dell'utente:\n";
+        userContext.forEach(c => {
+          context += `- ${c.key}: ${c.value}\n`;
+        });
+      }
+
+      if (socialGraph && socialGraph.length > 0) {
+        context += "\nPersone importanti:\n";
+        socialGraph.forEach(p => {
+          context += `- ${p.person_name}${p.relationship ? ` (${p.relationship})` : ""}${p.context ? `: ${p.context}` : ""}\n`;
+        });
+      }
+
+      if (insights && insights.length > 0) {
+        context += "\nConversazioni recenti:\n";
+        insights.forEach(i => {
+          context += `- ${i.topic || "Chat"}${i.mood ? ` (mood: ${i.mood})` : ""}\n`;
+        });
+      }
+
+      setRagContext(context);
+    } catch (error) {
+      console.error("Error fetching RAG context:", error);
+    }
+  };
 
   const handleSend = async () => {
     if (!inputValue.trim() || isLoading) return;
@@ -60,26 +126,42 @@ export function QuickChatOverlay({
     setMessages(prev => [...prev, userMsg]);
 
     try {
-      // Call chat API for quick response
+      // Build message history for context
+      const messageHistory = [...messages, { role: "user", content: userMessage }].map(m => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      // Call chat API with RAG context for quick response
       const response = await supabase.functions.invoke("chat", {
         body: {
-          messages: [...messages, { role: "user", content: userMessage }].map(m => ({
-            role: m.role,
-            content: m.content,
-          })),
+          messages: messageHistory,
           avatarName,
           avatarId,
-          avatarPersonality: [],
+          avatarPersonality,
           avatarRole: "friend",
           avatarTagline: "",
           avatarDescription: "",
           quickMode: true, // Shorter responses for video call
+          ragContext: ragContext, // Include RAG context
+          isVideoCall: true, // Flag for video call mode
         },
       });
 
       if (response.error) throw response.error;
 
-      const assistantContent = response.data?.content || response.data?.choices?.[0]?.message?.content || "...";
+      // Handle streaming or direct response
+      let assistantContent = "";
+      
+      if (response.data?.content) {
+        assistantContent = response.data.content;
+      } else if (response.data?.choices?.[0]?.message?.content) {
+        assistantContent = response.data.choices[0].message.content;
+      } else if (typeof response.data === "string") {
+        assistantContent = response.data;
+      } else {
+        assistantContent = "...";
+      }
       
       // Add assistant message
       const assistantMsg: Message = {
@@ -93,6 +175,13 @@ export function QuickChatOverlay({
       onSendMessage(assistantContent);
     } catch (error) {
       console.error("Quick chat error:", error);
+      // Add error message
+      const errorMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: "Scusa, ho avuto un problema. Riprova!",
+      };
+      setMessages(prev => [...prev, errorMsg]);
     } finally {
       setIsLoading(false);
     }
@@ -136,8 +225,19 @@ export function QuickChatOverlay({
                     className="w-10 h-10 rounded-full object-cover border-2 border-primary/30"
                   />
                   <div>
-                    <h3 className="font-semibold text-foreground">{avatarName}</h3>
-                    <p className="text-xs text-muted-foreground">Chat rapida durante la videochiamata</p>
+                    <h3 className="font-semibold text-foreground flex items-center gap-2">
+                      {avatarName}
+                      {ragContext && (
+                        <span className="flex items-center gap-1 text-xs text-primary font-normal">
+                          <Brain className="w-3 h-3" />
+                          RAG
+                        </span>
+                      )}
+                    </h3>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" />
+                      Chat sincronizzata con video
+                    </p>
                   </div>
                 </div>
                 <Button
@@ -154,8 +254,13 @@ export function QuickChatOverlay({
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {messages.length === 0 && (
                   <div className="text-center text-muted-foreground text-sm py-8">
+                    <Brain className="w-8 h-8 mx-auto mb-3 text-primary/50" />
                     <p>Scrivi un messaggio rapido a {avatarName}</p>
-                    <p className="text-xs mt-1 opacity-60">La risposta verrà sincronizzata con il video</p>
+                    <p className="text-xs mt-1 opacity-60">
+                      {ragContext 
+                        ? "Contesto memoria attivo - può citare i tuoi ricordi" 
+                        : "La risposta verrà sincronizzata con il video"}
+                    </p>
                   </div>
                 )}
                 
@@ -184,8 +289,9 @@ export function QuickChatOverlay({
                     animate={{ opacity: 1 }}
                     className="flex justify-start"
                   >
-                    <div className="bg-muted px-4 py-2 rounded-2xl rounded-bl-md">
+                    <div className="bg-muted px-4 py-2 rounded-2xl rounded-bl-md flex items-center gap-2">
                       <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Pensando...</span>
                     </div>
                   </motion.div>
                 )}
