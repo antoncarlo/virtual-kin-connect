@@ -3,6 +3,18 @@ import { corsHeaders, validateAuth } from "../_shared/auth.ts";
 
 const HEYGEN_API_URL = "https://api.heygen.com";
 
+interface StreamingConfig {
+  avatarId?: string;
+  voiceId?: string;
+  quality?: "low" | "medium" | "high";
+  idleConfig?: {
+    enabled: boolean;
+    blinkFrequency?: number;
+    headMovement?: boolean;
+    expressionVariation?: boolean;
+  };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -22,11 +34,11 @@ serve(async (req) => {
       throw new Error('HEYGEN_API_KEY not configured');
     }
 
-    const { action, sessionId, text, avatarId, voiceId } = await req.json();
+    const { action, sessionId, text, avatarId, voiceId, emotion, idleConfig } = await req.json();
 
     const headers = {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
+      'X-Api-Key': apiKey,
     };
 
     let response: Response;
@@ -34,16 +46,27 @@ serve(async (req) => {
 
     switch (action) {
       case 'create-session':
-        // Create a new streaming session
+        // Create a new streaming session with advanced configuration
+        // Using Streaming API v2 for best quality
+        console.log(`Creating HeyGen streaming session for avatar: ${avatarId}`);
+        
+        const sessionBody: Record<string, unknown> = {
+          version: 'v2',
+          quality: 'high',
+          avatar_name: avatarId || 'josh_lite3_20230714',
+          voice: {
+            voice_id: voiceId || 'it-IT-DiegoNeural',
+            provider: 'azure',
+          },
+          // Enable natural idle movements
+          video_encoding: 'H264',
+          disable_idle_timeout: false,
+        };
+
         response = await fetch(`${HEYGEN_API_URL}/v1/streaming.new`, {
           method: 'POST',
           headers,
-          body: JSON.stringify({
-            version: 'v2',
-            avatar_id: avatarId || 'default',
-            voice_id: voiceId,
-            quality: 'high',
-          }),
+          body: JSON.stringify(sessionBody),
         });
         data = await response.json();
         
@@ -52,12 +75,16 @@ serve(async (req) => {
           throw new Error(`Failed to create session: ${JSON.stringify(data)}`);
         }
         
+        console.log('HeyGen session created successfully:', (data as any)?.data?.session_id);
+        
         return new Response(JSON.stringify(data), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
 
       case 'start-session':
-        // Start the streaming session
+        // Start the streaming session with SDP exchange
+        console.log(`Starting HeyGen session: ${sessionId}`);
+        
         response = await fetch(`${HEYGEN_API_URL}/v1/streaming.start`, {
           method: 'POST',
           headers,
@@ -72,20 +99,31 @@ serve(async (req) => {
           throw new Error(`Failed to start session: ${JSON.stringify(data)}`);
         }
         
+        console.log('HeyGen session started successfully');
+        
         return new Response(JSON.stringify(data), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
 
       case 'send-task':
-        // Send text for the avatar to speak
+        // Send text for the avatar to speak with emotional context
+        console.log(`Sending task to session ${sessionId}: "${text?.substring(0, 50)}..."`);
+        
+        const taskBody: Record<string, unknown> = {
+          session_id: sessionId,
+          text: text,
+          task_type: 'repeat', // 'repeat' for exact lip-sync
+        };
+
+        // Add emotion if provided for emotional sync
+        if (emotion) {
+          taskBody.emotion = emotion; // e.g., "happy", "sad", "excited", "calm"
+        }
+
         response = await fetch(`${HEYGEN_API_URL}/v1/streaming.task`, {
           method: 'POST',
           headers,
-          body: JSON.stringify({
-            session_id: sessionId,
-            text: text,
-            task_type: 'repeat', // 'repeat' for exact lip-sync, 'talk' for LLM processing
-          }),
+          body: JSON.stringify(taskBody),
         });
         data = await response.json();
         
@@ -94,12 +132,77 @@ serve(async (req) => {
           throw new Error(`Failed to send task: ${JSON.stringify(data)}`);
         }
         
+        console.log('HeyGen task sent successfully');
+        
+        return new Response(JSON.stringify(data), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+
+      case 'send-gesture':
+        // Send a gesture command (wave, nod, etc.)
+        console.log(`Sending gesture to session ${sessionId}`);
+        
+        response = await fetch(`${HEYGEN_API_URL}/v1/streaming.task`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            session_id: sessionId,
+            task_type: 'gesture',
+            gesture: 'wave', // or 'nod', 'smile'
+          }),
+        });
+        data = await response.json();
+        
+        if (!response.ok) {
+          console.error('HeyGen gesture error:', data);
+          // Don't throw - gestures are optional
+        }
+        
+        return new Response(JSON.stringify(data), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+
+      case 'set-emotion':
+        // Update avatar's emotional state for natural expressions
+        console.log(`Setting emotion for session ${sessionId}: ${emotion}`);
+        
+        response = await fetch(`${HEYGEN_API_URL}/v1/streaming.task`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            session_id: sessionId,
+            task_type: 'emotion',
+            emotion: emotion || 'neutral', // neutral, happy, sad, surprised, serious
+          }),
+        });
+        data = await response.json();
+        
+        return new Response(JSON.stringify(data), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+
+      case 'ice-candidate':
+        // Handle ICE candidate for WebRTC
+        const { candidate } = await req.json();
+        
+        response = await fetch(`${HEYGEN_API_URL}/v1/streaming.ice`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            session_id: sessionId,
+            candidate: candidate,
+          }),
+        });
+        data = await response.json();
+        
         return new Response(JSON.stringify(data), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
 
       case 'stop-session':
         // Stop the streaming session
+        console.log(`Stopping HeyGen session: ${sessionId}`);
+        
         response = await fetch(`${HEYGEN_API_URL}/v1/streaming.stop`, {
           method: 'POST',
           headers,
@@ -109,15 +212,50 @@ serve(async (req) => {
         });
         data = await response.json();
         
+        console.log('HeyGen session stopped');
+        
         return new Response(JSON.stringify(data), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
 
       case 'list-avatars':
         // List available streaming avatars
+        console.log('Fetching available HeyGen streaming avatars');
+        
         response = await fetch(`${HEYGEN_API_URL}/v1/streaming.avatar.list`, {
           method: 'GET',
           headers,
+        });
+        data = await response.json();
+        
+        return new Response(JSON.stringify(data), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+
+      case 'list-voices':
+        // List available voices
+        console.log('Fetching available HeyGen voices');
+        
+        response = await fetch(`${HEYGEN_API_URL}/v1/voices`, {
+          method: 'GET',
+          headers,
+        });
+        data = await response.json();
+        
+        return new Response(JSON.stringify(data), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+
+      case 'interrupt':
+        // Interrupt current speech (useful for real conversation)
+        console.log(`Interrupting session ${sessionId}`);
+        
+        response = await fetch(`${HEYGEN_API_URL}/v1/streaming.interrupt`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            session_id: sessionId,
+          }),
         });
         data = await response.json();
         
