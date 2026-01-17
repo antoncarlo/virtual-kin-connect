@@ -3,17 +3,14 @@ import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ArrowLeft, 
-  Send, 
   MoreVertical, 
   Loader2,
-  Phone,
   PhoneOff,
-  Video,
   Trash2,
   Brain,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { avatars } from "@/data/avatars";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +21,10 @@ import { useSessionInsights } from "@/hooks/useSessionInsights";
 import { IncomingCallModal } from "@/components/IncomingCallModal";
 import { VideoCallModal } from "@/components/VideoCallModal";
 import { HeyGenVideoCall } from "@/components/HeyGenVideoCall";
+import { ChatBubble } from "@/components/chat/ChatBubble";
+import { TypingIndicator } from "@/components/chat/TypingIndicator";
+import { ChatInput } from "@/components/chat/ChatInput";
+import { WelcomeBackMessage } from "@/components/chat/WelcomeBackMessage";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,11 +40,12 @@ export default function Chat() {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [showIncomingCall, setShowIncomingCall] = useState(false);
   const [showVideoCall, setShowVideoCall] = useState(false);
+  const [hoursSinceLastChat, setHoursSinceLastChat] = useState<number | undefined>();
+  const [lastTopic, setLastTopic] = useState<string | undefined>();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastActivityTime = useRef<Date>(new Date());
   const sessionAnalysisTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -94,6 +96,50 @@ export default function Chat() {
       });
     },
   });
+
+  // Fetch last chat info for welcome back message
+  useEffect(() => {
+    const fetchLastChatInfo = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session || !avatarId) return;
+
+      try {
+        const { data } = await supabase
+          .from("user_context")
+          .select("value, updated_at")
+          .eq("user_id", session.user.id)
+          .eq("avatar_id", avatarId)
+          .eq("context_type", "session_tracking")
+          .eq("key", "last_interaction")
+          .single();
+
+        if (data) {
+          const lastInteraction = new Date(data.updated_at);
+          const now = new Date();
+          const hours = (now.getTime() - lastInteraction.getTime()) / (1000 * 60 * 60);
+          setHoursSinceLastChat(hours);
+        }
+
+        // Get last topic from session insights
+        const { data: insights } = await supabase
+          .from("session_insights")
+          .select("topic")
+          .eq("user_id", session.user.id)
+          .eq("avatar_id", avatarId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        if (insights?.topic) {
+          setLastTopic(insights.topic);
+        }
+      } catch (error) {
+        // Ignore errors, this is optional
+      }
+    };
+
+    fetchLastChatInfo();
+  }, [avatarId]);
 
   // Start session tracking on mount
   useEffect(() => {
@@ -315,14 +361,12 @@ export default function Chat() {
     });
   };
 
-  const handleSend = async () => {
-    if (!inputValue.trim() || isLoading || !avatar) return;
+  const handleSend = async (userContent: string) => {
+    if (!userContent.trim() || isLoading || !avatar) return;
 
     // Update activity time for inactivity tracking
     lastActivityTime.current = new Date();
 
-    const userContent = inputValue.trim();
-    setInputValue("");
     setIsLoading(true);
     setIsTyping(true);
 
@@ -361,13 +405,6 @@ export default function Chat() {
         description: "Non riesco a rispondere in questo momento. Riprova!",
         variant: "destructive",
       });
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
     }
   };
 
@@ -459,71 +496,76 @@ export default function Chat() {
         />
       )}
       
-      <div className="min-h-screen bg-background flex flex-col">
+      <div className="min-h-screen bg-gradient-subtle flex flex-col">
         {/* Header */}
-        <header className="glass border-b border-border sticky top-0 z-50">
+        <header className="glass-chat-input border-b border-border/50 sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => navigate("/dashboard")}
+                className="hover:bg-primary/10"
               >
                 <ArrowLeft className="w-5 h-5" />
               </Button>
               
-              <Avatar className="w-10 h-10 border-2 border-primary/30">
-                <AvatarImage src={avatar.imageUrl} alt={avatar.name} />
-                <AvatarFallback>{avatar.name[0]}</AvatarFallback>
-              </Avatar>
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+              >
+                <Avatar className="w-11 h-11 border-2 border-primary/30 shadow-lg ring-2 ring-primary/10 ring-offset-2 ring-offset-background">
+                  <AvatarImage src={avatar.imageUrl} alt={avatar.name} />
+                  <AvatarFallback className="bg-primary/10 text-primary">
+                    {avatar.name[0]}
+                  </AvatarFallback>
+                </Avatar>
+              </motion.div>
               
               <div>
-                <h1 className="font-semibold text-foreground">{avatar.name}</h1>
-                <p className="text-xs text-primary">
-                  {isVapiConnected ? "On call..." : isVapiSpeaking ? "Speaking..." : "Available"}
+                <h1 className="font-semibold text-foreground flex items-center gap-2">
+                  {avatar.name}
+                  {isVapiConnected && (
+                    <motion.span
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="flex items-center gap-1 text-xs font-normal text-primary"
+                    >
+                      <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                      On call
+                    </motion.span>
+                  )}
+                </h1>
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-primary" />
+                  {isVapiSpeaking ? "Speaking..." : avatar.tagline}
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Video Call Button */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-primary hover:bg-primary/10"
-                onClick={() => setShowVideoCall(true)}
-                title={`Videochiamata con ${avatar.name}`}
-              >
-                <Video className="w-5 h-5" />
-              </Button>
-              
-              {/* Vapi Voice Call Button */}
-              <Button
-                variant={isVapiConnected ? "destructive" : "ghost"}
-                size="icon"
-                className={`relative ${!isVapiConnected && "text-primary hover:bg-primary/10"} ${isVapiSpeaking && "ring-2 ring-primary ring-offset-2"}`}
-                onClick={handleVoiceCall}
-                disabled={isVapiConnecting}
-                title={isVapiConnected ? "Termina chiamata" : `Chiama ${avatar.name}`}
-              >
-                {isVapiConnecting ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : isVapiConnected ? (
-                  <PhoneOff className="w-5 h-5" />
-                ) : (
-                  <Phone className="w-5 h-5" />
-                )}
-                {isVapiSpeaking && (
-                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-primary" />
-                  </span>
-                )}
-              </Button>
+              {/* End Call Button (only when connected) */}
+              {isVapiConnected && (
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                >
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={endVapiCall}
+                    className="gap-2"
+                  >
+                    <PhoneOff className="w-4 h-4" />
+                    End Call
+                  </Button>
+                </motion.div>
+              )}
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon">
+                  <Button variant="ghost" size="icon" className="hover:bg-primary/10">
                     <MoreVertical className="w-5 h-5" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -531,16 +573,17 @@ export default function Chat() {
                   <DropdownMenuItem 
                     onClick={handleManualAnalysis}
                     disabled={isAnalyzing || messages.length < 4}
+                    className="gap-2"
                   >
-                    <Brain className="w-4 h-4 mr-2" />
+                    <Brain className="w-4 h-4" />
                     {isAnalyzing ? "Analizzando..." : "Analizza sessione"}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
                     onClick={handleClearHistory}
-                    className="text-destructive focus:text-destructive"
+                    className="text-destructive focus:text-destructive gap-2"
                   >
-                    <Trash2 className="w-4 h-4 mr-2" />
+                    <Trash2 className="w-4 h-4" />
                     Cancella cronologia
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -552,89 +595,54 @@ export default function Chat() {
         {/* Messages */}
         <main className="flex-1 overflow-y-auto px-4 py-6">
           <div className="container mx-auto max-w-2xl space-y-4">
+            {/* Welcome back message */}
+            {hoursSinceLastChat && hoursSinceLastChat > 5 && messages.length <= 1 && (
+              <WelcomeBackMessage
+                avatarName={avatar.name}
+                lastTopic={lastTopic}
+                hoursSinceLastChat={hoursSinceLastChat}
+              />
+            )}
+
             <AnimatePresence initial={false}>
-              {messages.map((message) => (
-                <motion.div
+              {messages.map((message, index) => (
+                <ChatBubble
                   key={message.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className={`flex ${
-                    message.role === "user" ? "justify-end" : "justify-start"
-                  }`}
-                >
-                  <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                      message.role === "user"
-                        ? "gradient-primary text-primary-foreground rounded-br-md"
-                        : "glass border border-border rounded-bl-md"
-                    }`}
-                  >
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
-                    <p
-                      className={`text-xs mt-1 ${
-                        message.role === "user"
-                          ? "text-primary-foreground/70"
-                          : "text-muted-foreground"
-                      }`}
-                    >
-                      {message.timestamp.toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
-                  </div>
-                </motion.div>
+                  content={message.content}
+                  role={message.role}
+                  timestamp={message.timestamp}
+                  avatarImage={message.role === "assistant" ? avatar.imageUrl : undefined}
+                  avatarName={avatar.name}
+                  isLatest={index === messages.length - 1}
+                />
               ))}
             </AnimatePresence>
 
             {/* Typing Indicator */}
-            {isTyping && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex justify-start"
-              >
-                <div className="glass border border-border rounded-2xl rounded-bl-md px-4 py-3">
-                  <div className="flex gap-1">
-                    <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "300ms" }} />
-                  </div>
-                </div>
-              </motion.div>
-            )}
+            <AnimatePresence>
+              {isTyping && (
+                <TypingIndicator
+                  avatarImage={avatar.imageUrl}
+                  avatarName={avatar.name}
+                  variant="reflecting"
+                />
+              )}
+            </AnimatePresence>
 
             <div ref={messagesEndRef} />
           </div>
         </main>
 
         {/* Input */}
-        <footer className="glass border-t border-border p-4">
-          <div className="container mx-auto max-w-2xl">
-            <div className="flex gap-3">
-              <Input
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder={`Message ${avatar.name}...`}
-                className="flex-1 bg-background/50"
-                disabled={isLoading}
-              />
-              <Button
-                onClick={handleSend}
-                disabled={!inputValue.trim() || isLoading}
-                className="gradient-primary"
-              >
-                {isLoading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Send className="w-5 h-5" />
-                )}
-              </Button>
-            </div>
-          </div>
-        </footer>
+        <ChatInput
+          onSend={handleSend}
+          onVoiceCall={handleVoiceCall}
+          onVideoCall={() => setShowVideoCall(true)}
+          disabled={isVapiConnecting}
+          isLoading={isLoading}
+          isVoiceCallActive={isVapiConnected}
+          avatarName={avatar.name}
+        />
       </div>
     </>
   );
