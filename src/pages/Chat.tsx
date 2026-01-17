@@ -168,6 +168,7 @@ export default function Chat() {
         avatarTagline: avatar.tagline,
         avatarDescription: avatar.description,
         avatarId: avatar.id,
+        userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       }),
     });
 

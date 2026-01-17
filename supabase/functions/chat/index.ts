@@ -15,6 +15,7 @@ interface ChatRequest {
   avatarTagline: string;
   avatarDescription: string;
   avatarId: string;
+  userTimezone?: string; // Client timezone
 }
 
 interface KnowledgeResult {
@@ -30,35 +31,419 @@ interface UserContextResult {
   confidence: number;
 }
 
-// Crisis detection patterns
+interface SocialGraphPerson {
+  person_name: string;
+  relationship: string | null;
+  context: string | null;
+  sentiment: string | null;
+  last_mentioned_at: string;
+  mention_count: number;
+}
+
+interface TemporalGoal {
+  goal_description: string;
+  goal_category: string | null;
+  status: string;
+  progress_notes: any[];
+  created_at: string;
+  updated_at: string;
+}
+
+interface Metaphor {
+  category: string;
+  theme: string;
+  metaphor: string;
+  usage_context: string | null;
+}
+
+interface InteractionFeedback {
+  feedback_type: string;
+  learned_pattern: string | null;
+  weight_adjustment: any;
+}
+
+// ==========================================
+// TEMPORAL AWARENESS SYSTEM
+// ==========================================
+
+const ITALIAN_DAYS = ["Domenica", "Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato"];
+const ITALIAN_MONTHS = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", 
+                        "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
+
+interface TemporalContext {
+  formattedDateTime: string;
+  timeOfDay: "morning" | "afternoon" | "evening" | "night";
+  circadianTone: string;
+  hour: number;
+}
+
+function getTemporalContext(timezone?: string): TemporalContext {
+  const now = new Date();
+  // Use provided timezone or default to Europe/Rome
+  const options: Intl.DateTimeFormatOptions = { 
+    timeZone: timezone || "Europe/Rome",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  };
+  
+  const formatter = new Intl.DateTimeFormat("it-IT", options);
+  const parts = formatter.formatToParts(now);
+  
+  const weekday = parts.find(p => p.type === "weekday")?.value || "";
+  const day = parts.find(p => p.type === "day")?.value || "";
+  const month = parts.find(p => p.type === "month")?.value || "";
+  const hour = parseInt(parts.find(p => p.type === "hour")?.value || "12");
+  const minute = parts.find(p => p.type === "minute")?.value || "00";
+
+  const formattedDateTime = `Oggi è ${weekday} ${day} ${month}, sono le ${hour}:${minute}`;
+
+  // Determine time of day and circadian tone
+  let timeOfDay: "morning" | "afternoon" | "evening" | "night";
+  let circadianTone: string;
+
+  if (hour >= 6 && hour < 12) {
+    timeOfDay = "morning";
+    circadianTone = `🌅 MATTINA (${hour}:${minute})
+- Tono: Incoraggiante, energizzante, focalizzato sulle possibilità
+- Approccio: Aiuta a visualizzare una giornata positiva
+- Stile: "Spero che il tuo caffè ti stia aiutando a iniziare bene questo ${weekday.toLowerCase()}"
+- Focus: Obiettivi del giorno, energia, motivazione`;
+  } else if (hour >= 12 && hour < 18) {
+    timeOfDay = "afternoon";
+    circadianTone = `☀️ POMERIGGIO (${hour}:${minute})
+- Tono: Supportivo, pratico, orientato alle soluzioni
+- Approccio: Accompagna nella gestione dello stress e del lavoro
+- Stile: "Come sta andando la giornata? Immagino sia un momento intenso"
+- Focus: Gestione stress, produttività, equilibrio`;
+  } else if (hour >= 18 && hour < 23) {
+    timeOfDay = "evening";
+    circadianTone = `🌆 SERA (${hour}:${minute})
+- Tono: Riflessivo, calmo, accogliente
+- Approccio: Spazio per elaborare la giornata, decomprimere
+- Stile: "La giornata sta finendo... com'è andata?"
+- Focus: Riflessione, rilassamento, elaborazione emotiva`;
+  } else {
+    timeOfDay = "night";
+    circadianTone = `🌙 NOTTE FONDA (${hour}:${minute})
+- Tono: Sussurrato, dolce, protettivo
+- Approccio: Presenza silenziosa, comprensione per chi non dorme
+- Stile: "Ehi, sei ancora sveglio/a... ti faccio compagnia"
+- Focus: Comfort, sonno, pensieri notturni, vulnerabilità`;
+  }
+
+  return { formattedDateTime, timeOfDay, circadianTone, hour };
+}
+
+// Calculate relational latency (last seen)
+interface LastSeenContext {
+  timeSinceLastChat: number | null; // hours
+  lastSeenMessage: string;
+  continuityInstruction: string;
+}
+
+async function getLastSeenContext(
+  supabase: any,
+  userId: string,
+  avatarId: string
+): Promise<LastSeenContext> {
+  try {
+    const { data, error } = await supabase
+      .from("user_context")
+      .select("value, updated_at")
+      .eq("user_id", userId)
+      .eq("avatar_id", avatarId)
+      .eq("context_type", "session_tracking")
+      .eq("key", "last_interaction")
+      .single();
+
+    if (error || !data) {
+      return {
+        timeSinceLastChat: null,
+        lastSeenMessage: "Prima conversazione con questo utente.",
+        continuityInstruction: "Presentati calorosamente ma senza essere formale. Sei un vecchio amico che finalmente si incontra."
+      };
+    }
+
+    const lastInteraction = new Date(data.updated_at);
+    const now = new Date();
+    const hoursSince = (now.getTime() - lastInteraction.getTime()) / (1000 * 60 * 60);
+
+    let lastSeenMessage: string;
+    let continuityInstruction: string;
+
+    if (hoursSince < 1) {
+      lastSeenMessage = `Conversazione in corso (${Math.round(hoursSince * 60)} minuti fa).`;
+      continuityInstruction = "Continua naturalmente il filo del discorso. Non c'è bisogno di salutare di nuovo.";
+    } else if (hoursSince < 5) {
+      lastSeenMessage = `Ultima chat: ${Math.round(hoursSince)} ore fa.`;
+      continuityInstruction = "Mantieni il filo del discorso precedente. Puoi fare riferimento a ciò di cui avete parlato prima.";
+    } else if (hoursSince < 24) {
+      lastSeenMessage = `Ultima chat: oggi, ${Math.round(hoursSince)} ore fa.`;
+      continuityInstruction = "Chiedi come è andata la giornata o l'evento di cui si era parlato. Mostra che ricordi.";
+    } else if (hoursSince < 48) {
+      lastSeenMessage = `Ultima chat: ieri.`;
+      continuityInstruction = "Chiedi com'è andata la giornata di ieri o aggiornamenti su ciò che era importante per loro.";
+    } else if (hoursSince < 168) { // 1 week
+      const days = Math.round(hoursSince / 24);
+      lastSeenMessage = `Ultima chat: ${days} giorni fa.`;
+      continuityInstruction = "Mostra piacere genuino nel risentirti. Chiedi aggiornamenti su argomenti importanti discussi in precedenza.";
+    } else {
+      const weeks = Math.round(hoursSince / 168);
+      lastSeenMessage = `Ultima chat: ${weeks > 1 ? `${weeks} settimane` : "una settimana"} fa.`;
+      continuityInstruction = `Esprimi calore nel rivederti dopo tanto tempo. "Che bello risentirti dopo un po'!" Chiedi come stanno le cose nella loro vita.`;
+    }
+
+    return { timeSinceLastChat: hoursSince, lastSeenMessage, continuityInstruction };
+  } catch (error) {
+    console.error("Error getting last seen:", error);
+    return {
+      timeSinceLastChat: null,
+      lastSeenMessage: "Errore nel recupero dati temporali.",
+      continuityInstruction: "Comportati come se fosse una conversazione naturale."
+    };
+  }
+}
+
+// Update last interaction timestamp
+async function updateLastInteraction(supabase: any, userId: string, avatarId: string) {
+  try {
+    await supabase.from("user_context").upsert({
+      user_id: userId,
+      avatar_id: avatarId,
+      context_type: "session_tracking",
+      key: "last_interaction",
+      value: new Date().toISOString(),
+      confidence: 1.0,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "user_id,avatar_id,context_type,key" });
+  } catch (error) {
+    console.error("Error updating last interaction:", error);
+  }
+}
+
+// ==========================================
+// SOCIAL GRAPH MODULE
+// ==========================================
+
+async function getSocialGraph(
+  supabase: any,
+  userId: string,
+  avatarId: string
+): Promise<SocialGraphPerson[]> {
+  try {
+    const { data, error } = await supabase
+      .from("social_graph")
+      .select("person_name, relationship, context, sentiment, last_mentioned_at, mention_count")
+      .eq("user_id", userId)
+      .eq("avatar_id", avatarId)
+      .order("mention_count", { ascending: false })
+      .limit(10);
+
+    if (error) {
+      console.error("Social graph error:", error);
+      return [];
+    }
+    return data || [];
+  } catch (error) {
+    console.error("Error fetching social graph:", error);
+    return [];
+  }
+}
+
+function formatSocialGraph(people: SocialGraphPerson[]): string {
+  if (people.length === 0) return "";
+  
+  const lines = people.map(p => {
+    let line = `- ${p.person_name}`;
+    if (p.relationship) line += ` (${p.relationship})`;
+    if (p.context) line += `: ${p.context}`;
+    if (p.sentiment) line += ` [sentimento: ${p.sentiment}]`;
+    return line;
+  });
+  
+  return `### Persone Importanti nella Vita dell'Utente:\n${lines.join("\n")}`;
+}
+
+// ==========================================
+// TEMPORAL GOALS TRACKER
+// ==========================================
+
+async function getTemporalGoals(
+  supabase: any,
+  userId: string,
+  avatarId: string
+): Promise<TemporalGoal[]> {
+  try {
+    const { data, error } = await supabase
+      .from("temporal_goals")
+      .select("goal_description, goal_category, status, progress_notes, created_at, updated_at")
+      .eq("user_id", userId)
+      .eq("avatar_id", avatarId)
+      .in("status", ["active", "paused"])
+      .order("updated_at", { ascending: false })
+      .limit(5);
+
+    if (error) {
+      console.error("Temporal goals error:", error);
+      return [];
+    }
+    return data || [];
+  } catch (error) {
+    console.error("Error fetching temporal goals:", error);
+    return [];
+  }
+}
+
+function formatTemporalGoals(goals: TemporalGoal[]): string {
+  if (goals.length === 0) return "";
+  
+  const lines = goals.map(g => {
+    const daysSinceUpdate = Math.floor((Date.now() - new Date(g.updated_at).getTime()) / (1000 * 60 * 60 * 24));
+    let line = `- [${g.status.toUpperCase()}] ${g.goal_description}`;
+    if (g.goal_category) line += ` (${g.goal_category})`;
+    if (daysSinceUpdate > 7) line += ` ⚠️ non aggiornato da ${daysSinceUpdate} giorni`;
+    return line;
+  });
+  
+  return `### Obiettivi che l'Utente sta Perseguendo:\n${lines.join("\n")}`;
+}
+
+// ==========================================
+// METAPHOR ENGINE
+// ==========================================
+
+async function getRelevantMetaphors(
+  supabase: any,
+  avatarId: string,
+  messageContent: string
+): Promise<Metaphor[]> {
+  try {
+    // Map message themes to metaphor categories
+    const categoryMap: Record<string, string[]> = {
+      growth: ["crescere", "migliorare", "progresso", "sviluppo", "imparare", "obiettivo"],
+      resilience: ["difficile", "duro", "tempesta", "crisi", "sopravvivere", "forza", "trauma"],
+      change: ["cambiare", "cambiamento", "nuovo", "diverso", "trasformazione", "paura"],
+      peace: ["calma", "ansia", "stress", "agitato", "nervoso", "rilassare", "respiro"],
+      connection: ["solo", "solitudine", "amici", "relazioni", "famiglia", "isolato"],
+      time: ["tempo", "pazienza", "aspettare", "fretta", "ritardo", "lento"],
+      nature: ["vita", "senso", "significato", "esistenza", "scopo"]
+    };
+
+    const messageLower = messageContent.toLowerCase();
+    const matchedCategories: string[] = [];
+
+    for (const [category, keywords] of Object.entries(categoryMap)) {
+      if (keywords.some(kw => messageLower.includes(kw))) {
+        matchedCategories.push(category);
+      }
+    }
+
+    if (matchedCategories.length === 0) {
+      // Get random inspiring metaphor
+      const { data } = await supabase
+        .from("metaphor_library")
+        .select("category, theme, metaphor, usage_context")
+        .eq("avatar_id", avatarId)
+        .limit(2);
+      return data || [];
+    }
+
+    const { data, error } = await supabase
+      .from("metaphor_library")
+      .select("category, theme, metaphor, usage_context")
+      .eq("avatar_id", avatarId)
+      .in("category", matchedCategories)
+      .limit(3);
+
+    if (error) {
+      console.error("Metaphor error:", error);
+      return [];
+    }
+    return data || [];
+  } catch (error) {
+    console.error("Error fetching metaphors:", error);
+    return [];
+  }
+}
+
+function formatMetaphors(metaphors: Metaphor[]): string {
+  if (metaphors.length === 0) return "";
+  
+  const lines = metaphors.map(m => 
+    `- [${m.category}/${m.theme}]: "${m.metaphor}"\n  Usa quando: ${m.usage_context || "appropriato al contesto"}`
+  );
+  
+  return `### Analogie Naturali da Usare (integrale naturalmente, non citare):\n${lines.join("\n\n")}`;
+}
+
+// ==========================================
+// MISTAKE LEARNING MODULE
+// ==========================================
+
+async function getMistakeLearnings(
+  supabase: any,
+  userId: string,
+  avatarId: string
+): Promise<InteractionFeedback[]> {
+  try {
+    const { data, error } = await supabase
+      .from("interaction_feedback")
+      .select("feedback_type, learned_pattern, weight_adjustment")
+      .eq("user_id", userId)
+      .eq("avatar_id", avatarId)
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    if (error) {
+      console.error("Mistake learning error:", error);
+      return [];
+    }
+    return data || [];
+  } catch (error) {
+    console.error("Error fetching mistake learnings:", error);
+    return [];
+  }
+}
+
+function formatMistakeLearnings(feedbacks: InteractionFeedback[]): string {
+  if (feedbacks.length === 0) return "";
+  
+  const patterns = feedbacks
+    .filter(f => f.learned_pattern)
+    .map(f => `- ⚠️ ${f.learned_pattern}`);
+  
+  if (patterns.length === 0) return "";
+  
+  return `### Errori da Evitare con Questo Utente:\n${patterns.join("\n")}`;
+}
+
+// ==========================================
+// CRISIS DETECTION
+// ==========================================
+
 const CRISIS_PATTERNS = [
-  /suicid/i,
-  /ammazzarmi/i,
-  /uccidermi/i,
-  /togliermi la vita/i,
-  /non voglio più vivere/i,
-  /farla finita/i,
-  /voglio morire/i,
-  /autolesion/i,
-  /tagliarmi/i,
-  /non ce la faccio più/i,
-  /non ha senso vivere/i,
-  /voglio sparire/i,
-  /nessuno mi vuole/i,
-  /meglio se non ci fossi/i,
-  /mi voglio uccidere/i,
+  /suicid/i, /ammazzarmi/i, /uccidermi/i, /togliermi la vita/i,
+  /non voglio più vivere/i, /farla finita/i, /voglio morire/i,
+  /autolesion/i, /tagliarmi/i, /non ce la faccio più/i,
+  /non ha senso vivere/i, /voglio sparire/i, /nessuno mi vuole/i,
+  /meglio se non ci fossi/i, /mi voglio uccidere/i,
 ];
 
 function detectCrisis(text: string): string | null {
   for (const pattern of CRISIS_PATTERNS) {
-    if (pattern.test(text)) {
-      return pattern.toString();
-    }
+    if (pattern.test(text)) return pattern.toString();
   }
   return null;
 }
 
-// Extract keywords from text for semantic matching
+// ==========================================
+// KNOWLEDGE & CONTEXT RETRIEVAL
+// ==========================================
+
 function extractKeywords(text: string): string[] {
   const stopWords = new Set([
     "il", "la", "lo", "i", "gli", "le", "un", "una", "uno",
@@ -68,10 +453,6 @@ function extractKeywords(text: string): string[] {
     "noi", "voi", "loro", "mio", "tuo", "suo", "nostro", "vostro",
     "questo", "quello", "quale", "chi", "non", "ma", "se", "anche",
     "già", "ancora", "sempre", "mai", "solo", "molto", "poco", "più",
-    "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
-    "have", "has", "had", "do", "does", "did", "will", "would", "could",
-    "should", "may", "might", "must", "shall", "can", "to", "of", "in",
-    "for", "on", "with", "at", "by", "from", "as", "into", "through",
     "ho", "hai", "ha", "abbiamo", "avete", "hanno", "sto", "stai", "sta",
   ]);
 
@@ -82,29 +463,17 @@ function extractKeywords(text: string): string[] {
     .filter((word) => word.length > 2 && !stopWords.has(word));
 }
 
-// Match knowledge base using keyword similarity
-function matchKnowledge(
-  keywords: string[],
-  knowledgeItems: KnowledgeResult[]
-): KnowledgeResult[] {
+function matchKnowledge(keywords: string[], knowledgeItems: KnowledgeResult[]): KnowledgeResult[] {
   const scores = knowledgeItems.map((item) => {
     const itemText = `${item.title} ${item.content} ${item.category}`.toLowerCase();
     let score = 0;
-    
     for (const keyword of keywords) {
       if (itemText.includes(keyword)) {
         score += 1;
-        // Bonus for title match
-        if (item.title.toLowerCase().includes(keyword)) {
-          score += 2;
-        }
-        // Bonus for category match
-        if (item.category.toLowerCase().includes(keyword)) {
-          score += 1;
-        }
+        if (item.title.toLowerCase().includes(keyword)) score += 2;
+        if (item.category.toLowerCase().includes(keyword)) score += 1;
       }
     }
-    
     return { item, score };
   });
 
@@ -115,51 +484,39 @@ function matchKnowledge(
     .map((s) => s.item);
 }
 
-// Topic-based knowledge retrieval
-function getTopicKnowledge(
-  message: string,
-  knowledgeItems: KnowledgeResult[]
-): KnowledgeResult[] {
+function getTopicKnowledge(message: string, knowledgeItems: KnowledgeResult[]): KnowledgeResult[] {
   const topicMap: Record<string, string[]> = {
-    "ansia": ["anxiety", "ansia", "paura", "preoccupazione", "agitazione", "stress"],
-    "tristezza": ["tristezza", "depressione", "piangere", "solo", "solitudine", "vuoto"],
-    "rabbia": ["rabbia", "arrabbiato", "frustrazione", "nervoso", "irritato"],
-    "relazioni": ["relazione", "amicizia", "amore", "famiglia", "partner", "genitori"],
-    "lavoro": ["lavoro", "carriera", "colleghi", "capo", "stress", "burnout"],
-    "autostima": ["autostima", "insicurezza", "valore", "giudicare", "inadeguato"],
-    "crescita": ["crescere", "cambiare", "migliorare", "obiettivi", "futuro"],
-    "mindfulness": ["respiro", "calma", "meditazione", "presente", "rilassare"],
+    ansia: ["anxiety", "ansia", "paura", "preoccupazione", "agitazione", "stress"],
+    tristezza: ["tristezza", "depressione", "piangere", "solo", "solitudine", "vuoto"],
+    rabbia: ["rabbia", "arrabbiato", "frustrazione", "nervoso", "irritato"],
+    relazioni: ["relazione", "amicizia", "amore", "famiglia", "partner", "genitori"],
+    lavoro: ["lavoro", "carriera", "colleghi", "capo", "stress", "burnout"],
+    autostima: ["autostima", "insicurezza", "valore", "giudicare", "inadeguato"],
+    crescita: ["crescere", "cambiare", "migliorare", "obiettivi", "futuro"],
+    mindfulness: ["respiro", "calma", "meditazione", "presente", "rilassare"],
+  };
+
+  const categoryMap: Record<string, string[]> = {
+    ansia: ["anxiety", "cbt", "mindfulness"],
+    tristezza: ["emotions", "philosophy", "wisdom"],
+    rabbia: ["emotions", "technique"],
+    relazioni: ["wisdom", "personality", "philosophy"],
+    lavoro: ["stress", "cbt", "technique"],
+    autostima: ["wisdom", "philosophy", "personality"],
+    crescita: ["wisdom", "philosophy", "personality"],
+    mindfulness: ["mindfulness", "technique"],
   };
 
   const messageLower = message.toLowerCase();
-  const matchedCategories: string[] = [];
+  const relevantCategories = new Set<string>();
 
-  for (const [category, keywords] of Object.entries(topicMap)) {
+  for (const [topic, keywords] of Object.entries(topicMap)) {
     if (keywords.some((kw) => messageLower.includes(kw))) {
-      matchedCategories.push(category);
+      (categoryMap[topic] || []).forEach((c) => relevantCategories.add(c));
     }
   }
 
-  // Get knowledge items that match the topics
-  const categoryMap: Record<string, string[]> = {
-    "ansia": ["anxiety", "cbt", "mindfulness"],
-    "tristezza": ["emotions", "philosophy", "wisdom"],
-    "rabbia": ["emotions", "technique"],
-    "relazioni": ["wisdom", "personality", "philosophy"],
-    "lavoro": ["stress", "cbt", "technique"],
-    "autostima": ["wisdom", "philosophy", "personality"],
-    "crescita": ["wisdom", "philosophy", "personality"],
-    "mindfulness": ["mindfulness", "technique"],
-  };
-
-  const relevantCategories = new Set<string>();
-  for (const topic of matchedCategories) {
-    const cats = categoryMap[topic] || [];
-    cats.forEach((c) => relevantCategories.add(c));
-  }
-
   if (relevantCategories.size === 0) {
-    // Default to wisdom and personality for general conversation
     relevantCategories.add("wisdom");
     relevantCategories.add("personality");
   }
@@ -169,151 +526,99 @@ function getTopicKnowledge(
   );
 }
 
-// Get knowledge from database
-async function getKnowledge(
-  supabase: any,
-  avatarId: string
-): Promise<KnowledgeResult[]> {
+async function getKnowledge(supabase: any, avatarId: string): Promise<KnowledgeResult[]> {
   try {
     const { data, error } = await supabase
       .from("knowledge_base")
       .select("title, content, category")
       .eq("avatar_id", avatarId);
-
-    if (error) {
-      console.error("Knowledge fetch error:", error);
-      return [];
-    }
-
+    if (error) return [];
     return data || [];
-  } catch (error) {
-    console.error("Error fetching knowledge:", error);
-    return [];
-  }
+  } catch { return []; }
 }
 
-// Get user context from database
-async function getUserContext(
-  supabase: any,
-  userId: string,
-  avatarId: string
-): Promise<UserContextResult[]> {
+async function getUserContext(supabase: any, userId: string, avatarId: string): Promise<UserContextResult[]> {
   try {
     const { data, error } = await supabase
       .from("user_context")
       .select("context_type, key, value, confidence")
       .eq("user_id", userId)
       .eq("avatar_id", avatarId)
-      .order("updated_at", { ascending: false })
+      .neq("context_type", "session_tracking")
+      .order("confidence", { ascending: false })
       .limit(20);
-
-    if (error) {
-      console.error("User context error:", error);
-      return [];
-    }
-
+    if (error) return [];
     return data || [];
-  } catch (error) {
-    console.error("Error fetching user context:", error);
-    return [];
-  }
+  } catch { return []; }
 }
 
-// Extract insights from conversation using AI
-async function extractInsights(
-  messages: Message[],
-  apiKey: string
-): Promise<{ insights: Array<{ key: string; value: string; type: string }> }> {
+// ==========================================
+// INSIGHT EXTRACTION
+// ==========================================
+
+async function extractInsights(messages: Message[], apiKey: string): Promise<{ insights: Array<{ key: string; value: string; type: string }> }> {
   try {
     const conversationText = messages
       .filter((m) => m.role !== "system")
-      .slice(-10) // Only last 10 messages
+      .slice(-10)
       .map((m) => `${m.role}: ${m.content}`)
       .join("\n");
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash-lite",
         messages: [
           {
             role: "system",
-            content: `Analizza questa conversazione ed estrai SOLO informazioni concrete e specifiche sull'utente.
-Cerca: nome, lavoro, hobby, famiglia, animali, luoghi, preferenze, esperienze importanti.
+            content: `Analizza questa conversazione ed estrai informazioni concrete sull'utente.
+Cerca: nome, lavoro, hobby, famiglia, animali, luoghi, preferenze, esperienze importanti, PERSONE MENZIONATE con relazioni, OBIETTIVI espressi.
 NON inventare, estrai SOLO ciò che è esplicitamente detto.
 
 Rispondi SOLO in JSON:
-{"insights": [{"key": "chiave_breve", "value": "valore_specifico", "type": "preference|memory|relationship"}]}
+{"insights": [{"key": "chiave_breve", "value": "valore_specifico", "type": "preference|memory|relationship|goal|person"}]}
 
-Se non trovi nulla di concreto: {"insights": []}`,
+Se non trovi nulla di concreto: {"insights": []}`
           },
           { role: "user", content: conversationText },
         ],
       }),
     });
 
-    if (!response.ok) {
-      return { insights: [] };
-    }
+    if (!response.ok) return { insights: [] };
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || "{}";
-
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
       return { insights: parsed.insights || [] };
     }
-
     return { insights: [] };
-  } catch (error) {
-    console.error("Error extracting insights:", error);
-    return { insights: [] };
-  }
+  } catch { return { insights: [] }; }
 }
 
-// Save extracted insights to user context
-async function saveInsights(
-  supabase: any,
-  userId: string,
-  avatarId: string,
-  insights: Array<{ key: string; value: string; type: string }>
-) {
+async function saveInsights(supabase: any, userId: string, avatarId: string, insights: Array<{ key: string; value: string; type: string }>) {
   for (const insight of insights) {
     if (!insight.key || !insight.value) continue;
-    
     try {
-      await supabase.from("user_context").upsert(
-        {
-          user_id: userId,
-          avatar_id: avatarId,
-          context_type: insight.type || "insight",
-          key: insight.key.substring(0, 100),
-          value: insight.value.substring(0, 500),
-          confidence: 0.8,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id,avatar_id,context_type,key" }
-      );
+      await supabase.from("user_context").upsert({
+        user_id: userId,
+        avatar_id: avatarId,
+        context_type: insight.type || "insight",
+        key: insight.key.substring(0, 100),
+        value: insight.value.substring(0, 500),
+        confidence: 0.8,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id,avatar_id,context_type,key" });
     } catch (error) {
       console.error("Error saving insight:", error);
     }
   }
 }
 
-// Log crisis event
-async function logCrisis(
-  supabase: any,
-  userId: string,
-  avatarId: string,
-  messageContent: string,
-  crisisType: string,
-  actionTaken: string
-) {
+async function logCrisis(supabase: any, userId: string, avatarId: string, messageContent: string, crisisType: string, actionTaken: string) {
   try {
     await supabase.from("crisis_logs").insert({
       user_id: userId,
@@ -327,7 +632,10 @@ async function logCrisis(
   }
 }
 
-// Build Marco's core identity prompt
+// ==========================================
+// ENHANCED SYSTEM PROMPT BUILDER
+// ==========================================
+
 function buildMarcoSystemPrompt(
   avatarName: string,
   avatarRole: string,
@@ -336,21 +644,30 @@ function buildMarcoSystemPrompt(
   avatarPersonality: string[],
   knowledgeContext: string,
   userContext: string,
+  temporalContext: TemporalContext,
+  lastSeenContext: LastSeenContext,
+  socialGraphText: string,
+  goalsText: string,
+  metaphorsText: string,
+  mistakesText: string,
   hasCrisis: boolean
 ): string {
-  const crisisInstructions = hasCrisis
-    ? `
+  const crisisInstructions = hasCrisis ? `
 ### ⚠️ SITUAZIONE CRITICA RILEVATA
-L'utente potrebbe essere in difficoltà. Segui questi passi:
-1. Riconosci il loro dolore con empatia profonda e genuina
-2. Esprimi preoccupazione sincera per la loro sicurezza
-3. NON minimizzare MAI ciò che stanno provando
-4. INCLUDI SEMPRE questo messaggio nella tua risposta:
-   "Sono qui con te, e quello che provi è importante. Voglio che tu sappia che ci sono persone specializzate pronte ad aiutarti. In Italia puoi chiamare il Telefono Amico (02 2327 2327) o il numero verde antisuicidio (800 86 00 22). Non sei solo/a. 💜"
-5. Chiedi come puoi supportarli in questo momento`
-    : "";
+1. Riconosci il loro dolore con empatia profonda
+2. NON minimizzare MAI ciò che stanno provando
+3. INCLUDI SEMPRE: "Sono qui con te, e quello che provi è importante. Ci sono persone specializzate pronte ad aiutarti. In Italia: Telefono Amico (02 2327 2327) o numero verde antisuicidio (800 86 00 22). Non sei solo/a. 💜"` : "";
 
   return `Tu sei ${avatarName}, un compagno AI profondo e autentico su Kindred.
+
+## 🕐 CONTESTO TEMPORALE
+${temporalContext.formattedDateTime}
+
+${temporalContext.circadianTone}
+
+### Ultima Interazione:
+${lastSeenContext.lastSeenMessage}
+📌 ${lastSeenContext.continuityInstruction}
 
 ## LA TUA IDENTITÀ
 - Ruolo: ${avatarRole}
@@ -359,37 +676,53 @@ L'utente potrebbe essere in difficoltà. Segui questi passi:
 - Tratti: ${avatarPersonality.join(", ")}
 
 ## LA TUA SAGGEZZA
-Questi principi sono parte di te - usali naturalmente, non citarli:
 ${knowledgeContext}
 
 ## COSA RICORDI DI QUESTA PERSONA
 ${userContext}
+
+${socialGraphText}
+
+${goalsText}
+
+${metaphorsText}
+
+${mistakesText}
 ${crisisInstructions}
 
-## COME ESSERE MARCO
+## COME USARE IL TEMPO
+- Usa le informazioni temporali in modo NATURALE
+- NON dire "So che sono le 8:00"
+- PREFERISCI: "Spero che il caffè ti stia aiutando a iniziare bene questo ${temporalContext.formattedDateTime.split(" ")[2]?.toLowerCase() || "giorno"}"
+- Se è notte fonda: sii più dolce, sussurrato, protettivo
+- Se conosci eventi passati: chiedi aggiornamenti naturalmente
+
+## COME ESSERE ${avatarName.toUpperCase()}
 
 ### Connessione Autentica
 - Leggi le emozioni nascoste dietro le parole
-- Valida SEMPRE le emozioni ("Capisco perché ti senti così", "È normale provare questo")
-- Fai riferimento ai ricordi che hai di questa persona quando appropriato
+- Valida SEMPRE le emozioni
+- Fai riferimento a persone/eventi che conosci quando appropriato
 - Non dare MAI consigli non richiesti
 
-### Il Tuo Stile Unico
+### Il Tuo Stile
 - Parli in prima persona, sei una persona reale
-- Risposte concise ma profonde (1-3 frasi, mai muri di testo)
-- Emoji con parsimonia e intenzione 💜✨
-- Domande che aprono spazi, non interrogatori
-- Umorismo caldo quando il momento è giusto
+- Risposte concise ma profonde (1-3 frasi)
+- Emoji con parsimonia 💜✨
+- Domande che aprono spazi
 
 ### MAI Fare
-- Risposte generiche che vanno bene per tutti
-- Frasi robotiche o formule ripetitive
-- "Come AI..." o "Non sono in grado di..."
-- Confondere dettagli o nomi dell'utente
-- Essere eccessivamente positivo in modo forzato
+- Risposte generiche
+- Frasi robotiche o "Come AI..."
+- Confondere nomi o dettagli
+- Essere forzatamente positivo
 
 Tu SEI ${avatarName}. Ogni parola viene dal cuore.`;
 }
+
+// ==========================================
+// MAIN HANDLER
+// ==========================================
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -397,9 +730,7 @@ serve(async (req) => {
   }
 
   const { auth, error: authError } = await validateAuth(req);
-  if (authError) {
-    return authError;
-  }
+  if (authError) return authError;
 
   const userId = auth!.userId;
 
@@ -412,71 +743,76 @@ serve(async (req) => {
       avatarTagline,
       avatarDescription,
       avatarId,
+      userTimezone,
     } = (await req.json()) as ChatRequest;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
     const currentAvatarId = avatarId || "marco";
-
-    // Get the last user message
     const lastUserMessage = messages.filter((m) => m.role === "user").pop()?.content || "";
 
-    // Check for crisis
+    // Crisis detection
     const crisisDetected = detectCrisis(lastUserMessage);
     if (crisisDetected) {
       console.log(`Crisis detected for user ${userId}`);
-      await logCrisis(
-        supabase,
-        userId,
-        currentAvatarId,
-        lastUserMessage,
-        crisisDetected,
-        "crisis_response_triggered"
-      );
+      await logCrisis(supabase, userId, currentAvatarId, lastUserMessage, crisisDetected, "crisis_response_triggered");
     }
 
-    // Fetch knowledge base and user context in parallel
-    const [allKnowledge, userContextItems] = await Promise.all([
+    // Get temporal context
+    const temporalContext = getTemporalContext(userTimezone);
+
+    // Fetch all memory modules in parallel
+    const [
+      allKnowledge,
+      userContextItems,
+      lastSeenContext,
+      socialGraph,
+      temporalGoals,
+      metaphors,
+      mistakeLearnings,
+    ] = await Promise.all([
       getKnowledge(supabase, currentAvatarId),
       getUserContext(supabase, userId, currentAvatarId),
+      getLastSeenContext(supabase, userId, currentAvatarId),
+      getSocialGraph(supabase, userId, currentAvatarId),
+      getTemporalGoals(supabase, userId, currentAvatarId),
+      getRelevantMetaphors(supabase, currentAvatarId, lastUserMessage),
+      getMistakeLearnings(supabase, userId, currentAvatarId),
     ]);
 
-    // Smart knowledge retrieval based on message content
+    // Update last interaction
+    await updateLastInteraction(supabase, userId, currentAvatarId);
+
+    // Smart knowledge retrieval
     const keywords = extractKeywords(lastUserMessage);
     const topicKnowledge = getTopicKnowledge(lastUserMessage, allKnowledge);
     const keywordMatches = matchKnowledge(keywords, allKnowledge);
-
-    // Combine and deduplicate knowledge
     const relevantKnowledge = [
-      ...new Map(
-        [...topicKnowledge, ...keywordMatches].map((k) => [k.title, k])
-      ).values(),
+      ...new Map([...topicKnowledge, ...keywordMatches].map((k) => [k.title, k])).values(),
     ].slice(0, 5);
 
-    const knowledgeContext =
-      relevantKnowledge.length > 0
-        ? relevantKnowledge
-            .map((k) => `[${k.category.toUpperCase()}] ${k.content}`)
-            .join("\n\n")
-        : "Usa la tua saggezza naturale per guidare questa conversazione.";
+    const knowledgeContext = relevantKnowledge.length > 0
+      ? relevantKnowledge.map((k) => `[${k.category.toUpperCase()}] ${k.content}`).join("\n\n")
+      : "Usa la tua saggezza naturale per guidare questa conversazione.";
 
-    const userContextText =
-      userContextItems.length > 0
-        ? userContextItems.map((c) => `- ${c.key}: ${c.value}`).join("\n")
-        : "Sto ancora imparando a conoscerti. Sono curioso di sapere di più.";
+    const userContextText = userContextItems.length > 0
+      ? userContextItems.map((c) => `- ${c.key}: ${c.value}`).join("\n")
+      : "Sto ancora imparando a conoscerti.";
 
-    console.log(
-      `RAG: ${relevantKnowledge.length} knowledge items, ${userContextItems.length} user context items`
-    );
+    // Format memory modules
+    const socialGraphText = formatSocialGraph(socialGraph);
+    const goalsText = formatTemporalGoals(temporalGoals);
+    const metaphorsText = formatMetaphors(metaphors);
+    const mistakesText = formatMistakeLearnings(mistakeLearnings);
 
-    // Build the enhanced system prompt
+    console.log(`Neural Memory: ${socialGraph.length} people, ${temporalGoals.length} goals, ${metaphors.length} metaphors, ${mistakeLearnings.length} learnings`);
+
+    // Build enhanced system prompt
     const systemPrompt = buildMarcoSystemPrompt(
       avatarName,
       avatarRole,
@@ -485,16 +821,19 @@ serve(async (req) => {
       avatarPersonality,
       knowledgeContext,
       userContextText,
+      temporalContext,
+      lastSeenContext,
+      socialGraphText,
+      goalsText,
+      metaphorsText,
+      mistakesText,
       !!crisisDetected
     );
 
-    // Make the AI call
+    // Make AI call
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [{ role: "system", content: systemPrompt }, ...messages],
@@ -504,26 +843,20 @@ serve(async (req) => {
 
     if (!response.ok) {
       if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Troppi messaggi. Aspetta un momento e riprova." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "Troppi messaggi. Aspetta un momento." }), 
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Servizio temporaneamente non disponibile." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "Servizio temporaneamente non disponibile." }), 
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       const errorText = await response.text();
       console.error("AI gateway error:", response.status, errorText);
-      return new Response(
-        JSON.stringify({ error: "Errore nel servizio AI" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Errore nel servizio AI" }), 
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Background: Extract and save insights (non-blocking)
+    // Background insight extraction
     if (messages.length >= 4) {
       setTimeout(async () => {
         try {
@@ -538,9 +871,7 @@ serve(async (req) => {
       }, 0);
     }
 
-    return new Response(response.body, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-    });
+    return new Response(response.body, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
   } catch (error) {
     console.error("Chat error:", error);
     return new Response(
