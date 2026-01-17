@@ -62,18 +62,6 @@ export default function Dashboard() {
       } else {
         setUser(session.user);
         fetchMessageCount(session.user.id);
-        
-        // Check if onboarding is completed
-        supabase
-          .from("profiles")
-          .select("has_completed_onboarding")
-          .eq("user_id", session.user.id)
-          .single()
-          .then(({ data }) => {
-            if (data && !data.has_completed_onboarding) {
-              navigate("/onboarding");
-            }
-          });
       }
       setIsLoading(false);
     });
