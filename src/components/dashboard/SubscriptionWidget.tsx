@@ -114,24 +114,24 @@ export function SubscriptionWidget({
             </p>
           </div>
 
-          {isFreeTrial && (
-            <Button
-              onClick={onUpgrade}
-              className="relative overflow-hidden group px-6 py-6 rounded-xl font-semibold text-white shadow-lg"
-              style={{
-                background: "linear-gradient(135deg, hsl(45 90% 50%) 0%, hsl(35 95% 45%) 100%)",
-              }}
-            >
-              {/* Glow effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-gold/0 via-white/30 to-gold/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-              
-              <span className="relative flex items-center gap-2">
-                <Sparkles className="w-4 h-4" />
-                Upgrade to Pro
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </span>
-            </Button>
-          )}
+          <Button
+            onClick={onUpgrade}
+            className="relative overflow-hidden group px-6 py-6 rounded-xl font-semibold text-white shadow-lg"
+            style={{
+              background: isFreeTrial 
+                ? "linear-gradient(135deg, hsl(45 90% 50%) 0%, hsl(35 95% 45%) 100%)"
+                : "linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%)",
+            }}
+          >
+            {/* Glow effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-gold/0 via-white/30 to-gold/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+            
+            <span className="relative flex items-center gap-2">
+              <Sparkles className="w-4 h-4" />
+              {isFreeTrial ? "Upgrade to Pro" : "Upgrade Plan"}
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </span>
+          </Button>
         </div>
       </div>
     </motion.div>
