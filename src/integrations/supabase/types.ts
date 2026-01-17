@@ -142,9 +142,16 @@ export type Database = {
           created_at: string
           embedding: string | null
           id: string
+          is_global: boolean
+          knowledge_type: string
+          last_used_at: string | null
+          learned_at: string | null
+          learned_from_user_id: string | null
           metadata: Json | null
           source: string | null
           title: string
+          validation_count: number | null
+          validation_status: string | null
         }
         Insert: {
           avatar_id?: string | null
@@ -153,9 +160,16 @@ export type Database = {
           created_at?: string
           embedding?: string | null
           id?: string
+          is_global?: boolean
+          knowledge_type?: string
+          last_used_at?: string | null
+          learned_at?: string | null
+          learned_from_user_id?: string | null
           metadata?: Json | null
           source?: string | null
           title: string
+          validation_count?: number | null
+          validation_status?: string | null
         }
         Update: {
           avatar_id?: string | null
@@ -164,9 +178,55 @@ export type Database = {
           created_at?: string
           embedding?: string | null
           id?: string
+          is_global?: boolean
+          knowledge_type?: string
+          last_used_at?: string | null
+          learned_at?: string | null
+          learned_from_user_id?: string | null
           metadata?: Json | null
           source?: string | null
           title?: string
+          validation_count?: number | null
+          validation_status?: string | null
+        }
+        Relationships: []
+      }
+      knowledge_sync_log: {
+        Row: {
+          completed_at: string | null
+          error_message: string | null
+          id: string
+          items_approved: number | null
+          items_merged: number | null
+          items_processed: number | null
+          items_rejected: number | null
+          started_at: string
+          status: string
+          sync_date: string
+        }
+        Insert: {
+          completed_at?: string | null
+          error_message?: string | null
+          id?: string
+          items_approved?: number | null
+          items_merged?: number | null
+          items_processed?: number | null
+          items_rejected?: number | null
+          started_at?: string
+          status?: string
+          sync_date?: string
+        }
+        Update: {
+          completed_at?: string | null
+          error_message?: string | null
+          id?: string
+          items_approved?: number | null
+          items_merged?: number | null
+          items_processed?: number | null
+          items_rejected?: number | null
+          started_at?: string
+          status?: string
+          sync_date?: string
         }
         Relationships: []
       }
@@ -200,6 +260,48 @@ export type Database = {
           source?: string | null
           theme?: string
           usage_context?: string | null
+        }
+        Relationships: []
+      }
+      pending_knowledge: {
+        Row: {
+          avatar_id: string
+          confidence: number
+          created_at: string
+          extracted_fact: string
+          fact_category: string
+          id: string
+          is_personal: boolean
+          processed_at: string | null
+          processing_status: string
+          source_message: string
+          user_id: string
+        }
+        Insert: {
+          avatar_id?: string
+          confidence?: number
+          created_at?: string
+          extracted_fact: string
+          fact_category: string
+          id?: string
+          is_personal?: boolean
+          processed_at?: string | null
+          processing_status?: string
+          source_message: string
+          user_id: string
+        }
+        Update: {
+          avatar_id?: string
+          confidence?: number
+          created_at?: string
+          extracted_fact?: string
+          fact_category?: string
+          id?: string
+          is_personal?: boolean
+          processed_at?: string | null
+          processing_status?: string
+          source_message?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -502,7 +604,9 @@ export type Database = {
           embedding: string | null
           expires_at: string | null
           id: string
+          is_cross_avatar: boolean
           key: string
+          privacy_level: string
           updated_at: string
           user_id: string
           value: string
@@ -515,7 +619,9 @@ export type Database = {
           embedding?: string | null
           expires_at?: string | null
           id?: string
+          is_cross_avatar?: boolean
           key: string
+          privacy_level?: string
           updated_at?: string
           user_id: string
           value: string
@@ -528,7 +634,9 @@ export type Database = {
           embedding?: string | null
           expires_at?: string | null
           id?: string
+          is_cross_avatar?: boolean
           key?: string
+          privacy_level?: string
           updated_at?: string
           user_id?: string
           value?: string
@@ -537,9 +645,77 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      global_knowledge: {
+        Row: {
+          category: string | null
+          content: string | null
+          created_at: string | null
+          embedding: string | null
+          id: string | null
+          knowledge_type: string | null
+          last_used_at: string | null
+          metadata: Json | null
+          source: string | null
+          title: string | null
+          validation_count: number | null
+        }
+        Insert: {
+          category?: string | null
+          content?: string | null
+          created_at?: string | null
+          embedding?: string | null
+          id?: string | null
+          knowledge_type?: string | null
+          last_used_at?: string | null
+          metadata?: Json | null
+          source?: string | null
+          title?: string | null
+          validation_count?: number | null
+        }
+        Update: {
+          category?: string | null
+          content?: string | null
+          created_at?: string | null
+          embedding?: string | null
+          id?: string | null
+          knowledge_type?: string | null
+          last_used_at?: string | null
+          metadata?: Json | null
+          source?: string | null
+          title?: string | null
+          validation_count?: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      get_user_private_context: {
+        Args: { p_avatar_id?: string; p_user_id: string }
+        Returns: {
+          avatar_id: string
+          confidence: number
+          context_type: string
+          id: string
+          is_cross_avatar: boolean
+          key: string
+          value: string
+        }[]
+      }
+      search_global_knowledge: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          category: string
+          content: string
+          id: string
+          similarity: number
+          source: string
+          title: string
+        }[]
+      }
       search_knowledge: {
         Args: {
           filter_avatar_id?: string
