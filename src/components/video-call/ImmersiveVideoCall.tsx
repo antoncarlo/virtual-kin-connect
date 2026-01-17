@@ -177,6 +177,7 @@ export function ImmersiveVideoCall({
     isSpeaking: isHeyGenSpeaking,
     isProcessing: isHeyGenProcessing,
     mediaStream: heygenStream,
+    connectionError,
     startSession: startHeyGenSession,
     sendText: sendHeyGenText,
     sendGesture: sendHeyGenGesture,
@@ -501,8 +502,10 @@ export function ImmersiveVideoCall({
                     <>
                       <video
                         ref={heygenVideoRef}
+                        id="heygen-video-render"
                         autoPlay
                         playsInline
+                        muted={false}
                         className="w-full h-full object-cover"
                         style={{ filter: temporalContext.lightingFilter }}
                       />
@@ -515,6 +518,17 @@ export function ImmersiveVideoCall({
                         isConnecting={false}
                       />
                     </>
+                  ) : connectionError ? (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="flex flex-col items-center justify-center h-full bg-black/80 text-white p-8"
+                    >
+                      <div className="text-red-500 mb-4 text-4xl">⚠️</div>
+                      <h3 className="text-xl font-semibold mb-2">Errore Connessione Video</h3>
+                      <p className="text-white/70 text-center mb-4 max-w-md">{connectionError}</p>
+                      <p className="text-sm text-white/50">Controlla la console per i dettagli debug</p>
+                    </motion.div>
                   ) : (
                     <motion.div
                       animate={isSpeaking ? { scale: [1, 1.02, 1] } : isUserCurrentlySpeaking ? { scale: [1, 1.01, 1] } : {}}
