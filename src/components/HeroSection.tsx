@@ -250,8 +250,8 @@ export function HeroSection() {
                 className="gradient-primary glow-primary text-lg px-10 py-7 rounded-2xl font-semibold group shimmer"
                 asChild
               >
-                <Link to="/demo">
-                  Try Demo Free
+                <Link to="/signup">
+                  Prova Gratis 7 Giorni
                   <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </Link>
               </Button>
