@@ -10,6 +10,7 @@ interface UseHeyGenStreamingProps {
   onDisconnected?: () => void;
   onSpeaking?: (isSpeaking: boolean) => void;
   onError?: (error: Error) => void;
+  onProcessing?: (isProcessing: boolean) => void;
 }
 
 interface SessionInfo {
@@ -18,11 +19,20 @@ interface SessionInfo {
   access_token: string;
 }
 
-// Text buffer for optimized lip-sync
+// Text buffer for optimized lip-sync with streaming prefetch
 interface TextBuffer {
   text: string;
   timestamp: number;
   emotion?: string;
+  priority?: "high" | "normal" | "low";
+}
+
+// Streaming chunk for parallel processing
+interface StreamingChunk {
+  id: string;
+  text: string;
+  sentAt: number;
+  completed: boolean;
 }
 
 export function useHeyGenStreaming({
@@ -32,11 +42,13 @@ export function useHeyGenStreaming({
   onDisconnected,
   onSpeaking,
   onError,
+  onProcessing,
 }: UseHeyGenStreamingProps = {}) {
   const { toast } = useToast();
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   
   const roomRef = useRef<Room | null>(null);
@@ -46,14 +58,66 @@ export function useHeyGenStreaming({
   const textQueueRef = useRef<TextBuffer[]>([]);
   const processingRef = useRef(false);
   const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const streamingChunksRef = useRef<Map<string, StreamingChunk>>(new Map());
+  const chunkIdRef = useRef(0);
 
-  // Process text queue with minimal latency
+  // Streaming prefetch - sends text chunks in parallel
+  const sendStreamingChunk = useCallback(async (text: string, emotion?: string) => {
+    if (!sessionInfoRef.current || !text.trim()) return;
+
+    const chunkId = `chunk_${++chunkIdRef.current}`;
+    const chunk: StreamingChunk = {
+      id: chunkId,
+      text: text.trim(),
+      sentAt: Date.now(),
+      completed: false,
+    };
+
+    streamingChunksRef.current.set(chunkId, chunk);
+
+    try {
+      // Send immediately without waiting (parallel prefetch)
+      supabase.functions.invoke('heygen-streaming', {
+        body: {
+          action: 'send-task',
+          sessionId: sessionInfoRef.current.session_id,
+          text: chunk.text,
+          emotion,
+        },
+      }).then(response => {
+        if (response.error) {
+          console.error(`Chunk ${chunkId} failed:`, response.error);
+        }
+        chunk.completed = true;
+      }).catch(error => {
+        console.error(`Chunk ${chunkId} error:`, error);
+        chunk.completed = true;
+      });
+
+      return chunkId;
+    } catch (error) {
+      console.error('Streaming chunk error:', error);
+      return null;
+    }
+  }, []);
+
+  // Optimized text queue processor with prefetching
   const processTextQueue = useCallback(async () => {
     if (processingRef.current || textQueueRef.current.length === 0 || !sessionInfoRef.current) {
       return;
     }
 
     processingRef.current = true;
+    setIsProcessing(true);
+    onProcessing?.(true);
+
+    // Sort by priority and timestamp
+    textQueueRef.current.sort((a, b) => {
+      if (a.priority === "high" && b.priority !== "high") return -1;
+      if (b.priority === "high" && a.priority !== "high") return 1;
+      return a.timestamp - b.timestamp;
+    });
+
     const item = textQueueRef.current.shift()!;
 
     try {
@@ -73,11 +137,10 @@ export function useHeyGenStreaming({
         throw new Error(response.error.message);
       }
 
-      // Estimate speech duration based on text length and speaking rate
-      // Average speaking rate: ~150 words/min = ~2.5 words/sec = ~13 chars/sec
-      const estimatedDuration = Math.max(item.text.length * 75, 1500);
+      // Estimate speech duration based on text length
+      // Optimized calculation: ~15 chars/second for Italian
+      const estimatedDuration = Math.max(item.text.length * 65, 1200);
       
-      // Clear previous timeout
       if (speakingTimeoutRef.current) {
         clearTimeout(speakingTimeoutRef.current);
       }
@@ -86,10 +149,12 @@ export function useHeyGenStreaming({
         setIsSpeaking(false);
         onSpeaking?.(false);
         processingRef.current = false;
+        setIsProcessing(false);
+        onProcessing?.(false);
         
-        // Process next item if available
+        // Process next item immediately for minimal latency
         if (textQueueRef.current.length > 0) {
-          processTextQueue();
+          requestAnimationFrame(() => processTextQueue());
         }
       }, estimatedDuration);
 
@@ -98,13 +163,14 @@ export function useHeyGenStreaming({
       setIsSpeaking(false);
       onSpeaking?.(false);
       processingRef.current = false;
+      setIsProcessing(false);
+      onProcessing?.(false);
       
-      // Try next item
       if (textQueueRef.current.length > 0) {
-        processTextQueue();
+        requestAnimationFrame(() => processTextQueue());
       }
     }
-  }, [onSpeaking]);
+  }, [onSpeaking, onProcessing]);
 
   const startSession = useCallback(async (videoElement?: HTMLVideoElement) => {
     if (isStartingRef.current || isConnected || sessionInfoRef.current) {
@@ -235,23 +301,56 @@ export function useHeyGenStreaming({
     }
   }, [avatarId, voiceId, isConnected, onConnected, onDisconnected, onError, toast]);
 
-  // Optimized text sending with queue for minimal latency
-  const sendText = useCallback(async (text: string, emotion?: string) => {
+  // Optimized text sending with streaming prefetch for minimal latency
+  const sendText = useCallback(async (text: string, emotion?: string, options?: { priority?: "high" | "normal" | "low"; useStreaming?: boolean }) => {
     if (!sessionInfoRef.current || !text.trim()) {
       console.error('No active session or empty text');
       return;
     }
 
-    // Add to queue
+    const { priority = "normal", useStreaming = false } = options || {};
+
+    // For high-priority or streaming mode, use parallel prefetch
+    if (useStreaming || priority === "high") {
+      return sendStreamingChunk(text, emotion);
+    }
+
+    // Add to queue with priority
     textQueueRef.current.push({
       text: text.trim(),
       timestamp: Date.now(),
       emotion,
+      priority,
     });
 
     // Start processing if not already
     processTextQueue();
-  }, [processTextQueue]);
+  }, [processTextQueue, sendStreamingChunk]);
+
+  // Send text in streaming chunks (for parallel prefetching with Vapi)
+  const sendTextStream = useCallback(async (chunks: string[], emotion?: string) => {
+    if (!sessionInfoRef.current) return;
+
+    setIsProcessing(true);
+    onProcessing?.(true);
+    setIsSpeaking(true);
+    onSpeaking?.(true);
+
+    // Send all chunks in parallel
+    const promises = chunks.map(chunk => sendStreamingChunk(chunk, emotion));
+    await Promise.allSettled(promises);
+
+    // Estimate total duration
+    const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
+    const estimatedDuration = Math.max(totalLength * 60, 1000);
+
+    setTimeout(() => {
+      setIsSpeaking(false);
+      onSpeaking?.(false);
+      setIsProcessing(false);
+      onProcessing?.(false);
+    }, estimatedDuration);
+  }, [sendStreamingChunk, onProcessing, onSpeaking]);
 
   // Send gesture (wave, nod, etc.)
   const sendGesture = useCallback(async (gesture: "wave" | "nod" | "smile") => {
@@ -362,9 +461,11 @@ export function useHeyGenStreaming({
     isConnecting,
     isConnected,
     isSpeaking,
+    isProcessing,
     mediaStream,
     startSession,
     sendText,
+    sendTextStream,
     sendGesture,
     setEmotion,
     interrupt,
