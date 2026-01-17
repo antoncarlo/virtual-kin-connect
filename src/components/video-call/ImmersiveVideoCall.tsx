@@ -13,15 +13,23 @@ import {
   Sparkles,
   Wifi,
   WifiOff,
+  Image,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useHeyGenStreaming } from "@/hooks/useHeyGenStreaming";
 import { useVapiCall } from "@/hooks/useVapiCall";
 import { useToast } from "@/hooks/use-toast";
+import { useBandwidthMonitor } from "@/hooks/useBandwidthMonitor";
+import { useTemporalContext } from "@/hooks/useTemporalContext";
+import { useIdleGestures } from "@/hooks/useIdleGestures";
+import { VisionResult } from "@/hooks/useVisionProcessing";
 import { supabase } from "@/integrations/supabase/client";
 import { QuickChatOverlay } from "./QuickChatOverlay";
 import { ConnectionStatus } from "./ConnectionStatus";
 import { WelcomeAnimation } from "./WelcomeAnimation";
+import { FallbackMode } from "./FallbackMode";
+import { DynamicBackground } from "./DynamicBackground";
+import { VisionUpload } from "./VisionUpload";
 
 interface ImmersiveVideoCallProps {
   isOpen: boolean;
@@ -60,12 +68,36 @@ export function ImmersiveVideoCall({
   const [isInitialized, setIsInitialized] = useState(false);
   const [showQuickChat, setShowQuickChat] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
+  const [showVisionUpload, setShowVisionUpload] = useState(false);
   const [connectionQuality, setConnectionQuality] = useState<"excellent" | "good" | "poor">("good");
+  const [isFallbackMode, setIsFallbackMode] = useState(false);
+  const [isUserSpeaking, setIsUserSpeaking] = useState(false);
+  const [isProcessingRAG, setIsProcessingRAG] = useState(false);
   
   // Transcripts for overlay
   const [userTranscript, setUserTranscript] = useState("");
   const [assistantTranscript, setAssistantTranscript] = useState("");
   const [pendingText, setPendingText] = useState<string[]>([]);
+
+  // Temporal context for dynamic backgrounds
+  const temporalContext = useTemporalContext();
+
+  // Bandwidth monitoring with automatic fallback
+  const { bandwidthInfo, isLowBandwidth } = useBandwidthMonitor({
+    checkInterval: 5000,
+    onQualityChange: (quality) => {
+      setConnectionQuality(quality === "critical" ? "poor" : quality === "poor" ? "poor" : quality === "good" ? "good" : "excellent");
+    },
+    onFallbackTriggered: () => {
+      if (!isFallbackMode) {
+        setIsFallbackMode(true);
+        toast({
+          title: "Connessione limitata",
+          description: "Passaggio a modalità solo audio per garantire la qualità",
+        });
+      }
+    },
+  });
 
   // Stable callback refs
   const handleHeyGenConnected = useCallback(() => {
@@ -86,6 +118,10 @@ export function ImmersiveVideoCall({
     }
   }, [pendingText]);
 
+  const handleHeyGenProcessing = useCallback((processing: boolean) => {
+    setIsProcessingRAG(processing);
+  }, []);
+
   const handleVapiTranscript = useCallback((text: string, isFinal: boolean) => {
     setAssistantTranscript(text);
     if (isFinal && text) {
@@ -100,14 +136,25 @@ export function ImmersiveVideoCall({
     });
   }, [toast, avatarName]);
 
+  const handleVapiSpeechStart = useCallback(() => {
+    setIsUserSpeaking(true);
+  }, []);
+
+  const handleVapiSpeechEnd = useCallback(() => {
+    setIsUserSpeaking(false);
+  }, []);
+
   // HeyGen streaming for realistic avatar
   const {
     isConnecting: isHeyGenConnecting,
     isConnected: isHeyGenConnected,
     isSpeaking: isHeyGenSpeaking,
+    isProcessing: isHeyGenProcessing,
     mediaStream: heygenStream,
     startSession: startHeyGenSession,
     sendText: sendHeyGenText,
+    sendGesture: sendHeyGenGesture,
+    setEmotion: setHeyGenEmotion,
     stopSession: stopHeyGenSession,
   } = useHeyGenStreaming({
     avatarId: heygenAvatarId,
@@ -115,6 +162,31 @@ export function ImmersiveVideoCall({
     onConnected: handleHeyGenConnected,
     onSpeaking: handleHeyGenSpeaking,
     onError: handleHeyGenError,
+    onProcessing: handleHeyGenProcessing,
+  });
+
+  // Idle gestures for natural movement during silence
+  useIdleGestures({
+    isConnected: isHeyGenConnected,
+    isSpeaking: isHeyGenSpeaking,
+    isProcessing: isProcessingRAG || isHeyGenProcessing,
+    isUserSpeaking,
+    onGesture: (gesture) => {
+      // Map gesture types to HeyGen gestures
+      const gestureMap: Record<string, "wave" | "nod" | "smile"> = {
+        nod: "nod",
+        smile: "smile",
+        listening: "nod",
+        thinking: "nod",
+        blink: "nod", // HeyGen handles blink automatically, use nod as fallback
+      };
+      const heygenGesture = gestureMap[gesture] || "nod";
+      sendHeyGenGesture(heygenGesture);
+    },
+    config: {
+      minInterval: 4000,
+      maxInterval: 10000,
+    },
   });
 
   // Vapi for voice conversation
@@ -130,6 +202,25 @@ export function ImmersiveVideoCall({
     onTranscript: handleVapiTranscript,
     onCallStart: handleVapiCallStart,
   });
+
+  // Handle vision result
+  const handleVisionResult = useCallback((result: VisionResult) => {
+    sendHeyGenText(result.suggestedResponse);
+    setAssistantTranscript(result.suggestedResponse);
+    setTimeout(() => setAssistantTranscript(""), 4000);
+  }, [sendHeyGenText]);
+
+  // Handle emotion from vision
+  const handleVisionEmotion = useCallback((emotion: VisionResult["emotion"]) => {
+    const emotionMap: Record<VisionResult["emotion"], "neutral" | "happy" | "sad" | "surprised" | "serious"> = {
+      neutral: "neutral",
+      happy: "happy",
+      interested: "happy",
+      surprised: "surprised",
+      thoughtful: "serious",
+    };
+    setHeyGenEmotion(emotionMap[emotion]);
+  }, [setHeyGenEmotion]);
 
   // Send welcome greeting when connected
   useEffect(() => {
