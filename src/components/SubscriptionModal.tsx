@@ -100,10 +100,12 @@ export function SubscriptionModal({
       <DialogContent className="glass border-gradient max-w-3xl p-0 overflow-hidden">
         <DialogHeader className="p-6 pb-0">
           <DialogTitle className="text-2xl font-display text-center">
-            Choose your plan
+            Scegli il tuo piano
           </DialogTitle>
           <p className="text-center text-muted-foreground">
-            Unlock the full potential of Kindred
+            {currentPlan.toLowerCase() !== "free" && currentPlan.toLowerCase() !== "trial" 
+              ? `Attualmente sei su ${currentPlan}. Passa a un piano superiore!`
+              : "Sblocca tutto il potenziale di Kindred"}
           </p>
         </DialogHeader>
 
@@ -118,7 +120,9 @@ export function SubscriptionModal({
                 key={plan.id}
                 whileHover={{ y: -4 }}
                 className={`relative rounded-xl p-5 border-2 transition-all cursor-pointer ${
-                  plan.popular
+                  isCurrentPlan
+                    ? "border-green-500 bg-green-500/10 ring-2 ring-green-500/30"
+                    : plan.popular
                     ? "border-primary bg-primary/5"
                     : isSelected
                     ? "border-primary/50"
@@ -126,7 +130,12 @@ export function SubscriptionModal({
                 }`}
                 onClick={() => !isCurrentPlan && setSelectedPlan(plan.id)}
               >
-                {plan.popular && (
+                {isCurrentPlan && (
+                  <Badge className="absolute -top-2 left-1/2 -translate-x-1/2 bg-green-500 text-white">
+                    Piano Attuale
+                  </Badge>
+                )}
+                {!isCurrentPlan && plan.popular && (
                   <Badge className="absolute -top-2 left-1/2 -translate-x-1/2 bg-primary">
                     Most Popular
                   </Badge>
