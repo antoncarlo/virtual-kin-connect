@@ -436,34 +436,50 @@ export function ImmersiveVideoCall({
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[100] bg-black"
         >
-          {/* Full-screen video container */}
-          <div className="relative w-full h-full overflow-hidden">
-            {/* Main Avatar Video - Full Screen */}
-            <div className="absolute inset-0">
-              {isHeyGenConnected ? (
-                <video
-                  ref={heygenVideoRef}
-                  autoPlay
-                  playsInline
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-                  <motion.div
-                    animate={isSpeaking ? { scale: [1, 1.05, 1] } : {}}
-                    transition={{ duration: 0.5, repeat: Infinity }}
-                    className="relative"
-                  >
-                    <div className="absolute inset-0 rounded-full bg-gradient-to-r from-primary to-accent blur-2xl opacity-50 animate-pulse" />
-                    <img
-                      src={avatarImage}
-                      alt={avatarName}
-                      className="w-56 h-56 md:w-72 md:h-72 rounded-full object-cover border-4 border-primary/50 shadow-2xl relative z-10"
+          {/* Dynamic Background with temporal lighting */}
+          <DynamicBackground temporalContext={temporalContext}>
+            {/* Full-screen video container */}
+            <div className="relative w-full h-full overflow-hidden">
+              {/* Fallback Mode - Voice Only with Static Image */}
+              <AnimatePresence>
+                {isFallbackMode && (
+                  <FallbackMode
+                    avatarImage={avatarImage}
+                    avatarName={avatarName}
+                    isActive={isFallbackMode}
+                  />
+                )}
+              </AnimatePresence>
+
+              {/* Main Avatar Video - Full Screen */}
+              {!isFallbackMode && (
+                <div className="absolute inset-0">
+                  {isHeyGenConnected ? (
+                    <video
+                      ref={heygenVideoRef}
+                      autoPlay
+                      playsInline
+                      className="w-full h-full object-cover"
+                      style={{ filter: temporalContext.lightingFilter }}
                     />
-                  </motion.div>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <motion.div
+                        animate={isSpeaking ? { scale: [1, 1.05, 1] } : {}}
+                        transition={{ duration: 0.5, repeat: Infinity }}
+                        className="relative"
+                      >
+                        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-primary to-accent blur-2xl opacity-50 animate-pulse" />
+                        <img
+                          src={avatarImage}
+                          alt={avatarName}
+                          className="w-56 h-56 md:w-72 md:h-72 rounded-full object-cover border-4 border-primary/50 shadow-2xl relative z-10"
+                        />
+                      </motion.div>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
 
             {/* Welcome Animation Overlay */}
             <AnimatePresence>
@@ -690,6 +706,16 @@ export function ImmersiveVideoCall({
                 >
                   <MessageSquare className="w-5 h-5 md:w-6 md:h-6" />
                 </Button>
+
+                {/* Vision Upload */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full w-12 h-12 md:w-14 md:h-14 backdrop-blur-xl bg-white/10 hover:bg-white/20 text-white"
+                  onClick={() => setShowVisionUpload(true)}
+                >
+                  <Image className="w-5 h-5 md:w-6 md:h-6" />
+                </Button>
               </div>
             </motion.div>
 
@@ -707,7 +733,16 @@ export function ImmersiveVideoCall({
                 setTimeout(() => setAssistantTranscript(""), 4000);
               }}
             />
+
+            {/* Vision Upload for Real-time Image Analysis */}
+            <VisionUpload
+              isOpen={showVisionUpload}
+              onClose={() => setShowVisionUpload(false)}
+              onResult={handleVisionResult}
+              onEmotionChange={handleVisionEmotion}
+            />
           </div>
+          </DynamicBackground>
         </motion.div>
       )}
     </AnimatePresence>
