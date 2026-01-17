@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useBandwidthMonitor } from "@/hooks/useBandwidthMonitor";
 import { useTemporalContext } from "@/hooks/useTemporalContext";
 import { useIdleGestures } from "@/hooks/useIdleGestures";
+import { useAudioVideoSync } from "@/hooks/useAudioVideoSync";
 import { VisionResult } from "@/hooks/useVisionProcessing";
 import { supabase } from "@/integrations/supabase/client";
 import { QuickChatOverlay } from "./QuickChatOverlay";
@@ -30,6 +31,9 @@ import { WelcomeAnimation } from "./WelcomeAnimation";
 import { FallbackMode } from "./FallbackMode";
 import { DynamicBackground } from "./DynamicBackground";
 import { VisionUpload } from "./VisionUpload";
+import { CinematicFilter } from "./CinematicFilter";
+import { LoadingTransition } from "./LoadingTransition";
+import { ResponsiveVideoContainer } from "./ResponsiveVideoContainer";
 
 interface ImmersiveVideoCallProps {
   isOpen: boolean;
@@ -73,6 +77,7 @@ export function ImmersiveVideoCall({
   const [isFallbackMode, setIsFallbackMode] = useState(false);
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
   const [isProcessingRAG, setIsProcessingRAG] = useState(false);
+  const [loadingStage, setLoadingStage] = useState<"initializing" | "connecting" | "stabilizing" | "ready">("initializing");
   
   // Transcripts for overlay
   const [userTranscript, setUserTranscript] = useState("");
@@ -81,6 +86,20 @@ export function ImmersiveVideoCall({
 
   // Temporal context for dynamic backgrounds
   const temporalContext = useTemporalContext();
+
+  // Audio-Video sync for Vapi-HeyGen bridge
+  const { 
+    syncState, 
+    markVideoStart, 
+    markVideoEnd,
+    prepareTextForStreaming 
+  } = useAudioVideoSync({
+    onSpeechDetected: (speaking) => {
+      // Bridge Vapi speech detection to UI state
+      setIsUserSpeaking(speaking);
+    },
+    bufferSize: 80, // Minimal 80ms buffer for low latency
+  });
 
   // Bandwidth monitoring with automatic fallback
   const { bandwidthInfo, isLowBandwidth } = useBandwidthMonitor({
@@ -101,9 +120,11 @@ export function ImmersiveVideoCall({
 
   // Stable callback refs
   const handleHeyGenConnected = useCallback(() => {
-    console.log("HeyGen connected - sending welcome greeting");
+    console.log("HeyGen connected - video stabilized");
     setConnectionQuality("excellent");
-  }, []);
+    setLoadingStage("ready");
+    markVideoStart();
+  }, [markVideoStart]);
 
   const handleHeyGenError = useCallback((error: Error) => {
     console.error("HeyGen error:", error);
@@ -111,12 +132,17 @@ export function ImmersiveVideoCall({
   }, []);
 
   const handleHeyGenSpeaking = useCallback((speaking: boolean) => {
-    if (!speaking && pendingText.length > 0) {
-      // Process next queued text
-      const [next, ...rest] = pendingText;
-      setPendingText(rest);
+    if (speaking) {
+      markVideoStart();
+    } else {
+      markVideoEnd();
+      if (pendingText.length > 0) {
+        // Process next queued text
+        const [next, ...rest] = pendingText;
+        setPendingText(rest);
+      }
     }
-  }, [pendingText]);
+  }, [pendingText, markVideoStart, markVideoEnd]);
 
   const handleHeyGenProcessing = useCallback((processing: boolean) => {
     setIsProcessingRAG(processing);
@@ -454,8 +480,12 @@ export function ImmersiveVideoCall({
         >
           {/* Dynamic Background with temporal lighting */}
           <DynamicBackground temporalContext={temporalContext}>
-            {/* Full-screen video container */}
-            <div className="relative w-full h-full overflow-hidden">
+            {/* Responsive Video Container with Cinematic Effects */}
+            <ResponsiveVideoContainer
+              isConnecting={isConnecting}
+              isConnected={isHeyGenConnected}
+              temporalWarmth={temporalContext.timeOfDay === "evening" || temporalContext.timeOfDay === "night" ? 50 : 25}
+            >
               {/* Fallback Mode - Voice Only with Static Image */}
               <AnimatePresence>
                 {isFallbackMode && (
@@ -467,17 +497,27 @@ export function ImmersiveVideoCall({
                 )}
               </AnimatePresence>
 
-              {/* Main Avatar Video - Full Screen */}
+              {/* Main Avatar Video - Full Screen with Aspect Ratio */}
               {!isFallbackMode && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   {isHeyGenConnected ? (
-                    <video
-                      ref={heygenVideoRef}
-                      autoPlay
-                      playsInline
-                      className="w-full h-full object-cover"
-                      style={{ filter: temporalContext.lightingFilter }}
-                    />
+                    <>
+                      <video
+                        ref={heygenVideoRef}
+                        autoPlay
+                        playsInline
+                        className="w-full h-full object-cover"
+                        style={{ filter: temporalContext.lightingFilter }}
+                      />
+                      {/* Cinematic overlay on video */}
+                      <CinematicFilter
+                        intensity="light"
+                        warmth={temporalContext.timeOfDay === "evening" ? 45 : temporalContext.timeOfDay === "night" ? 30 : 20}
+                        grain={true}
+                        vignette={true}
+                        isConnecting={false}
+                      />
+                    </>
                   ) : (
                     <motion.div
                       animate={isSpeaking ? { scale: [1, 1.02, 1] } : isUserCurrentlySpeaking ? { scale: [1, 1.01, 1] } : {}}
@@ -525,6 +565,13 @@ export function ImmersiveVideoCall({
                   )}
                 </div>
               )}
+
+              {/* Loading Transition with Blur Effect */}
+              <LoadingTransition
+                isLoading={isConnecting && loadingStage !== "ready"}
+                avatarName={avatarName}
+                stage={loadingStage}
+              />
 
             {/* Welcome Animation Overlay */}
             <AnimatePresence>
@@ -800,7 +847,7 @@ export function ImmersiveVideoCall({
               onResult={handleVisionResult}
               onEmotionChange={handleVisionEmotion}
             />
-          </div>
+            </ResponsiveVideoContainer>
           </DynamicBackground>
         </motion.div>
       )}

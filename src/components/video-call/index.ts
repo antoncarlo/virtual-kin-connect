@@ -5,3 +5,6 @@ export { WelcomeAnimation } from "./WelcomeAnimation";
 export { FallbackMode } from "./FallbackMode";
 export { DynamicBackground } from "./DynamicBackground";
 export { VisionUpload } from "./VisionUpload";
+export { CinematicFilter } from "./CinematicFilter";
+export { LoadingTransition } from "./LoadingTransition";
+export { ResponsiveVideoContainer } from "./ResponsiveVideoContainer";

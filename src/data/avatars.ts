@@ -27,7 +27,7 @@ export const avatars: Avatar[] = [
     imageUrl: marcoImg,
     vapiAssistantId: "b081bf08-44cf-42eb-b842-1211a1bcb5cc",
     rpmAvatarUrl: "https://models.readyplayer.me/64f0265e8d5a8ed7ed439e9f.glb?morphTargets=ARKit,Oculus Visemes",
-    heygenAvatarId: "josh_lite3_20230714",
+    heygenAvatarId: "ad933deb045a4effa9ddb43ae4af091a",
     heygenVoiceId: "it-IT-DiegoNeural",
     gradient: "from-blue-500 to-purple-600",
   },
