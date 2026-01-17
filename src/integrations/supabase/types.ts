@@ -14,6 +14,87 @@ export type Database = {
   }
   public: {
     Tables: {
+      avatar_identity: {
+        Row: {
+          age: number
+          avatar_id: string
+          birthdate: string | null
+          birthplace: string | null
+          created_at: string | null
+          deep_secrets: Json | null
+          education: string | null
+          education_story: string | null
+          favorite_book: string | null
+          favorite_coffee: string | null
+          forbidden_phrases: string[] | null
+          formative_pain: string | null
+          formative_story: string | null
+          hates: string[] | null
+          id: string
+          loves: string[] | null
+          must_remember: string[] | null
+          name: string
+          past_occupations: string[] | null
+          personality_traits: Json | null
+          relationship_status: string | null
+          relationship_story: string | null
+          speech_patterns: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          age: number
+          avatar_id: string
+          birthdate?: string | null
+          birthplace?: string | null
+          created_at?: string | null
+          deep_secrets?: Json | null
+          education?: string | null
+          education_story?: string | null
+          favorite_book?: string | null
+          favorite_coffee?: string | null
+          forbidden_phrases?: string[] | null
+          formative_pain?: string | null
+          formative_story?: string | null
+          hates?: string[] | null
+          id?: string
+          loves?: string[] | null
+          must_remember?: string[] | null
+          name: string
+          past_occupations?: string[] | null
+          personality_traits?: Json | null
+          relationship_status?: string | null
+          relationship_story?: string | null
+          speech_patterns?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          age?: number
+          avatar_id?: string
+          birthdate?: string | null
+          birthplace?: string | null
+          created_at?: string | null
+          deep_secrets?: Json | null
+          education?: string | null
+          education_story?: string | null
+          favorite_book?: string | null
+          favorite_coffee?: string | null
+          forbidden_phrases?: string[] | null
+          formative_pain?: string | null
+          formative_story?: string | null
+          hates?: string[] | null
+          id?: string
+          loves?: string[] | null
+          must_remember?: string[] | null
+          name?: string
+          past_occupations?: string[] | null
+          personality_traits?: Json | null
+          relationship_status?: string | null
+          relationship_story?: string | null
+          speech_patterns?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           avatar_id: string
@@ -642,6 +723,48 @@ export type Database = {
           status?: string
           target_date?: string | null
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_avatar_affinity: {
+        Row: {
+          affinity_level: number | null
+          avatar_id: string
+          created_at: string | null
+          deep_conversations: number | null
+          deep_topics: Json | null
+          id: string
+          total_call_minutes: number | null
+          total_messages: number | null
+          unlocked_secrets: string[] | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          affinity_level?: number | null
+          avatar_id: string
+          created_at?: string | null
+          deep_conversations?: number | null
+          deep_topics?: Json | null
+          id?: string
+          total_call_minutes?: number | null
+          total_messages?: number | null
+          unlocked_secrets?: string[] | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          affinity_level?: number | null
+          avatar_id?: string
+          created_at?: string | null
+          deep_conversations?: number | null
+          deep_topics?: Json | null
+          id?: string
+          total_call_minutes?: number | null
+          total_messages?: number | null
+          unlocked_secrets?: string[] | null
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: []

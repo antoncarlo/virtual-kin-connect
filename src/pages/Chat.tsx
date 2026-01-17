@@ -10,6 +10,7 @@ import {
   Brain,
   Sparkles,
   Image,
+  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -29,6 +30,8 @@ import { ChatInput } from "@/components/chat/ChatInput";
 import { WelcomeBackMessage } from "@/components/chat/WelcomeBackMessage";
 import { HybridCallBanner } from "@/components/chat/HybridCallBanner";
 import { SharedMemoriesGallery } from "@/components/gallery/SharedMemoriesGallery";
+import { AboutAvatarPanel } from "@/components/avatar/AboutAvatarPanel";
+import { useAvatarIdentity } from "@/hooks/useAvatarIdentity";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,6 +52,7 @@ export default function Chat() {
   const [showIncomingCall, setShowIncomingCall] = useState(false);
   const [showVideoCall, setShowVideoCall] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
+  const [showAboutPanel, setShowAboutPanel] = useState(false);
   const [hoursSinceLastChat, setHoursSinceLastChat] = useState<number | undefined>();
   const [lastTopic, setLastTopic] = useState<string | undefined>();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -72,6 +76,14 @@ export default function Chat() {
     avatarId: avatarId || "", 
     welcomeMessage 
   });
+
+  // Avatar identity and affinity hook
+  const {
+    identity: avatarIdentity,
+    affinity: userAffinity,
+    unlockedSecrets,
+    incrementMessages,
+  } = useAvatarIdentity(avatarId || "");
 
   // Session insights hook for post-session analysis
   const {
@@ -431,6 +443,8 @@ export default function Chat() {
           if (finalContent && isFirstChunk) {
             await addMessage("assistant", finalContent);
           }
+          // Increment affinity message count
+          await incrementMessages();
           await initiateCallIfRequested(userContent);
         }
       );
@@ -549,6 +563,16 @@ export default function Chat() {
           />
         )}
       </AnimatePresence>
+
+      {/* About Avatar Panel */}
+      <AboutAvatarPanel
+        identity={avatarIdentity}
+        affinity={userAffinity}
+        unlockedSecrets={unlockedSecrets}
+        isOpen={showAboutPanel}
+        onClose={() => setShowAboutPanel(false)}
+        avatarImage={avatar.imageUrl}
+      />
       
       <div className="min-h-screen bg-gradient-subtle flex flex-col">
         {/* Header */}
@@ -624,6 +648,13 @@ export default function Chat() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-popover">
+                  <DropdownMenuItem 
+                    onClick={() => setShowAboutPanel(true)}
+                    className="gap-2"
+                  >
+                    <User className="w-4 h-4" />
+                    Chi è {avatar.name}
+                  </DropdownMenuItem>
                   <DropdownMenuItem 
                     onClick={() => setShowGallery(true)}
                     className="gap-2"
