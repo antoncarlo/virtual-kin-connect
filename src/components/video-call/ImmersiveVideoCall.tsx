@@ -469,7 +469,7 @@ export function ImmersiveVideoCall({
 
               {/* Main Avatar Video - Full Screen */}
               {!isFallbackMode && (
-                <div className="absolute inset-0">
+                <div className="absolute inset-0 flex items-center justify-center">
                   {isHeyGenConnected ? (
                     <video
                       ref={heygenVideoRef}
@@ -479,20 +479,49 @@ export function ImmersiveVideoCall({
                       style={{ filter: temporalContext.lightingFilter }}
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <motion.div
-                        animate={isSpeaking ? { scale: [1, 1.05, 1] } : {}}
-                        transition={{ duration: 0.5, repeat: Infinity }}
-                        className="relative"
-                      >
-                        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-primary to-accent blur-2xl opacity-50 animate-pulse" />
+                    <motion.div
+                      animate={isSpeaking ? { scale: [1, 1.02, 1] } : isUserCurrentlySpeaking ? { scale: [1, 1.01, 1] } : {}}
+                      transition={{ duration: 0.8, repeat: Infinity, ease: "easeInOut" }}
+                      className="relative flex items-center justify-center"
+                    >
+                      {/* Glow effect */}
+                      <motion.div 
+                        animate={{ 
+                          opacity: isSpeaking ? [0.6, 0.8, 0.6] : isUserCurrentlySpeaking ? [0.3, 0.5, 0.3] : [0.2, 0.4, 0.2],
+                          scale: isSpeaking ? [1, 1.1, 1] : [1, 1.05, 1]
+                        }}
+                        transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                        className="absolute inset-0 rounded-full bg-gradient-to-r from-primary via-accent to-primary blur-3xl"
+                        style={{ width: '120%', height: '120%', left: '-10%', top: '-10%' }}
+                      />
+                      
+                      {/* Avatar Image - Centered */}
+                      <div className="relative z-10">
                         <img
                           src={avatarImage}
                           alt={avatarName}
-                          className="w-56 h-56 md:w-72 md:h-72 rounded-full object-cover border-4 border-primary/50 shadow-2xl relative z-10"
+                          className="w-48 h-48 sm:w-56 sm:h-56 md:w-72 md:h-72 lg:w-80 lg:h-80 rounded-full object-cover border-4 border-white/30 shadow-2xl"
                         />
-                      </motion.div>
-                    </div>
+                        
+                        {/* Speaking ring animation */}
+                        {isSpeaking && (
+                          <motion.div
+                            animate={{ scale: [1, 1.15, 1], opacity: [0.8, 0, 0.8] }}
+                            transition={{ duration: 1.5, repeat: Infinity }}
+                            className="absolute inset-0 rounded-full border-4 border-primary"
+                          />
+                        )}
+                        
+                        {/* Listening indicator */}
+                        {isUserCurrentlySpeaking && (
+                          <motion.div
+                            animate={{ scale: [1, 1.1, 1], opacity: [0.6, 0.3, 0.6] }}
+                            transition={{ duration: 1, repeat: Infinity }}
+                            className="absolute inset-0 rounded-full border-2 border-white/50"
+                          />
+                        )}
+                      </div>
+                    </motion.div>
                   )}
                 </div>
               )}
@@ -670,43 +699,43 @@ export function ImmersiveVideoCall({
               )}
             </AnimatePresence>
 
-            {/* Bottom Control Bar - Glassmorphism */}
+            {/* Bottom Control Bar - Centered with safe area */}
             <motion.div
               initial={{ y: 100, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.3 }}
-              className="absolute bottom-0 left-0 right-0 z-20"
+              className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20"
             >
-              <div className="flex items-center justify-center gap-4 md:gap-6 p-6 pb-8 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+              <div className="flex items-center justify-center gap-3 md:gap-4 p-4 px-6 bg-black/50 backdrop-blur-xl rounded-full border border-white/10">
                 {/* Camera Toggle */}
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={`rounded-full w-12 h-12 md:w-14 md:h-14 backdrop-blur-xl transition-all ${
+                  className={`rounded-full w-11 h-11 md:w-12 md:h-12 transition-all ${
                     isCameraOn 
                       ? "bg-white/10 hover:bg-white/20 text-white" 
                       : "bg-red-500/80 hover:bg-red-500 text-white"
                   }`}
                   onClick={handleToggleCamera}
                 >
-                  {isCameraOn ? <Video className="w-5 h-5 md:w-6 md:h-6" /> : <VideoOff className="w-5 h-5 md:w-6 md:h-6" />}
+                  {isCameraOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
                 </Button>
 
                 {/* Switch Camera (mobile only) */}
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="rounded-full w-12 h-12 md:w-14 md:h-14 backdrop-blur-xl bg-white/10 hover:bg-white/20 text-white md:hidden"
+                  className="rounded-full w-11 h-11 md:hidden bg-white/10 hover:bg-white/20 text-white"
                   onClick={switchCamera}
                 >
-                  <RefreshCw className="w-5 h-5" />
+                  <RefreshCw className="w-4 h-4" />
                 </Button>
 
                 {/* Mic Toggle */}
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={`rounded-full w-12 h-12 md:w-14 md:h-14 backdrop-blur-xl transition-all ${
+                  className={`rounded-full w-11 h-11 md:w-12 md:h-12 transition-all ${
                     isMicOn 
                       ? "bg-white/10 hover:bg-white/20 text-white" 
                       : "bg-red-500/80 hover:bg-red-500 text-white"
@@ -714,37 +743,37 @@ export function ImmersiveVideoCall({
                   onClick={handleToggleMic}
                   disabled={!isVapiConnected}
                 >
-                  {isMicOn ? <Mic className="w-5 h-5 md:w-6 md:h-6" /> : <MicOff className="w-5 h-5 md:w-6 md:h-6" />}
+                  {isMicOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
                 </Button>
 
-                {/* End Call */}
+                {/* End Call - Larger */}
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="rounded-full w-14 h-14 md:w-16 md:h-16 bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30"
+                  className="rounded-full w-14 h-14 md:w-16 md:h-16 bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30 mx-2"
                   onClick={handleClose}
                 >
-                  <Phone className="w-6 h-6 md:w-7 md:h-7 rotate-[135deg]" />
+                  <Phone className="w-6 h-6 rotate-[135deg]" />
                 </Button>
 
                 {/* Quick Chat */}
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="rounded-full w-12 h-12 md:w-14 md:h-14 backdrop-blur-xl bg-white/10 hover:bg-white/20 text-white"
+                  className="rounded-full w-11 h-11 md:w-12 md:h-12 bg-white/10 hover:bg-white/20 text-white"
                   onClick={() => setShowQuickChat(true)}
                 >
-                  <MessageSquare className="w-5 h-5 md:w-6 md:h-6" />
+                  <MessageSquare className="w-5 h-5" />
                 </Button>
 
                 {/* Vision Upload */}
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="rounded-full w-12 h-12 md:w-14 md:h-14 backdrop-blur-xl bg-white/10 hover:bg-white/20 text-white"
+                  className="rounded-full w-11 h-11 md:w-12 md:h-12 bg-white/10 hover:bg-white/20 text-white"
                   onClick={() => setShowVisionUpload(true)}
                 >
-                  <Image className="w-5 h-5 md:w-6 md:h-6" />
+                  <Image className="w-5 h-5" />
                 </Button>
               </div>
             </motion.div>
