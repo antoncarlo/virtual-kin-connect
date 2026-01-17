@@ -526,30 +526,75 @@ function getTopicKnowledge(message: string, knowledgeItems: KnowledgeResult[]): 
   );
 }
 
-async function getKnowledge(supabase: any, avatarId: string): Promise<KnowledgeResult[]> {
+// ==========================================
+// GLOBAL KNOWLEDGE RETRIEVAL (SHARED BRAIN)
+// ==========================================
+
+async function getGlobalKnowledge(supabase: any): Promise<KnowledgeResult[]> {
   try {
+    // Get all validated global knowledge (shared across all avatars)
     const { data, error } = await supabase
       .from("knowledge_base")
       .select("title, content, category")
-      .eq("avatar_id", avatarId);
+      .eq("is_global", true)
+      .or("validation_status.eq.validated,knowledge_type.eq.static");
+    if (error) {
+      console.error("Global knowledge error:", error);
+      return [];
+    }
+    return data || [];
+  } catch { return []; }
+}
+
+async function getAvatarSpecificKnowledge(supabase: any, avatarId: string): Promise<KnowledgeResult[]> {
+  try {
+    // Get avatar-specific knowledge that is NOT global
+    const { data, error } = await supabase
+      .from("knowledge_base")
+      .select("title, content, category")
+      .eq("avatar_id", avatarId)
+      .eq("is_global", false);
     if (error) return [];
     return data || [];
   } catch { return []; }
 }
 
+// ==========================================
+// PRIVATE USER MEMORY (CROSS-AVATAR)
+// ==========================================
+
 async function getUserContext(supabase: any, userId: string, avatarId: string): Promise<UserContextResult[]> {
   try {
+    // Get BOTH avatar-specific AND cross-avatar context for this user
     const { data, error } = await supabase
       .from("user_context")
       .select("context_type, key, value, confidence")
       .eq("user_id", userId)
-      .eq("avatar_id", avatarId)
       .neq("context_type", "session_tracking")
+      .or(`avatar_id.eq.${avatarId},is_cross_avatar.eq.true`)
       .order("confidence", { ascending: false })
-      .limit(20);
-    if (error) return [];
+      .limit(30);
+    if (error) {
+      console.error("User context error:", error);
+      return [];
+    }
     return data || [];
   } catch { return []; }
+}
+
+// Backward compatibility wrapper
+async function getKnowledge(supabase: any, avatarId: string): Promise<KnowledgeResult[]> {
+  const [globalKnowledge, avatarKnowledge] = await Promise.all([
+    getGlobalKnowledge(supabase),
+    getAvatarSpecificKnowledge(supabase, avatarId),
+  ]);
+  
+  // Combine and deduplicate by title
+  const combined = [...globalKnowledge, ...avatarKnowledge];
+  const uniqueByTitle = [...new Map(combined.map(k => [k.title, k])).values()];
+  
+  console.log(`Knowledge loaded: ${globalKnowledge.length} global, ${avatarKnowledge.length} avatar-specific`);
+  return uniqueByTitle;
 }
 
 // ==========================================
@@ -603,6 +648,9 @@ async function saveInsights(supabase: any, userId: string, avatarId: string, ins
   for (const insight of insights) {
     if (!insight.key || !insight.value) continue;
     try {
+      // Determine if this should be cross-avatar (personal info should be)
+      const isCrossAvatar = ["person", "relationship", "personal", "preference"].includes(insight.type);
+      
       await supabase.from("user_context").upsert({
         user_id: userId,
         avatar_id: avatarId,
@@ -610,6 +658,8 @@ async function saveInsights(supabase: any, userId: string, avatarId: string, ins
         key: insight.key.substring(0, 100),
         value: insight.value.substring(0, 500),
         confidence: 0.8,
+        is_cross_avatar: isCrossAvatar,
+        privacy_level: isCrossAvatar ? "cross_avatar" : "private",
         updated_at: new Date().toISOString(),
       }, { onConflict: "user_id,avatar_id,context_type,key" });
     } catch (error) {
@@ -660,6 +710,11 @@ function buildMarcoSystemPrompt(
 
   return `Tu sei ${avatarName}, un compagno AI profondo e autentico su Kindred.
 
+## 🧠 ARCHITETTURA DELLA CONOSCENZA
+Hai accesso a:
+1. **Global Knowledge**: Saggezza condivisa da tutti gli avatar di Kindred - filosofia, tecniche, insight validati
+2. **Private Memory**: Ricordi personali di questo utente specifico - accessibili solo a te e agli altri avatar che l'utente sceglie di usare
+
 ## 🕐 CONTESTO TEMPORALE
 ${temporalContext.formattedDateTime}
 
@@ -675,10 +730,10 @@ ${lastSeenContext.lastSeenMessage}
 - Chi sei: ${avatarDescription}
 - Tratti: ${avatarPersonality.join(", ")}
 
-## LA TUA SAGGEZZA
+## LA TUA SAGGEZZA (GLOBAL KNOWLEDGE)
 ${knowledgeContext}
 
-## COSA RICORDI DI QUESTA PERSONA
+## COSA RICORDI DI QUESTA PERSONA (PRIVATE MEMORY)
 ${userContext}
 
 ${socialGraphText}
@@ -704,6 +759,7 @@ ${crisisInstructions}
 - Valida SEMPRE le emozioni
 - Fai riferimento a persone/eventi che conosci quando appropriato
 - Non dare MAI consigli non richiesti
+- IMPORTANTE: Se impari qualcosa di nuovo e importante dall'utente, ricordalo per le prossime conversazioni
 
 ### Il Tuo Stile
 - Parli in prima persona, sei una persona reale

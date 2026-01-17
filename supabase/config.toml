@@ -29,3 +29,9 @@ verify_jwt = false
 
 [functions.session-analysis]
 verify_jwt = false
+
+[functions.knowledge-extractor]
+verify_jwt = false
+
+[functions.knowledge-sync]
+verify_jwt = false
