@@ -9,6 +9,7 @@ import {
   Trash2,
   Brain,
   Sparkles,
+  Image,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -27,6 +28,7 @@ import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { WelcomeBackMessage } from "@/components/chat/WelcomeBackMessage";
 import { HybridCallBanner } from "@/components/chat/HybridCallBanner";
+import { SharedMemoriesGallery } from "@/components/gallery/SharedMemoriesGallery";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,6 +48,7 @@ export default function Chat() {
   const [isTyping, setIsTyping] = useState(false);
   const [showIncomingCall, setShowIncomingCall] = useState(false);
   const [showVideoCall, setShowVideoCall] = useState(false);
+  const [showGallery, setShowGallery] = useState(false);
   const [hoursSinceLastChat, setHoursSinceLastChat] = useState<number | undefined>();
   const [lastTopic, setLastTopic] = useState<string | undefined>();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -518,6 +521,20 @@ export default function Chat() {
           vapiAssistantId={avatar.vapiAssistantId}
         />
       )}
+
+      {/* Shared Memories Gallery */}
+      <AnimatePresence>
+        {showGallery && (
+          <SharedMemoriesGallery
+            avatarId={avatar.id}
+            avatarName={avatar.name}
+            avatarPersonality={avatar.personality.join(", ")}
+            avatarImage={avatar.imageUrl}
+            isOpen={showGallery}
+            onClose={() => setShowGallery(false)}
+          />
+        )}
+      </AnimatePresence>
       
       <div className="min-h-screen bg-gradient-subtle flex flex-col">
         {/* Header */}
@@ -593,6 +610,13 @@ export default function Chat() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-popover">
+                  <DropdownMenuItem 
+                    onClick={() => setShowGallery(true)}
+                    className="gap-2"
+                  >
+                    <Image className="w-4 h-4" />
+                    Ricordi condivisi
+                  </DropdownMenuItem>
                   <DropdownMenuItem 
                     onClick={handleManualAnalysis}
                     disabled={isAnalyzing || messages.length < 4}

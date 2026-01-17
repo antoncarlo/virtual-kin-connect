@@ -511,6 +511,57 @@ export type Database = {
         }
         Relationships: []
       }
+      shared_memories: {
+        Row: {
+          ai_description: string | null
+          ai_emotions: string[] | null
+          ai_objects: string[] | null
+          ai_themes: string[] | null
+          analyzed_at: string | null
+          avatar_comment: string | null
+          avatar_id: string
+          created_at: string
+          id: string
+          image_path: string
+          image_url: string
+          is_favorite: boolean | null
+          user_caption: string | null
+          user_id: string
+        }
+        Insert: {
+          ai_description?: string | null
+          ai_emotions?: string[] | null
+          ai_objects?: string[] | null
+          ai_themes?: string[] | null
+          analyzed_at?: string | null
+          avatar_comment?: string | null
+          avatar_id: string
+          created_at?: string
+          id?: string
+          image_path: string
+          image_url: string
+          is_favorite?: boolean | null
+          user_caption?: string | null
+          user_id: string
+        }
+        Update: {
+          ai_description?: string | null
+          ai_emotions?: string[] | null
+          ai_objects?: string[] | null
+          ai_themes?: string[] | null
+          analyzed_at?: string | null
+          avatar_comment?: string | null
+          avatar_id?: string
+          created_at?: string
+          id?: string
+          image_path?: string
+          image_url?: string
+          is_favorite?: boolean | null
+          user_caption?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       social_graph: {
         Row: {
           avatar_id: string
