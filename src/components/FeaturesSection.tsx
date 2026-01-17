@@ -42,7 +42,7 @@ const features = [
 
 export function FeaturesSection() {
   return (
-    <section id="features" className="py-20 relative overflow-hidden">
+    <section id="features" className="py-12 relative overflow-hidden">
       <div className="absolute inset-0 gradient-subtle" />
 
       <div className="container mx-auto px-4 relative z-10">
@@ -51,14 +51,14 @@ export function FeaturesSection() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center max-w-2xl mx-auto mb-14"
+          className="text-center max-w-2xl mx-auto mb-10"
         >
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-4">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-3">
             <Zap className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium text-foreground/80">Powerful Features</span>
           </div>
           
-          <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">
+          <h2 className="text-3xl md:text-4xl font-display font-bold mb-3">
             Experience <span className="text-gradient">True Connection</span>
           </h2>
           

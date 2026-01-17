@@ -65,21 +65,21 @@ export function PricingSection() {
   const [hoveredToken, setHoveredToken] = useState<number | null>(null);
 
   return (
-    <section id="pricing" className="py-24 relative overflow-hidden bg-muted/30">
+    <section id="pricing" className="py-12 relative overflow-hidden bg-muted/30">
       <div className="container mx-auto px-4 relative z-10">
         {/* Section Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center max-w-3xl mx-auto mb-16"
+          className="text-center max-w-3xl mx-auto mb-10"
         >
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-6">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-4">
             <Crown className="w-4 h-4 text-gold" />
             <span className="text-sm font-medium text-foreground/80">Flexible Plans</span>
           </div>
           
-          <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">
+          <h2 className="text-3xl md:text-4xl font-display font-bold mb-3">
             Choose Your <span className="text-gradient">Plan</span>
           </h2>
           <p className="text-muted-foreground">
@@ -88,7 +88,7 @@ export function PricingSection() {
         </motion.div>
 
         {/* Pricing Cards */}
-        <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-20">
+        <div className="grid md:grid-cols-3 gap-5 max-w-5xl mx-auto mb-12">
           {plans.map((plan, index) => (
             <motion.div
               key={plan.name}
@@ -152,8 +152,8 @@ export function PricingSection() {
                   variant={plan.popular ? "default" : "outline"}
                   asChild
                 >
-                  <Link to={plan.price === 0 ? "/demo" : "/signup"}>
-                    {plan.price === 0 ? "Start Free Trial" : "Get Started"}
+                  <Link to="/signup">
+                    {plan.price === 0 ? "Inizia Prova Gratuita" : "Get Started"}
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Link>
                 </Button>
