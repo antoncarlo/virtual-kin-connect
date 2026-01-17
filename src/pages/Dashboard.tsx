@@ -22,7 +22,7 @@ import { useReferrals } from "@/hooks/useReferrals";
 import { SubscriptionModal } from "@/components/SubscriptionModal";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { UserInsights } from "@/components/dashboard/UserInsights";
-import { MarcoMemory } from "@/components/dashboard/MarcoMemory";
+import { GoalsProgress } from "@/components/dashboard/GoalsProgress";
 import { PremiumAvatarCard } from "@/components/dashboard/PremiumAvatarCard";
 import { SubscriptionWidget } from "@/components/dashboard/SubscriptionWidget";
 import type { User } from "@supabase/supabase-js";
@@ -353,9 +353,6 @@ function HomeTab({
   // Get last advice from insights
   const lastAdvice = insights.length > 0 ? insights[0]?.summary : null;
   
-  // Mock goals (would come from temporal_goals table)
-  const goals: any[] = [];
-  
   // Get avatar statuses
   const getAvatarStatus = (avatarId: string): "ready" | "reflecting" | "listening" => {
     const hasRecentChat = insights.some(
@@ -389,8 +386,8 @@ function HomeTab({
         moodData={moodData}
       />
 
-      {/* Marco's Memory */}
-      <MarcoMemory lastAdvice={lastAdvice} goals={goals} />
+      {/* Goals Progress */}
+      <GoalsProgress lastAdvice={lastAdvice} userId={user?.id} />
 
       {/* Premium Avatar Cards */}
       <div className="mb-8">

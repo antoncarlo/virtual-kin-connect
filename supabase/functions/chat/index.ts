@@ -298,7 +298,7 @@ function formatSocialGraph(people: SocialGraphPerson[]): string {
 }
 
 // ==========================================
-// TEMPORAL GOALS TRACKER
+// TEMPORAL GOALS TRACKER (CROSS-AVATAR)
 // ==========================================
 
 async function getTemporalGoals(
@@ -307,14 +307,14 @@ async function getTemporalGoals(
   avatarId: string
 ): Promise<TemporalGoal[]> {
   try {
+    // Get ALL user goals, not just for current avatar (cross-avatar)
     const { data, error } = await supabase
       .from("temporal_goals")
-      .select("goal_description, goal_category, status, progress_notes, created_at, updated_at")
+      .select("goal_description, goal_category, status, progress_notes, created_at, updated_at, avatar_id")
       .eq("user_id", userId)
-      .eq("avatar_id", avatarId)
       .in("status", ["active", "paused"])
       .order("updated_at", { ascending: false })
-      .limit(5);
+      .limit(10);
 
     if (error) {
       console.error("Temporal goals error:", error);
@@ -334,11 +334,19 @@ function formatTemporalGoals(goals: TemporalGoal[]): string {
     const daysSinceUpdate = Math.floor((Date.now() - new Date(g.updated_at).getTime()) / (1000 * 60 * 60 * 24));
     let line = `- [${g.status.toUpperCase()}] ${g.goal_description}`;
     if (g.goal_category) line += ` (${g.goal_category})`;
-    if (daysSinceUpdate > 7) line += ` ⚠️ non aggiornato da ${daysSinceUpdate} giorni`;
+    if (daysSinceUpdate > 7) line += ` ⚠️ non aggiornato da ${daysSinceUpdate} giorni - chiedi un aggiornamento!`;
+    else if (daysSinceUpdate > 3) line += ` → potresti chiedere come sta andando`;
     return line;
   });
   
-  return `### Obiettivi che l'Utente sta Perseguendo:\n${lines.join("\n")}`;
+  return `### Obiettivi che l'Utente sta Perseguendo:
+${lines.join("\n")}
+
+⚡ IMPORTANTE SUI GOAL:
+- Se l'utente menziona progressi su un goal, celebra i piccoli passi
+- Se sembra in difficoltà con un goal (es. voglia di fumare), offri supporto immediato e distrazione
+- Se un goal sembra completato, chiedilo esplicitamente e congratulati!
+- Quando l'utente ti dice un NUOVO obiettivo, annotalo mentalmente per le prossime conversazioni`;
 }
 
 // ==========================================
@@ -759,6 +767,210 @@ async function logCrisis(supabase: any, userId: string, avatarId: string, messag
 }
 
 // ==========================================
+// GOAL DETECTION & MANAGEMENT
+// ==========================================
+
+const GOAL_PATTERNS = [
+  /voglio\s+(smettere|iniziare|imparare|migliorare|cambiare|perdere|aumentare|ridurre)/i,
+  /devo\s+(smettere|iniziare|fare|provare)/i,
+  /vorrei\s+(riuscire|essere|fare|diventare)/i,
+  /sto\s+cercando\s+di/i,
+  /il\s+mio\s+obiettivo\s+è/i,
+  /mi\s+impegno\s+a/i,
+  /ho\s+deciso\s+di/i,
+];
+
+const CRAVING_PATTERNS = [
+  /voglia\s+di\s+(fumare|bere|mangiare|giocare)/i,
+  /tentazione\s+di/i,
+  /non\s+resisto/i,
+  /sto\s+per\s+(cedere|mollare|arrendermi)/i,
+  /è\s+difficile\s+resistere/i,
+  /ho\s+bisogno\s+di\s+(fumare|bere|una sigaretta)/i,
+  /mi\s+viene\s+da\s+(fumare|bere)/i,
+];
+
+const GOAL_COMPLETION_PATTERNS = [
+  /ce\s+l'ho\s+fatta/i,
+  /ho\s+smesso/i,
+  /sono\s+riuscit/i,
+  /finalmente/i,
+  /ho\s+raggiunto/i,
+  /obiettivo\s+completato/i,
+  /non\s+(fumo|bevo|gioco)\s+più/i,
+  /(giorni|settimane|mesi)\s+senza/i,
+];
+
+function detectGoalIntent(text: string): { type: "new_goal" | "craving" | "completion" | null; pattern: string | null } {
+  for (const pattern of GOAL_PATTERNS) {
+    if (pattern.test(text)) return { type: "new_goal", pattern: pattern.toString() };
+  }
+  for (const pattern of CRAVING_PATTERNS) {
+    if (pattern.test(text)) return { type: "craving", pattern: pattern.toString() };
+  }
+  for (const pattern of GOAL_COMPLETION_PATTERNS) {
+    if (pattern.test(text)) return { type: "completion", pattern: pattern.toString() };
+  }
+  return { type: null, pattern: null };
+}
+
+async function extractAndSaveGoal(
+  supabase: any,
+  userId: string,
+  avatarId: string,
+  messages: Message[],
+  apiKey: string
+): Promise<void> {
+  try {
+    const recentMessages = messages.slice(-4).map(m => `${m.role}: ${m.content}`).join("\n");
+    
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          {
+            role: "system",
+            content: `Estrai l'obiettivo personale da questa conversazione.
+Rispondi SOLO in JSON:
+{"goal": "descrizione breve dell'obiettivo", "category": "health|wellness|habits|relationships|career|learning|fitness|mindfulness"}
+Se non c'è un obiettivo chiaro: {"goal": null}`
+          },
+          { role: "user", content: recentMessages },
+        ],
+        temperature: 0.2,
+      }),
+    });
+
+    if (!response.ok) return;
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || "{}";
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    
+    if (!jsonMatch) return;
+    
+    const extracted = JSON.parse(jsonMatch[0]);
+    
+    if (extracted.goal) {
+      // Check if similar goal already exists
+      const { data: existingGoals } = await supabase
+        .from("temporal_goals")
+        .select("id, goal_description")
+        .eq("user_id", userId)
+        .in("status", ["active", "paused"]);
+      
+      const isDuplicate = existingGoals?.some((g: any) => 
+        g.goal_description.toLowerCase().includes(extracted.goal.toLowerCase().split(" ")[0])
+      );
+      
+      if (!isDuplicate) {
+        await supabase.from("temporal_goals").insert({
+          user_id: userId,
+          avatar_id: avatarId,
+          goal_description: extracted.goal.substring(0, 200),
+          goal_category: extracted.category || "wellness",
+          status: "active",
+          progress_notes: [],
+        });
+        console.log(`New goal created: ${extracted.goal}`);
+      }
+    }
+  } catch (error) {
+    console.error("Goal extraction error:", error);
+  }
+}
+
+async function completeGoalAndReward(
+  supabase: any,
+  userId: string,
+  avatarId: string,
+  messages: Message[],
+  apiKey: string
+): Promise<boolean> {
+  try {
+    // Get active goals
+    const { data: goals } = await supabase
+      .from("temporal_goals")
+      .select("id, goal_description")
+      .eq("user_id", userId)
+      .eq("status", "active");
+    
+    if (!goals || goals.length === 0) return false;
+    
+    const recentMessages = messages.slice(-4).map(m => `${m.role}: ${m.content}`).join("\n");
+    const goalsList = goals.map((g: any) => g.goal_description).join(", ");
+    
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          {
+            role: "system",
+            content: `L'utente ha questi obiettivi attivi: ${goalsList}
+            
+Analizza la conversazione e determina se l'utente sta dichiarando di aver COMPLETATO uno di questi obiettivi.
+Rispondi in JSON: {"completed_goal": "descrizione esatta del goal completato" o null}`
+          },
+          { role: "user", content: recentMessages },
+        ],
+        temperature: 0.2,
+      }),
+    });
+
+    if (!response.ok) return false;
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || "{}";
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    
+    if (!jsonMatch) return false;
+    
+    const extracted = JSON.parse(jsonMatch[0]);
+    
+    if (extracted.completed_goal) {
+      // Find the matching goal
+      const matchedGoal = goals.find((g: any) => 
+        g.goal_description.toLowerCase().includes(extracted.completed_goal.toLowerCase().split(" ")[0])
+      );
+      
+      if (matchedGoal) {
+        // Mark goal as completed
+        await supabase
+          .from("temporal_goals")
+          .update({ 
+            status: "completed", 
+            achieved_at: new Date().toISOString() 
+          })
+          .eq("id", matchedGoal.id);
+        
+        // Award 5 credits
+        await supabase.rpc("increment_tokens", { 
+          p_user_id: userId, 
+          p_amount: 5 
+        }).catch(() => {
+          // Fallback: direct update
+          supabase
+            .from("profiles")
+            .update({ tokens_balance: supabase.raw("tokens_balance + 5") })
+            .eq("user_id", userId);
+        });
+        
+        console.log(`Goal completed! Awarded 5 credits to user ${userId}`);
+        return true;
+      }
+    }
+    return false;
+  } catch (error) {
+    console.error("Goal completion error:", error);
+    return false;
+  }
+}
+
+// ==========================================
 // GLOBAL KNOWLEDGE EXTRACTION (AUTO-LEARNING)
 // ==========================================
 
@@ -1143,21 +1355,32 @@ serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Background insight extraction + knowledge extraction for global learning
-    if (messages.length >= 4) {
+    // Background processing: insights, goals, and knowledge extraction
+    if (messages.length >= 2) {
+      const goalIntent = detectGoalIntent(lastUserMessage);
+      
       setTimeout(async () => {
         try {
-          // Extract user-specific insights (private memory)
-          const { insights } = await extractInsights(messages, LOVABLE_API_KEY);
-          if (insights.length > 0) {
-            console.log(`Saving ${insights.length} insights for user ${userId}`);
-            await saveInsights(supabase, userId, currentAvatarId, insights);
+          // Goal detection and management
+          if (goalIntent.type === "new_goal") {
+            await extractAndSaveGoal(supabase, userId, currentAvatarId, messages, LOVABLE_API_KEY);
+          } else if (goalIntent.type === "completion") {
+            await completeGoalAndReward(supabase, userId, currentAvatarId, messages, LOVABLE_API_KEY);
           }
           
-          // Extract potential global knowledge for batch processing
-          await extractGlobalKnowledge(supabase, userId, currentAvatarId, messages, LOVABLE_API_KEY);
+          // Extract user-specific insights (private memory)
+          if (messages.length >= 4) {
+            const { insights } = await extractInsights(messages, LOVABLE_API_KEY);
+            if (insights.length > 0) {
+              console.log(`Saving ${insights.length} insights for user ${userId}`);
+              await saveInsights(supabase, userId, currentAvatarId, insights);
+            }
+            
+            // Extract potential global knowledge
+            await extractGlobalKnowledge(supabase, userId, currentAvatarId, messages, LOVABLE_API_KEY);
+          }
         } catch (error) {
-          console.error("Background insight extraction error:", error);
+          console.error("Background processing error:", error);
         }
       }, 0);
     }
