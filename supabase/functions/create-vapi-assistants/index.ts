@@ -101,43 +101,53 @@ User says "Salut, ça va?" → Respond in French: "Salut! Ça va bien, et toi?"`
       name: `${avatar.name} - Multilingual - ${avatar.role}`,
       model: {
         provider: "openai",
-        model: "gpt-4o-mini",
+        model: "gpt-4o",
         messages: [
           {
             role: "system",
             content: systemPrompt,
           },
         ],
-        temperature: 0.8,
+        temperature: 0.7,
       },
       voice: {
         provider: "11labs",
         voiceId: avatar.voiceId,
         stability: 0.5,
-        similarityBoost: 0.75,
-        // Use ElevenLabs Turbo v2.5 / Multilingual v2 for multi-language support
-        model: "eleven_turbo_v2_5",
+        similarityBoost: 0.8,
+        // Use ElevenLabs Multilingual v2 for true multi-language support
+        model: "eleven_multilingual_v2",
+        // Enable language detection for automatic switching
+        enableSsmlParsing: true,
       },
-      // Dynamic first message based on detected language (default Italian)
-      firstMessage: `Hey! I'm ${avatar.name}. How are you today?`,
+      // Neutral greeting that works in any language
+      firstMessage: `Hey! Sono ${avatar.name}. Come stai? / How are you?`,
       transcriber: {
         provider: "deepgram",
-        model: "nova-2",
-        // CRITICAL: Use "multi" for automatic language detection
+        model: "nova-2-general",
+        // Use "multi" for automatic language detection across all supported languages
         language: "multi",
-        // Additional settings for better multi-language detection
-        keywords: [],
         smartFormat: true,
+        punctuate: true,
+        // Improve language detection accuracy
+        detectLanguage: true,
       },
       silenceTimeoutSeconds: 30,
       maxDurationSeconds: 600,
       backgroundSound: "off",
       backchannelingEnabled: true,
       backgroundDenoisingEnabled: true,
-      // Enable language hints for better detection
+      // Server URL for language detection events (optional)
+      serverMessages: ["transcript", "language-detected"],
+      clientMessages: ["transcript", "language-detected"],
+      // Enable real-time language detection
+      analysisPlan: {
+        summaryPrompt: "Summarize the conversation including the detected language",
+      },
       metadata: {
         multilingualEnabled: true,
-        supportedLanguages: ["it", "en", "es", "fr", "de", "pt"],
+        supportedLanguages: ["it", "en", "es", "fr", "de", "pt", "ja", "zh", "ar", "hi"],
+        avatarId: avatar.id,
       },
     }),
   });

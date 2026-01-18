@@ -352,10 +352,18 @@ export function useVapiCall({
         }
       });
 
-      // Message/Transcript handling
+      // Message/Transcript handling with language detection
       vapi.on('message', (message: VapiMessage) => {
+        console.log('Vapi message received:', message.type, message);
+        
+        // Handle transcript messages
         if (message.type === 'transcript' && message.role === 'assistant') {
           onTranscript?.(message.transcript || message.text || '', message.isFinal || false);
+        }
+        
+        // Log language detection for debugging
+        if (message.type === 'language-detected') {
+          console.log('Language detected by Vapi:', message);
         }
       });
 
@@ -395,9 +403,17 @@ export function useVapiCall({
         cleanupVapi();
       });
 
-      // Step 5: Start the call
-      console.log('Starting Vapi call...');
-      await vapi.start(assistantId);
+      // Step 5: Start the call with assistant overrides for multilingual support
+      console.log('Starting Vapi call with multilingual configuration...');
+      await vapi.start(assistantId, {
+        // Override transcriber settings to ensure multilingual detection
+        transcriber: {
+          provider: "deepgram",
+          model: "nova-2-general",
+          language: "multi",
+          smartFormat: true,
+        },
+      });
 
     } catch (error) {
       console.error('Failed to start Vapi call:', error);
