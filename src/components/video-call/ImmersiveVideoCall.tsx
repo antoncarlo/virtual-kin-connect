@@ -52,6 +52,7 @@ interface ImmersiveVideoCallProps {
   avatarPersonality?: string[];
   heygenAvatarId?: string;
   heygenVoiceId?: string;
+  heygenGender?: 'male' | 'female';
   vapiAssistantId?: string;
 }
 
@@ -64,6 +65,7 @@ export function ImmersiveVideoCall({
   avatarPersonality = [],
   heygenAvatarId,
   heygenVoiceId,
+  heygenGender = 'male',
   vapiAssistantId,
 }: ImmersiveVideoCallProps) {
   const heygenVideoRef = useRef<HTMLVideoElement>(null);
@@ -230,6 +232,7 @@ export function ImmersiveVideoCall({
   });
 
   // Vapi for voice conversation with enhanced state management
+  // Pass language and gender for multilingual voice support
   const {
     connectionState: vapiConnectionState,
     isConnecting: isVapiConnecting,
@@ -243,6 +246,10 @@ export function ImmersiveVideoCall({
     toggleMute: toggleVapiMute,
   } = useVapiCall({
     assistantId: vapiAssistantId,
+    // Multilingual support - pass detected language and avatar gender
+    language: language as SupportedLanguage,
+    avatarGender: heygenGender,
+    avatarName: avatarName,
     onTranscript: handleVapiTranscript,
     onCallStart: handleVapiCallStart,
     onUserSpeechStart: handleVapiSpeechStart,
@@ -286,11 +293,11 @@ export function ImmersiveVideoCall({
   // Send welcome greeting when connected - MULTILINGUAL
   useEffect(() => {
     if (isHeyGenConnected && showWelcome) {
-      // Get avatar object for greeting
+      // Get avatar object for greeting - use the actual heygenGender prop
       const avatar = {
         id: avatarId,
         name: avatarName,
-        heygenGender: heygenAvatarId?.includes('Anna') || heygenAvatarId?.includes('Sofia') ? 'female' as const : 'male' as const
+        heygenGender: heygenGender,
       };
 
       // Use multilingual greeting based on detected language
@@ -312,7 +319,7 @@ export function ImmersiveVideoCall({
 
       return () => clearTimeout(timer);
     }
-  }, [isHeyGenConnected, showWelcome, sendHeyGenText, avatarId, avatarName, heygenAvatarId, language, startInsightSession]);
+  }, [isHeyGenConnected, showWelcome, sendHeyGenText, avatarId, avatarName, heygenGender, language, startInsightSession]);
 
   // Sync Vapi transcript to HeyGen lip-sync with buffering
   useEffect(() => {

@@ -551,7 +551,8 @@ export default function Chat() {
           avatarId={avatar.id}
           avatarPersonality={avatar.personality}
           heygenAvatarId={avatar.heygenAvatarId}
-          heygenVoiceId={avatar.heygenVoiceId}
+          heygenVoiceId={avatar.defaultVoiceId}
+          heygenGender={avatar.heygenGender}
           vapiAssistantId={avatar.vapiAssistantId}
         />
       ) : (
