@@ -567,13 +567,33 @@ export class GrowthService {
     return this.viralEngine.generateShareUrls(content);
   }
 
-  // Track share event (analytics_events table doesn't exist, log instead)
+  // Track share event using analytics_events table
   async trackShare(userId: string, platform: string, contentType: string): Promise<void> {
     try {
-      // Since analytics_events table doesn't exist, we'll just log
-      console.log('Share event:', { userId, platform, contentType, timestamp: new Date().toISOString() });
+      await supabase.from('analytics_events').insert({
+        user_id: userId,
+        event_type: 'share',
+        event_data: { platform, contentType },
+        session_id: null,
+        device_info: null,
+      });
     } catch (error) {
       console.error('Failed to track share:', error);
+    }
+  }
+
+  // Track any analytics event
+  async trackEvent(userId: string, eventType: string, eventData: Record<string, any>): Promise<void> {
+    try {
+      await supabase.from('analytics_events').insert({
+        user_id: userId,
+        event_type: eventType,
+        event_data: eventData,
+        session_id: null,
+        device_info: null,
+      });
+    } catch (error) {
+      console.error('Failed to track event:', error);
     }
   }
 }

@@ -641,6 +641,11 @@ export class GamificationEngine {
   calculateStreakBonus(baseXP: number, streak: Streak): number {
     return Math.floor(baseXP * streak.multiplier);
   }
+
+  // Get streak multiplier based on streak count
+  getStreakMultiplier(streakCount: number): number {
+    return Math.min(2, 1 + Math.floor(streakCount / 7) * 0.1);
+  }
 }
 
 // Gamification Service
@@ -651,26 +656,43 @@ export class GamificationService {
     this.engine = new GamificationEngine();
   }
 
-  // Award XP to user (stored in memory since gamification_xp column doesn't exist)
+  // Award XP to user using database
   async awardXP(
     userId: string,
     amount: number,
     reason: string
   ): Promise<{ newXP: number; levelUp: boolean; newLevel?: UserLevel }> {
     try {
-      // XP is tracked locally since the column doesn't exist in the database
-      // In production, you would add gamification_xp column to profiles table
-      const currentXP = 0;
+      // Get current XP from profiles
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('gamification_xp')
+        .eq('user_id', userId)
+        .single();
+
+      const currentXP = profile?.gamification_xp || 0;
       const currentLevel = this.engine.calculateLevel(currentXP);
 
-      // Apply streak bonus if applicable
       const newXP = currentXP + amount;
       const newLevel = this.engine.calculateLevel(newXP);
-
       const levelUp = newLevel.level > currentLevel.level;
 
-      // Log XP gain (we can still log it)
-      await this.logXPGain(userId, amount, reason);
+      // Update profile with new XP
+      await supabase
+        .from('profiles')
+        .update({
+          gamification_xp: newXP,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId);
+
+      // Log XP gain to xp_log table
+      await supabase.from('xp_log').insert({
+        user_id: userId,
+        amount,
+        reason,
+        source: 'gamification',
+      });
 
       return { newXP, levelUp, newLevel: levelUp ? newLevel : undefined };
     } catch (error) {
@@ -709,14 +731,28 @@ export class GamificationService {
     }
   }
 
-  // Unlock achievement (user_achievements table doesn't exist, track locally)
+  // Unlock achievement using database
   async unlockAchievement(userId: string, achievementId: string): Promise<Achievement | null> {
     const achievement = ACHIEVEMENTS.find(a => a.id === achievementId);
     if (!achievement) return null;
 
     try {
-      // Since user_achievements table doesn't exist, we track achievements locally
-      // In production, you would create the user_achievements table
+      // Check if already unlocked
+      const { data: existing } = await supabase
+        .from('user_achievements')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('achievement_id', achievementId)
+        .maybeSingle();
+
+      if (existing) return null; // Already unlocked
+
+      // Insert achievement
+      await supabase.from('user_achievements').insert({
+        user_id: userId,
+        achievement_id: achievementId,
+        unlocked_at: new Date().toISOString(),
+      });
 
       // Award rewards
       if (achievement.xpReward > 0) {
@@ -733,17 +769,55 @@ export class GamificationService {
     }
   }
 
-  // Update user streak (streak columns don't exist, track locally)
+  // Update user streak using database
   async updateUserStreak(userId: string): Promise<Streak> {
     try {
-      // Since streak columns don't exist in profiles, we calculate from activity
+      // Get current streak from profiles
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('daily_streak, longest_streak, last_activity')
+        .eq('user_id', userId)
+        .single();
+
+      const now = new Date();
+      const lastActivity = profile?.last_activity ? new Date(profile.last_activity) : null;
+      const hoursSinceActivity = lastActivity 
+        ? (now.getTime() - lastActivity.getTime()) / (1000 * 60 * 60)
+        : 999;
+
+      let newStreak = profile?.daily_streak || 0;
+      let longestStreak = profile?.longest_streak || 0;
+
+      // If last activity was within 48 hours, continue streak
+      if (hoursSinceActivity < 48 && hoursSinceActivity >= 24) {
+        newStreak += 1;
+      } else if (hoursSinceActivity >= 48) {
+        newStreak = 1; // Reset streak
+      }
+      // If within 24 hours, don't increment (already counted today)
+
+      if (newStreak > longestStreak) {
+        longestStreak = newStreak;
+      }
+
+      // Update profile
+      await supabase
+        .from('profiles')
+        .update({
+          daily_streak: newStreak,
+          longest_streak: longestStreak,
+          last_activity: now.toISOString(),
+          updated_at: now.toISOString(),
+        })
+        .eq('user_id', userId);
+
       const currentStreak: Streak = {
         type: 'daily',
-        currentCount: 1,
-        longestCount: 1,
-        lastActivity: new Date(),
+        currentCount: newStreak,
+        longestCount: longestStreak,
+        lastActivity: now,
         isActive: true,
-        multiplier: 1,
+        multiplier: this.engine.getStreakMultiplier(newStreak),
       };
 
       const updatedStreak = this.engine.updateStreak(currentStreak);

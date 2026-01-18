@@ -116,33 +116,41 @@ export function useGamification(): UseGamificationReturn {
 
       const userId = session.user.id;
 
-      // Load profile data
+      // Load profile data with gamification columns
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('tokens_balance, display_name')
+        .select('tokens_balance, display_name, gamification_xp, daily_streak, longest_streak, last_activity')
         .eq('user_id', userId)
         .single();
 
       if (profileError) throw profileError;
 
       if (profile) {
-        // Use tokens_balance which exists in the schema
         setTokens(profile.tokens_balance || 0);
-        // XP and streak data are calculated from activity, not stored directly
-        setTotalXP(0);
+        setTotalXP(profile.gamification_xp || 0);
         setStreak({
           type: 'daily',
-          currentCount: 0,
-          longestCount: 0,
-          lastActivity: new Date(),
+          currentCount: profile.daily_streak || 0,
+          longestCount: profile.longest_streak || 0,
+          lastActivity: profile.last_activity ? new Date(profile.last_activity) : new Date(),
           isActive: true,
-          multiplier: 1,
+          multiplier: 1 + Math.floor((profile.daily_streak || 0) / 7) * 0.1,
         });
       }
 
-      // Achievements are stored in session_insights or calculated from activity
-      // Since user_achievements table doesn't exist, we'll track locally
-      setAchievements([]);
+      // Load achievements from user_achievements table
+      const { data: userAchievements } = await supabase
+        .from('user_achievements')
+        .select('achievement_id, unlocked_at')
+        .eq('user_id', userId);
+
+      if (userAchievements) {
+        const loadedAchievements = userAchievements.map(ua => ({
+          id: ua.achievement_id,
+          unlockedAt: ua.unlocked_at ? new Date(ua.unlocked_at) : new Date(),
+        }));
+        setAchievements(loadedAchievements as any);
+      }
 
       // Load user stats for achievement progress
       const [messagesResult, memoriesResult, goalsResult] = await Promise.all([
