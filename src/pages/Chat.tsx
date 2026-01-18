@@ -46,7 +46,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL || 'https://vrnjccybvrdzakrrfard.supabase.co'}/functions/v1/chat`;
 
 export default function Chat() {
   const { avatarId } = useParams<{ avatarId: string }>();
