@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, validateAuth } from "../_shared/auth.ts";
 
 const HEYGEN_API_URL = "https://api.heygen.com";
+const LIVEAVATAR_API_URL = "https://api.liveavatar.com";
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -34,6 +35,35 @@ serve(async (req) => {
     let data: unknown;
 
     switch (action) {
+      case 'getToken':
+        // Get session token for LiveAvatar SDK
+        // This creates a temporary token that the SDK uses to establish a session
+        console.log('[LiveAvatar] Generating session token');
+
+        // LiveAvatar uses the same HeyGen API for token generation
+        response = await fetch(`${HEYGEN_API_URL}/v1/streaming.create_token`, {
+          method: 'POST',
+          headers,
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('[LiveAvatar] Token generation failed:', response.status, errorText);
+          throw new Error(`Failed to generate token: ${response.status}`);
+        }
+
+        data = await response.json();
+        const tokenData = data as any;
+
+        if (tokenData?.data?.token) {
+          console.log('[LiveAvatar] Token generated successfully');
+          return new Response(JSON.stringify({ token: tokenData.data.token }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        throw new Error('Token not found in response');
+
       case 'list-public-avatars':
         // List available public streaming avatars
         console.log('[HeyGen] Fetching public streaming avatars');

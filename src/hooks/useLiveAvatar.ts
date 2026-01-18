@@ -83,7 +83,7 @@ export function useLiveAvatar(options: UseLiveAvatarOptions): UseLiveAvatarRetur
   const dynamicVoiceId = voiceId || getHeyGenVoiceId(gender, language);
 
   /**
-   * Get session token from Supabase Edge Function
+   * Get session token from Supabase Edge Function or direct API
    */
   const getSessionToken = useCallback(async (): Promise<string> => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -91,15 +91,45 @@ export function useLiveAvatar(options: UseLiveAvatarOptions): UseLiveAvatarRetur
       throw new Error("Not authenticated");
     }
 
-    const response = await supabase.functions.invoke("heygen-streaming", {
-      body: { action: "getToken" },
-    });
+    // Try to get token from Edge Function (production)
+    try {
+      const response = await supabase.functions.invoke("heygen-streaming", {
+        body: { action: "getToken" },
+      });
 
-    if (response.error) {
-      throw new Error(response.error.message || "Failed to get session token");
+      if (response.data?.token) {
+        console.log("[LiveAvatar] Token obtained from Edge Function");
+        return response.data.token;
+      }
+    } catch (err) {
+      console.warn("[LiveAvatar] Edge Function failed, trying direct API");
     }
 
-    return response.data.token;
+    // Fallback: Use direct API with env key (development only)
+    const apiKey = import.meta.env.VITE_LIVEAVATAR_API_KEY;
+    if (!apiKey) {
+      throw new Error("LiveAvatar API key not configured");
+    }
+
+    console.log("[LiveAvatar] Using direct API for token");
+    const response = await fetch("https://api.heygen.com/v1/streaming.create_token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Api-Key": apiKey,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get token: ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (!data?.data?.token) {
+      throw new Error("Token not found in response");
+    }
+
+    return data.data.token;
   }, []);
 
   /**
