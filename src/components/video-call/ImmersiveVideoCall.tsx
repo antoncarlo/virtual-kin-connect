@@ -42,6 +42,10 @@ import { CinematicFilter } from "./CinematicFilter";
 import { LoadingTransition } from "./LoadingTransition";
 import { ResponsiveVideoContainer } from "./ResponsiveVideoContainer";
 import { WebRTCDebugPanel, useWebRTCDebugLogs } from "./WebRTCDebugPanel";
+// New imports for WhatsApp-style UX
+import { CallOverlay, type CallState } from "./CallOverlay";
+import { useRingtone } from "@/hooks/useRingtone";
+import { useAudioOutput } from "@/hooks/useAudioOutput";
 
 interface ImmersiveVideoCallProps {
   isOpen: boolean;
@@ -88,7 +92,12 @@ export function ImmersiveVideoCall({
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
   const [isProcessingRAG, setIsProcessingRAG] = useState(false);
   const [loadingStage, setLoadingStage] = useState<"initializing" | "connecting" | "stabilizing" | "ready">("initializing");
-  
+
+  // WhatsApp-style call state
+  const [callState, setCallState] = useState<CallState>("ended");
+  const [showVideoOverlay, setShowVideoOverlay] = useState(false);
+  const firstFrameReceived = useRef(false);
+
   // Transcripts for overlay
   const [userTranscript, setUserTranscript] = useState("");
   const [assistantTranscript, setAssistantTranscript] = useState("");
@@ -99,6 +108,31 @@ export function ImmersiveVideoCall({
 
   // Multilingual support - must be before useLiveAvatar
   const { language } = useLanguage();
+
+  // Ringtone for connection feedback (tuuu-tuuu sound)
+  const { start: startRingtone, stop: stopRingtone, isPlaying: isRingtonePlaying } = useRingtone({
+    frequency: 425,       // European dial tone frequency
+    frequency2: 450,      // Slight variation for dual-tone
+    toneDuration: 400,    // 400ms tone
+    gapDuration: 200,     // 200ms gap
+    volume: 0.25,         // Not too loud
+    europeanPattern: true,
+  });
+
+  // Audio output device selector
+  const {
+    devices: audioDevices,
+    selectedDevice: selectedAudioDevice,
+    selectDevice: selectAudioDevice,
+    registerElement: registerAudioElement,
+    unregisterElement: unregisterAudioElement,
+    isSupported: isAudioOutputSupported,
+  } = useAudioOutput({
+    autoRequestPermission: true,
+    onDeviceChange: (deviceId) => {
+      console.log("[ImmersiveVideoCall] Audio output changed to:", deviceId);
+    },
+  });
 
   // WebRTC Debug logs
   const { logs: debugLogs, connectionState, iceConnectionState, iceGatheringState, addLog, clearLogs, updateConnectionStates } = useWebRTCDebugLogs();
@@ -139,6 +173,7 @@ export function ImmersiveVideoCall({
     console.log("HeyGen connected - video stabilized");
     setConnectionQuality("excellent");
     setLoadingStage("ready");
+    setCallState("buffering");
     markVideoStart();
   }, [markVideoStart]);
 
@@ -377,8 +412,50 @@ export function ImmersiveVideoCall({
     if (heygenStream && heygenVideoRef.current) {
       heygenVideoRef.current.srcObject = heygenStream;
       heygenVideoRef.current.play().catch(console.error);
+
+      // Register for audio output management
+      if (isAudioOutputSupported) {
+        registerAudioElement(heygenVideoRef.current);
+      }
     }
-  }, [heygenStream]);
+
+    return () => {
+      if (heygenVideoRef.current && isAudioOutputSupported) {
+        unregisterAudioElement(heygenVideoRef.current);
+      }
+    };
+  }, [heygenStream, isAudioOutputSupported, registerAudioElement, unregisterAudioElement]);
+
+  // Handle first frame - stop ringtone and show video
+  useEffect(() => {
+    const video = heygenVideoRef.current;
+    if (!video || !heygenStream) return;
+
+    const handleLoadedData = () => {
+      if (!firstFrameReceived.current) {
+        firstFrameReceived.current = true;
+        console.log("[ImmersiveVideoCall] First frame received - stopping ringtone");
+
+        // Stop the ringtone
+        stopRingtone();
+
+        // Transition to connected state
+        setCallState("connected");
+        setShowVideoOverlay(true);
+      }
+    };
+
+    video.addEventListener("loadeddata", handleLoadedData);
+
+    // Also check if video already has data
+    if (video.readyState >= 2 && !firstFrameReceived.current) {
+      handleLoadedData();
+    }
+
+    return () => {
+      video.removeEventListener("loadeddata", handleLoadedData);
+    };
+  }, [heygenStream, stopRingtone]);
 
   // Start local camera
   const startLocalCamera = useCallback(async () => {
@@ -440,48 +517,64 @@ export function ImmersiveVideoCall({
     }
   }, [stopLocalCamera, startLocalCamera]);
 
-  // Initialize when modal opens
+  // Initialize when modal opens - WhatsApp-style with ringtone
   useEffect(() => {
     if (isOpen && !isInitialized) {
       setIsInitialized(true);
       setShowWelcome(true);
       setLoadingStage("initializing");
+
+      // STEP 1: Show WhatsApp overlay immediately (perceived latency = 0)
+      setCallState("initiating");
+      firstFrameReceived.current = false;
+
+      // STEP 2: Start ringtone immediately for audio feedback
+      startRingtone();
+
+      // STEP 3: Start local camera
       startLocalCamera();
 
-      // Start Vapi call first (more reliable)
-      const vapiTimer = setTimeout(() => {
+      // STEP 4: Parallel initialization for reduced latency
+      // Start both Vapi and HeyGen in parallel
+      const initTimer = setTimeout(() => {
+        setCallState("connecting");
+        setLoadingStage("connecting");
+
+        // Start Vapi call
         if (vapiAssistantId) {
-          setLoadingStage("connecting");
           startVapiCall();
         }
-      }, 500);
 
-      // Start HeyGen session after Vapi
-      const heygenTimer = setTimeout(() => {
+        // Start HeyGen session in parallel
         if (heygenAvatarId && heygenVideoRef.current) {
           setLoadingStage("stabilizing");
           startHeyGenSession(heygenVideoRef.current);
         }
-      }, 1000);
+      }, 100); // Minimal delay for UI to render
 
       return () => {
-        clearTimeout(heygenTimer);
-        clearTimeout(vapiTimer);
+        clearTimeout(initTimer);
       };
     }
-    
+
     if (!isOpen && isInitialized) {
+      // Stop ringtone if still playing
+      stopRingtone();
+
       stopLocalCamera();
       stopHeyGenSession();
       endVapiCall();
       setCallDuration(0);
       setIsInitialized(false);
       setShowWelcome(true);
+      setCallState("ended");
+      firstFrameReceived.current = false;
+      setShowVideoOverlay(false);
       if (document.fullscreenElement) {
         document.exitFullscreen?.().catch(() => {});
       }
     }
-  }, [isOpen, isInitialized, heygenAvatarId, vapiAssistantId, startLocalCamera, startHeyGenSession, startVapiCall, stopLocalCamera, stopHeyGenSession, endVapiCall]);
+  }, [isOpen, isInitialized, heygenAvatarId, vapiAssistantId, startLocalCamera, startHeyGenSession, startVapiCall, stopLocalCamera, stopHeyGenSession, endVapiCall, startRingtone, stopRingtone]);
 
   // Call duration timer - only start after first response (welcome message)
   useEffect(() => {
@@ -569,41 +662,68 @@ export function ImmersiveVideoCall({
   const isSpeaking = isHeyGenSpeaking || isVapiSpeaking;
   const isUserCurrentlySpeaking = isUserSpeaking || isVapiUserSpeaking;
 
+  // Format audio devices for CallOverlay
+  const formattedAudioDevices = audioDevices.map(d => ({
+    deviceId: d.deviceId,
+    label: d.label,
+    kind: d.kind as "audiooutput" | "audioinput",
+  }));
+
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[100] bg-black"
-        >
-          {/* Dynamic Background with temporal lighting */}
-          <DynamicBackground temporalContext={temporalContext}>
-            {/* Responsive Video Container with Cinematic Effects */}
-            <ResponsiveVideoContainer
-              isConnecting={isConnecting}
-              isConnected={isHeyGenConnected}
-              temporalWarmth={temporalContext.timeOfDay === "evening" || temporalContext.timeOfDay === "night" ? 50 : 25}
-            >
-              {/* Fallback Mode - Voice Only with Static Image */}
-              <AnimatePresence>
-                {isFallbackMode && (
-                  <FallbackMode
-                    avatarImage={avatarImage}
-                    avatarName={avatarName}
-                    isActive={isFallbackMode}
-                  />
-                )}
-              </AnimatePresence>
+        <>
+          {/* WhatsApp-style Call Overlay - shows until first frame */}
+          <CallOverlay
+            isOpen={!showVideoOverlay}
+            callState={callState}
+            avatarName={avatarName}
+            avatarImage={avatarImage}
+            callDuration={callDuration}
+            isMuted={!isMicOn}
+            isSpeaking={isSpeaking}
+            isUserSpeaking={isUserCurrentlySpeaking}
+            connectionQuality={connectionQuality}
+            onMuteToggle={handleToggleMic}
+            onAudioOutputChange={selectAudioDevice}
+            onEndCall={handleClose}
+            audioDevices={formattedAudioDevices}
+            selectedAudioDevice={selectedAudioDevice}
+          />
 
-              {/* Main Avatar Video - Full Screen with Aspect Ratio */}
-              {!isFallbackMode && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  {isHeyGenConnected ? (
-                    <>
-                      {/* CRITICAL: Video must be muted - audio comes from VAPI */}
-                      <video
+          {/* Main Video View - shows after first frame */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: showVideoOverlay ? 1 : 0 }}
+            exit={{ opacity: 0 }}
+            className={`fixed inset-0 z-[100] bg-black ${!showVideoOverlay ? 'pointer-events-none' : ''}`}
+          >
+            {/* Dynamic Background with temporal lighting */}
+            <DynamicBackground temporalContext={temporalContext}>
+              {/* Responsive Video Container with Cinematic Effects */}
+              <ResponsiveVideoContainer
+                isConnecting={isConnecting}
+                isConnected={isHeyGenConnected}
+                temporalWarmth={temporalContext.timeOfDay === "evening" || temporalContext.timeOfDay === "night" ? 50 : 25}
+              >
+                {/* Fallback Mode - Voice Only with Static Image */}
+                <AnimatePresence>
+                  {isFallbackMode && (
+                    <FallbackMode
+                      avatarImage={avatarImage}
+                      avatarName={avatarName}
+                      isActive={isFallbackMode}
+                    />
+                  )}
+                </AnimatePresence>
+
+                {/* Main Avatar Video - Full Screen with Aspect Ratio */}
+                {!isFallbackMode && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    {isHeyGenConnected ? (
+                      <>
+                        {/* CRITICAL: Video must be muted - audio comes from VAPI */}
+                        <video
                         ref={heygenVideoRef}
                         id="heygen-video-render"
                         autoPlay
@@ -970,9 +1090,10 @@ export function ImmersiveVideoCall({
               onResult={handleVisionResult}
               onEmotionChange={handleVisionEmotion}
             />
-            </ResponsiveVideoContainer>
-          </DynamicBackground>
-        </motion.div>
+              </ResponsiveVideoContainer>
+            </DynamicBackground>
+          </motion.div>
+        </>
       )}
     </AnimatePresence>
   );
