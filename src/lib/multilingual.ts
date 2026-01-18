@@ -98,6 +98,87 @@ export const HEYGEN_VOICES: Record<SupportedLanguage, HeyGenVoiceConfig> = {
   pt: { male: 'pt-BR-AntonioNeural', female: 'pt-BR-FranciscaNeural' },
 };
 
+// ElevenLabs voice IDs for VAPI (TTS)
+// Using multilingual v2 voices that support all languages
+export interface ElevenLabsVoiceConfig {
+  male: string;
+  female: string;
+  maleVoiceName: string;
+  femaleVoiceName: string;
+}
+
+// ElevenLabs Multilingual v2 voices that sound natural in each language
+export const ELEVENLABS_VOICES: Record<SupportedLanguage, ElevenLabsVoiceConfig> = {
+  auto: {
+    male: 'onwK4e9ZLuTAKqWW03F9', // Daniel - multilingual
+    female: 'EXAVITQu4vr4xnSDxMaL', // Sarah - multilingual
+    maleVoiceName: 'Daniel',
+    femaleVoiceName: 'Sarah',
+  },
+  it: {
+    male: 'onwK4e9ZLuTAKqWW03F9', // Daniel - sounds great in Italian
+    female: 'EXAVITQu4vr4xnSDxMaL', // Sarah - multilingual
+    maleVoiceName: 'Daniel',
+    femaleVoiceName: 'Sarah',
+  },
+  en: {
+    male: 'pNInz6obpgDQGcFmaJgB', // Adam - natural English
+    female: '21m00Tcm4TlvDq8ikWAM', // Rachel - natural English
+    maleVoiceName: 'Adam',
+    femaleVoiceName: 'Rachel',
+  },
+  es: {
+    male: 'onwK4e9ZLuTAKqWW03F9', // Daniel - multilingual
+    female: 'EXAVITQu4vr4xnSDxMaL', // Sarah - multilingual
+    maleVoiceName: 'Daniel',
+    femaleVoiceName: 'Sarah',
+  },
+  fr: {
+    male: 'onwK4e9ZLuTAKqWW03F9', // Daniel - multilingual
+    female: 'EXAVITQu4vr4xnSDxMaL', // Sarah - multilingual
+    maleVoiceName: 'Daniel',
+    femaleVoiceName: 'Sarah',
+  },
+  de: {
+    male: 'onwK4e9ZLuTAKqWW03F9', // Daniel - multilingual
+    female: 'EXAVITQu4vr4xnSDxMaL', // Sarah - multilingual
+    maleVoiceName: 'Daniel',
+    femaleVoiceName: 'Sarah',
+  },
+  pt: {
+    male: 'onwK4e9ZLuTAKqWW03F9', // Daniel - multilingual
+    female: 'EXAVITQu4vr4xnSDxMaL', // Sarah - multilingual
+    maleVoiceName: 'Daniel',
+    femaleVoiceName: 'Sarah',
+  },
+};
+
+// Get ElevenLabs voice ID for VAPI
+export function getElevenLabsVoiceId(
+  gender: 'male' | 'female',
+  language: SupportedLanguage
+): string {
+  const lang = language === 'auto' ? 'it' : language;
+  const voices = ELEVENLABS_VOICES[lang] || ELEVENLABS_VOICES.it;
+  return gender === 'male' ? voices.male : voices.female;
+}
+
+// Get VAPI voice configuration for language and gender
+export function getVapiVoiceConfig(
+  gender: 'male' | 'female',
+  language: SupportedLanguage
+) {
+  const voiceId = getElevenLabsVoiceId(gender, language);
+  const langConfig = SUPPORTED_LANGUAGES[language] || SUPPORTED_LANGUAGES.auto;
+
+  return {
+    provider: 'eleven-labs' as const,
+    voiceId,
+    model: 'eleven_multilingual_v2',
+    language: langConfig.vapiLanguageCode,
+  };
+}
+
 // HeyGen public avatars - matching gender to persona
 export const HEYGEN_AVATARS = {
   // Male avatars

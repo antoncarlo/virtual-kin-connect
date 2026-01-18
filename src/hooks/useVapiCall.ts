@@ -2,9 +2,19 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import Vapi from "@vapi-ai/web";
+import {
+  SupportedLanguage,
+  getVapiVoiceConfig,
+  getVapiTranscriberConfig,
+} from "@/lib/multilingual";
 
 interface UseVapiCallProps {
   assistantId?: string;
+  // Multilingual support
+  language?: SupportedLanguage;
+  avatarGender?: 'male' | 'female';
+  avatarName?: string;
+  // Callbacks
   onTranscript?: (text: string, isFinal: boolean) => void;
   onSpeechStart?: () => void;
   onSpeechEnd?: () => void;
@@ -42,6 +52,9 @@ export type MicrophoneStatus =
 
 export function useVapiCall({
   assistantId,
+  language = 'auto',
+  avatarGender = 'male',
+  avatarName = 'Marco',
   onTranscript,
   onSpeechStart,
   onSpeechEnd,
@@ -317,7 +330,7 @@ export function useVapiCall({
         console.log('Vapi speech-start (assistant speaking)');
         setIsSpeaking(true);
         onSpeechStart?.();
-        
+
         // Mark first response received - NOW start the timer
         if (!hasReceivedFirstResponse) {
           setHasReceivedFirstResponse(true);
@@ -325,7 +338,7 @@ export function useVapiCall({
           onCallStart?.();
           toast({
             title: "Connesso!",
-            description: "Stai parlando con Marco",
+            description: `Stai parlando con ${avatarName}`,
           });
         }
       });
@@ -404,15 +417,23 @@ export function useVapiCall({
       });
 
       // Step 5: Start the call with assistant overrides for multilingual support
-      console.log('Starting Vapi call with multilingual configuration...');
+      // Get voice and transcriber config based on language and gender
+      const voiceConfig = getVapiVoiceConfig(avatarGender, language);
+      const transcriberConfig = getVapiTranscriberConfig(language);
+
+      console.log('Starting Vapi call with multilingual configuration:', {
+        language,
+        avatarGender,
+        avatarName,
+        voice: voiceConfig,
+        transcriber: transcriberConfig,
+      });
+
       await vapi.start(assistantId, {
-        // Override transcriber settings to ensure multilingual detection
-        transcriber: {
-          provider: "deepgram",
-          model: "nova-2-general",
-          language: "multi",
-          smartFormat: true,
-        },
+        // Override transcriber settings for the user's language
+        transcriber: transcriberConfig,
+        // Override voice settings for the avatar's language
+        voice: voiceConfig,
       });
 
     } catch (error) {
@@ -431,6 +452,9 @@ export function useVapiCall({
     }
   }, [
     assistantId,
+    language,
+    avatarGender,
+    avatarName,
     connectionState,
     hasReceivedFirstResponse,
     isUserSpeaking,

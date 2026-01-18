@@ -1,9 +1,9 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  ArrowLeft, 
-  MoreVertical, 
+import {
+  ArrowLeft,
+  MoreVertical,
   Loader2,
   PhoneOff,
   Trash2,
@@ -12,6 +12,7 @@ import {
   Image,
   User,
   Lock,
+  Heart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -23,6 +24,8 @@ import { useVapiCall } from "@/hooks/useVapiCall";
 import { useSessionInsights } from "@/hooks/useSessionInsights";
 import { useHybridCall } from "@/hooks/useHybridCall";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useMem0 } from "@/hooks/useMem0";
+import { useConvEmotion } from "@/hooks/useConvEmotion";
 import { IncomingCallModal } from "@/components/IncomingCallModal";
 import { VideoCallModal } from "@/components/VideoCallModal";
 import { ImmersiveVideoCall } from "@/components/video-call";
@@ -101,6 +104,25 @@ export default function Chat() {
 
   // Multilingual support hook
   const { language, translations, detectFromMessage } = useLanguage();
+
+  // Mem0 memory system - intelligent memory layer
+  const {
+    memoryContext,
+    addMemories,
+    getRelevantContext,
+    isInitialized: isMem0Ready,
+  } = useMem0({ avatarId: avatarId || "" });
+
+  // Conv-emotion for contextual emotion recognition
+  const {
+    currentMood,
+    moodEmoji,
+    moodIntensity,
+    trajectory: emotionalTrajectory,
+    suggestedTone,
+    analyzeMessages: analyzeEmotions,
+    addMessageAndAnalyze,
+  } = useConvEmotion();
 
   // Hybrid call hook for in-call chat messages
   const {
@@ -230,7 +252,7 @@ export default function Chat() {
     return () => clearInterval(interval);
   }, [messages.length]);
 
-  // Trigger session analysis
+  // Trigger session analysis with Mem0 and conv-emotion
   const triggerSessionAnalysis = useCallback(async () => {
     if (!avatar || messages.length < 4) return;
 
@@ -238,8 +260,26 @@ export default function Chat() {
       .filter(m => m.role === "user" || m.role === "assistant")
       .map(m => ({ role: m.role as "user" | "assistant", content: m.content }));
 
+    // Analyze emotions across the conversation
+    analyzeEmotions(chatMessages);
+
+    // Store memories using Mem0
+    if (isMem0Ready) {
+      try {
+        await addMemories(chatMessages, {
+          avatar_id: avatar.id,
+          mood: currentMood,
+          mood_intensity: moodIntensity,
+          emotional_trajectory: emotionalTrajectory,
+        });
+      } catch (err) {
+        console.error("Failed to store memories in Mem0:", err);
+      }
+    }
+
+    // Original session analysis
     await endSession(chatMessages, avatar.id);
-  }, [avatar, messages, endSession]);
+  }, [avatar, messages, endSession, analyzeEmotions, isMem0Ready, addMemories, currentMood, moodIntensity, emotionalTrajectory]);
 
   const streamChat = useCallback(async (
     chatMessages: { role: "user" | "assistant"; content: string }[],
@@ -551,7 +591,8 @@ export default function Chat() {
           avatarId={avatar.id}
           avatarPersonality={avatar.personality}
           heygenAvatarId={avatar.heygenAvatarId}
-          heygenVoiceId={avatar.heygenVoiceId}
+          heygenVoiceId={avatar.defaultVoiceId}
+          heygenGender={avatar.heygenGender}
           vapiAssistantId={avatar.vapiAssistantId}
         />
       ) : (
