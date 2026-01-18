@@ -25,6 +25,13 @@ import { useIdleGestures } from "@/hooks/useIdleGestures";
 import { useAudioVideoSync } from "@/hooks/useAudioVideoSync";
 import { VisionResult } from "@/hooks/useVisionProcessing";
 import { supabase } from "@/integrations/supabase/client";
+import { useLanguage } from "@/hooks/useLanguage";
+import { getAvatarGreeting, getVoiceIdForAvatar } from "@/data/avatars";
+import { useAvatarIdentity } from "@/hooks/useAvatarIdentity";
+import { useSessionInsights } from "@/hooks/useSessionInsights";
+import { recordActivity } from "@/lib/gamification";
+import { recordLearningEvent } from "@/lib/adaptive-learning";
+import type { SupportedLanguage } from "@/lib/multilingual";
 import { QuickChatOverlay } from "./QuickChatOverlay";
 import { ConnectionStatus } from "./ConnectionStatus";
 import { WelcomeAnimation } from "./WelcomeAnimation";
@@ -269,29 +276,43 @@ export function ImmersiveVideoCall({
     setHeyGenEmotion(emotionMap[emotion]);
   }, [setHeyGenEmotion]);
 
-  // Send welcome greeting when connected
+  // Multilingual support
+  const { language } = useLanguage();
+
+  // Avatar identity and session tracking for video calls
+  const { identity: avatarIdentity, affinity: userAffinity, incrementMessages } = useAvatarIdentity(avatarId);
+  const { startSession: startInsightSession, endSession: endInsightSession } = useSessionInsights(avatarId);
+
+  // Send welcome greeting when connected - MULTILINGUAL
   useEffect(() => {
     if (isHeyGenConnected && showWelcome) {
-      const welcomeGreetings = [
-        `Ciao! Che bello vederti!`,
-        `Ehi, eccoti finalmente! Come stai?`,
-        `Hey! Sono contento di parlarti faccia a faccia!`,
-      ];
-      const greeting = welcomeGreetings[Math.floor(Math.random() * welcomeGreetings.length)];
-      
+      // Get avatar object for greeting
+      const avatar = {
+        id: avatarId,
+        name: avatarName,
+        heygenGender: heygenAvatarId?.includes('Anna') || heygenAvatarId?.includes('Sofia') ? 'female' as const : 'male' as const
+      };
+
+      // Use multilingual greeting based on detected language
+      const greeting = getAvatarGreeting(avatar as any, language as SupportedLanguage);
+
       // Delay to let the video stabilize
       const timer = setTimeout(() => {
+        // Only send to HeyGen for lip-sync (no audio - VAPI handles audio)
         sendHeyGenText(greeting);
         setAssistantTranscript(greeting);
         setTimeout(() => setAssistantTranscript(""), 3000);
       }, 1500);
 
-      // Hide welcome animation
-      setTimeout(() => setShowWelcome(false), 3000);
-      
+      // Hide welcome animation and start session tracking
+      setTimeout(() => {
+        setShowWelcome(false);
+        startInsightSession();
+      }, 3000);
+
       return () => clearTimeout(timer);
     }
-  }, [isHeyGenConnected, showWelcome, sendHeyGenText]);
+  }, [isHeyGenConnected, showWelcome, sendHeyGenText, avatarId, avatarName, heygenAvatarId, language, startInsightSession]);
 
   // Sync Vapi transcript to HeyGen lip-sync with buffering
   useEffect(() => {
@@ -433,6 +454,33 @@ export function ImmersiveVideoCall({
   };
 
   const handleClose = async () => {
+    // Track video call activity for gamification
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.id && callDuration > 0) {
+        // Record activity for gamification
+        await recordActivity(session.user.id, 'video_call');
+
+        // Record learning event
+        await recordLearningEvent(
+          session.user.id,
+          avatarId,
+          'message',
+          `Video call duration: ${callDuration} seconds`,
+          { type: 'video_call', duration: callDuration }
+        );
+
+        // Increment avatar affinity
+        await incrementMessages();
+
+        // End session insights tracking
+        const messages = assistantTranscript ? [{ role: 'assistant' as const, content: assistantTranscript }] : [];
+        await endInsightSession(messages, avatarId);
+      }
+    } catch (error) {
+      console.error('Failed to record video call activity:', error);
+    }
+
     stopLocalCamera();
     stopHeyGenSession();
     endVapiCall();
@@ -506,12 +554,13 @@ export function ImmersiveVideoCall({
                 <div className="absolute inset-0 flex items-center justify-center">
                   {isHeyGenConnected ? (
                     <>
+                      {/* CRITICAL: Video must be muted - audio comes from VAPI */}
                       <video
                         ref={heygenVideoRef}
                         id="heygen-video-render"
                         autoPlay
                         playsInline
-                        muted={false}
+                        muted={true}
                         className="w-full h-full object-cover"
                         style={{ filter: temporalContext.lightingFilter }}
                       />
