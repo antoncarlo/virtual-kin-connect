@@ -21,13 +21,13 @@ export function HeroSection() {
     setIsLoadingAudio(true);
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-narration`,
+        `${import.meta.env.VITE_SUPABASE_URL || 'https://vrnjccybvrdzakrrfard.supabase.co'}/functions/v1/video-narration`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZybmpjY3lidnJkemFrcnJmYXJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4MTkzNzksImV4cCI6MjA4MzM5NTM3OX0.T-k9YvwVkjzpzyQSTTInXF4a6kB-2500a1Sl48K8Hbc',
+            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZybmpjY3lidnJkemFrcnJmYXJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4MTkzNzksImV4cCI6MjA4MzM5NTM3OX0.T-k9YvwVkjzpzyQSTTInXF4a6kB-2500a1Sl48K8Hbc'}`,
           },
           body: JSON.stringify({ language: "it" }),
         }
