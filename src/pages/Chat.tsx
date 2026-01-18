@@ -20,7 +20,6 @@ import { avatars } from "@/data/avatars";
 import { supabase } from "@/lib/supabase-client";
 import { useToast } from "@/hooks/use-toast";
 import { useChatHistory } from "@/hooks/useChatHistory";
-import { useVapiCall } from "@/hooks/useVapiCall";
 import { useSessionInsights } from "@/hooks/useSessionInsights";
 import { useHybridCall } from "@/hooks/useHybridCall";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -139,33 +138,11 @@ export default function Chat() {
   });
 
   // Vapi voice call hook
-  const {
-    isConnecting: isVapiConnecting,
-    isConnected: isVapiConnected,
-    isSpeaking: isVapiSpeaking,
-    startCall: startVapiCall,
-    endCall: endVapiCall,
-  } = useVapiCall({
-    assistantId: avatar?.vapiAssistantId,
-    onTranscript: async (text, isFinal) => {
-      if (isFinal && text) {
-        await addMessage("user", text);
-        // Also track for hybrid mode
-        addTranscript("user", text);
-      }
-    },
-    onCallStart: () => {
-      startCallTracking();
-    },
-    onCallEnd: async () => {
-      toast({
-        title: "Chiamata terminata",
-        description: `Generando riepilogo...`,
-      });
-      // Generate post-call summary
-      await endCallAndGenerateSummary();
-    },
-  });
+  // Vapi call state is now managed by ImmersiveVideoCall
+  // These are just UI flags derived from showVideoCall state
+  const isVapiConnecting = false; // ImmersiveVideoCall handles this internally
+  const isVapiConnected = showVideoCall; // When modal is open, call is active
+  const isVapiSpeaking = false; // ImmersiveVideoCall handles this internally
 
   // Fetch last chat info for welcome back message
   useEffect(() => {
@@ -437,19 +414,10 @@ export default function Chat() {
     }
   };
 
-  // Handle accepting the incoming call
-  const handleAcceptCall = async () => {
+  // Handle accepting the incoming call - now opens ImmersiveVideoCall
+  const handleAcceptCall = () => {
     setShowIncomingCall(false);
-    try {
-      await startVapiCall();
-    } catch (error) {
-      console.error("Failed to start call:", error);
-      toast({
-        variant: "destructive",
-        title: "Errore",
-        description: "Impossibile avviare la chiamata. Riprova.",
-      });
-    }
+    setShowVideoCall(true); // Open the immersive call modal
   };
 
   // Handle rejecting the incoming call
@@ -537,7 +505,8 @@ export default function Chat() {
     await triggerSessionAnalysis();
   };
 
-  const handleVoiceCall = async () => {
+  // Voice call now opens the same ImmersiveVideoCall modal
+  const handleVoiceCall = () => {
     if (!avatar?.vapiAssistantId) {
       toast({
         title: translations.connectionError,
@@ -547,10 +516,11 @@ export default function Chat() {
       return;
     }
 
-    if (isVapiConnected) {
-      endVapiCall();
+    // Toggle: if already in call, close it; otherwise open
+    if (showVideoCall) {
+      setShowVideoCall(false);
     } else {
-      await startVapiCall();
+      setShowVideoCall(true);
     }
   };
 
@@ -679,8 +649,8 @@ export default function Chat() {
             </div>
 
             <div className="flex items-center gap-2">
-              {/* End Call Button (only when connected) */}
-              {isVapiConnected && (
+              {/* End Call Button (only when connected/modal open) */}
+              {showVideoCall && (
                 <motion.div
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
@@ -688,7 +658,7 @@ export default function Chat() {
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={endVapiCall}
+                    onClick={() => setShowVideoCall(false)}
                     className="gap-2"
                   >
                     <PhoneOff className="w-4 h-4" />

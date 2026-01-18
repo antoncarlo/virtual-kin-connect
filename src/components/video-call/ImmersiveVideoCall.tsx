@@ -478,7 +478,36 @@ export function ImmersiveVideoCall({
     };
   }, [heygenStream, stopRingtone]);
 
-  // Start local camera
+  // AUDIO-ONLY FALLBACK: Stop ringtone when Vapi connects (even without video)
+  // Also send a kickoff message to trigger assistant greeting
+  useEffect(() => {
+    if (isVapiConnected && !hasSentKickoffRef.current && isInitialized) {
+      hasSentKickoffRef.current = true;
+      console.log("[ImmersiveVideoCall] Vapi connected - sending kickoff message");
+
+      // Send a kickoff message to trigger the assistant's greeting
+      // This ensures the assistant starts speaking immediately
+      sendVapiMessage("Ciao, sono qui!");
+
+      // If no video stream yet, stop ringtone and mark as connected (audio-only mode)
+      if (!heygenStream && !firstFrameReceived.current) {
+        console.log("[ImmersiveVideoCall] Audio-only mode - stopping ringtone");
+        stopRingtone();
+
+        // Small delay for UX continuity
+        const MIN_OVERLAY_MS = 800;
+        const elapsed = Date.now() - (overlayShownAt.current || Date.now());
+        const delayMs = Math.max(0, MIN_OVERLAY_MS - elapsed);
+
+        window.setTimeout(() => {
+          setCallState("connected");
+          // Keep overlay visible for audio-only calls (showVideoOverlay = false)
+        }, delayMs);
+      }
+    }
+  }, [isVapiConnected, isInitialized, heygenStream, sendVapiMessage, stopRingtone]);
+
+
   const startLocalCamera = useCallback(async () => {
     if (!localVideoRef.current || localStreamRef.current) return;
     try {
