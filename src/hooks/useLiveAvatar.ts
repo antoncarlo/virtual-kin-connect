@@ -210,11 +210,11 @@ export function useLiveAvatar(options: UseLiveAvatarOptions): UseLiveAvatarRetur
       // Start avatar session
       const sessionData = await avatar.createStartAvatar({
         avatarName: avatarId,
-        quality: "high",
+        quality: "high" as any,
         voice: {
           voiceId: dynamicVoiceId || undefined,
           rate: 1.0,
-          emotion: "friendly",
+          emotion: "friendly" as any,
         },
         language,
         ...(knowledgeBase && { knowledgeId: knowledgeBase }),

@@ -169,13 +169,11 @@ export function getVapiVoiceConfig(
   language: SupportedLanguage
 ) {
   const voiceId = getElevenLabsVoiceId(gender, language);
-  const langConfig = SUPPORTED_LANGUAGES[language] || SUPPORTED_LANGUAGES.auto;
 
   return {
-    provider: 'eleven-labs' as const,
+    provider: '11labs' as const,
     voiceId,
-    model: 'eleven_multilingual_v2',
-    language: langConfig.vapiLanguageCode,
+    model: 'eleven_multilingual_v2' as const,
   };
 }
 
@@ -378,11 +376,22 @@ export function getWelcomeMessage(language: SupportedLanguage): string {
 // Get VAPI transcriber config for language
 export function getVapiTranscriberConfig(language: SupportedLanguage) {
   const langConfig = SUPPORTED_LANGUAGES[language] || SUPPORTED_LANGUAGES.auto;
+  
+  // Map to valid Deepgram language codes
+  const deepgramLangMap: Record<string, string> = {
+    'it': 'it',
+    'en': 'en',
+    'es': 'es',
+    'fr': 'fr',
+    'de': 'de',
+    'pt': 'pt',
+    'multi': 'multi',
+  };
 
   return {
     provider: "deepgram" as const,
     model: "nova-2-general",
-    language: langConfig.deepgramLanguage,
+    language: (deepgramLangMap[langConfig.deepgramLanguage] || 'multi') as any,
     smartFormat: true,
   };
 }
