@@ -106,7 +106,7 @@ const formatDuration = (seconds: number): string => {
 const getStatusText = (state: CallState): string => {
   switch (state) {
     case "initiating":
-      return "Connessione in corso...";
+      return "Squillando...";
     case "connecting":
       return "Stabilendo connessione...";
     case "buffering":
@@ -176,7 +176,7 @@ export function CallOverlay({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-[100] bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900"
+          className="fixed inset-0 z-[9999] bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900"
         >
           {/* Background blur effect */}
           <div className="absolute inset-0 backdrop-blur-3xl" />
