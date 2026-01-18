@@ -246,11 +246,11 @@ export function useInteractiveAvatar(
 
       const sessionData = await avatar.createStartAvatar({
         avatarName: avatarId,
-        quality,
+        quality: quality as any,
         voice: {
           voiceId: voiceId || undefined,
           rate: 1.0,
-          emotion,
+          emotion: emotion as any,
         },
         language,
         ...(knowledgeBaseId && { knowledgeId: knowledgeBaseId }),
@@ -262,7 +262,7 @@ export function useInteractiveAvatar(
 
       if (enableVoiceChat) {
         try {
-          await avatar.startVoiceChat({ useSilencePrompt: true });
+          await avatar.startVoiceChat({});
         } catch (e) {
           console.warn("[useInteractiveAvatar] Voice chat init failed:", e);
         }
@@ -373,7 +373,7 @@ export function useInteractiveAvatar(
     if (!avatarRef.current || state !== "active") {
       throw new Error("Session not active");
     }
-    await avatarRef.current.startVoiceChat({ useSilencePrompt: true });
+    await avatarRef.current.startVoiceChat({});
   }, [state]);
 
   const stopVoiceChat = useCallback(async () => {

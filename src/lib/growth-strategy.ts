@@ -314,7 +314,7 @@ export class GrowthService {
       }
 
       // Check if already used by this user
-      if (referral.referred_user_id === newUserId) {
+      if (referral.referred_id === newUserId) {
         return { success: false, error: 'Code already applied' };
       }
 
@@ -341,18 +341,22 @@ export class GrowthService {
       await supabase
         .from('referrals')
         .update({
-          referred_user_id: newUserId,
+          referred_id: newUserId,
           status: 'registered',
-          updated_at: new Date().toISOString(),
         })
         .eq('id', referral.id);
 
-      // Award tokens to new user
+      // Award tokens to new user - get current balance and update
+      const { data: currentProfile } = await supabase
+        .from('profiles')
+        .select('tokens_balance')
+        .eq('user_id', newUserId)
+        .single();
+      
+      const newBalance = (currentProfile?.tokens_balance || 0) + rewards.referredTokens;
       await supabase
         .from('profiles')
-        .update({
-          tokens_balance: supabase.rpc('increment', { x: rewards.referredTokens }),
-        })
+        .update({ tokens_balance: newBalance })
         .eq('user_id', newUserId);
 
       return { success: true, rewards };
@@ -368,7 +372,7 @@ export class GrowthService {
       const { data: referral } = await supabase
         .from('referrals')
         .select('*')
-        .eq('referred_user_id', userId)
+        .eq('referred_id', userId)
         .eq('status', 'registered')
         .single();
 
@@ -378,7 +382,6 @@ export class GrowthService {
         .from('referrals')
         .update({
           status: 'activated',
-          activated_at: new Date().toISOString(),
         })
         .eq('id', referral.id);
     } catch (error) {
@@ -392,7 +395,7 @@ export class GrowthService {
       const { data: referral } = await supabase
         .from('referrals')
         .select('*')
-        .eq('referred_user_id', userId)
+        .eq('referred_id', userId)
         .eq('status', 'activated')
         .single();
 
@@ -422,17 +425,22 @@ export class GrowthService {
         .from('referrals')
         .update({
           status: 'converted',
-          converted_at: new Date().toISOString(),
-          referrer_reward: rewards.referrerTokens,
+          completed_at: new Date().toISOString(),
+          bonus_tokens: rewards.referrerTokens,
         })
         .eq('id', referral.id);
 
-      // Award tokens to referrer
+      // Award tokens to referrer - get current balance and update
+      const { data: referrerProfile } = await supabase
+        .from('profiles')
+        .select('tokens_balance')
+        .eq('user_id', referral.referrer_id)
+        .single();
+      
+      const newBalance = (referrerProfile?.tokens_balance || 0) + rewards.referrerTokens;
       await supabase
         .from('profiles')
-        .update({
-          tokens_balance: supabase.rpc('increment', { x: rewards.referrerTokens }),
-        })
+        .update({ tokens_balance: newBalance })
         .eq('user_id', referral.referrer_id);
 
       return rewards;
@@ -465,7 +473,7 @@ export class GrowthService {
         totalReferrals: referrals?.length || 0,
         pendingReferrals: referrals?.filter(r => r.status === 'pending' || r.status === 'registered').length || 0,
         convertedReferrals: referrals?.filter(r => r.status === 'converted').length || 0,
-        totalEarned: referrals?.reduce((sum, r) => sum + (r.referrer_reward || 0), 0) || 0,
+        totalEarned: referrals?.reduce((sum, r) => sum + (r.bonus_tokens || 0), 0) || 0,
         currentTier: REFERRAL_TIERS[0],
         nextTier: REFERRAL_TIERS[1],
       };
@@ -559,15 +567,11 @@ export class GrowthService {
     return this.viralEngine.generateShareUrls(content);
   }
 
-  // Track share event
+  // Track share event (analytics_events table doesn't exist, log instead)
   async trackShare(userId: string, platform: string, contentType: string): Promise<void> {
     try {
-      await supabase.from('analytics_events').insert({
-        user_id: userId,
-        event_type: 'share',
-        event_data: { platform, contentType },
-        created_at: new Date().toISOString(),
-      });
+      // Since analytics_events table doesn't exist, we'll just log
+      console.log('Share event:', { userId, platform, contentType, timestamp: new Date().toISOString() });
     } catch (error) {
       console.error('Failed to track share:', error);
     }

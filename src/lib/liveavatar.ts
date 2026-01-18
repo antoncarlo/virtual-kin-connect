@@ -124,7 +124,8 @@ export class LiveAvatarClient {
   async startSession(videoElement?: HTMLVideoElement): Promise<StartAvatarResponse> {
     try {
       // Dynamically import the SDK (tree-shaking friendly)
-      const { StreamingAvatar } = await import("@heygen/streaming-avatar");
+      const StreamingAvatarModule = await import("@heygen/streaming-avatar");
+      const StreamingAvatar = StreamingAvatarModule.default;
 
       // First, get a session token from our backend
       const tokenResponse = await this.getSessionToken();

@@ -292,7 +292,7 @@ export const InteractiveAvatar = forwardRef<
       // Auto-start voice chat if enabled
       if (enableVoiceChat) {
         try {
-          await avatar.startVoiceChat({ useSilencePrompt: true });
+          await avatar.startVoiceChat({});
           console.log("[InteractiveAvatar] Voice chat enabled");
         } catch (vcError) {
           console.warn("[InteractiveAvatar] Voice chat failed:", vcError);
