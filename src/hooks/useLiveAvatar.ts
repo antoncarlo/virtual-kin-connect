@@ -142,91 +142,89 @@ export function useLiveAvatar(options: UseLiveAvatarOptions): UseLiveAvatarRetur
     setError(null);
 
     try {
-      // Dynamically import the SDK
-      const { LiveAvatarSession } = await import("@heygen/liveavatar-web-sdk");
+      // Dynamically import the SDK (correct package name)
+      const { default: StreamingAvatar } = await import("@heygen/streaming-avatar");
 
       // Get session token
       const token = await getSessionToken();
 
-      // Create session with configuration
-      const session = new LiveAvatarSession({
-        token,
-        avatarId,
-        voiceId: dynamicVoiceId,
-        voiceChat: true, // Enable voice chat
-        language,
-        ...(knowledgeBase && { knowledgeBase }),
-      });
+      // Create avatar instance
+      const avatar = new StreamingAvatar({ token });
 
-      // Store references
-      sessionRef.current = session;
+      // Store reference
+      sessionRef.current = avatar;
       if (videoElement) {
         videoElementRef.current = videoElement;
       }
 
       // Set up event listeners
-      session.on("session_started", (data: any) => {
-        console.log("LiveAvatar session started:", data.sessionId);
-        setSessionId(data.sessionId);
-        setIsConnected(true);
-        setIsConnecting(false);
-        onConnected?.();
-      });
-
-      session.on("session_ended", () => {
-        console.log("LiveAvatar session ended");
-        setIsConnected(false);
-        setSessionId(null);
-        onDisconnected?.();
-      });
-
-      session.on("stream_ready", (stream: MediaStream) => {
+      avatar.on("stream_ready", (event: any) => {
         console.log("LiveAvatar stream ready");
+        const stream = event.detail;
         setMediaStream(stream);
 
         // Attach to video element if provided
-        if (videoElementRef.current) {
+        if (videoElementRef.current && stream) {
           videoElementRef.current.srcObject = stream;
           videoElementRef.current.play().catch(console.error);
         }
       });
 
-      session.on("avatar_start_speaking", () => {
+      avatar.on("avatar_start_talking", () => {
         setIsSpeaking(true);
         onAvatarSpeaking?.(true);
       });
 
-      session.on("avatar_stop_speaking", () => {
+      avatar.on("avatar_stop_talking", () => {
         setIsSpeaking(false);
         onAvatarSpeaking?.(false);
       });
 
-      session.on("avatar_message", (message: string) => {
-        onAvatarMessage?.(message);
+      avatar.on("avatar_talking_message", (event: any) => {
+        const message = event?.detail?.text || event?.text || "";
+        if (message) onAvatarMessage?.(message);
       });
 
-      session.on("user_start_speaking", () => {
+      avatar.on("user_start", () => {
         setIsUserSpeaking(true);
         onUserSpeaking?.(true);
       });
 
-      session.on("user_stop_speaking", () => {
+      avatar.on("user_stop", () => {
         setIsUserSpeaking(false);
         onUserSpeaking?.(false);
       });
 
-      session.on("user_message", (message: string) => {
-        onUserMessage?.(message);
+      avatar.on("user_talking_message", (event: any) => {
+        const message = event?.detail?.text || event?.text || "";
+        if (message) onUserMessage?.(message);
       });
 
-      session.on("error", (err: Error) => {
+      avatar.on("error", (event: any) => {
+        const err = new Error(event?.detail?.message || "Avatar error");
         console.error("LiveAvatar error:", err);
         setError(err);
         onError?.(err);
       });
 
-      // Start the session
-      await session.start();
+      // Start avatar session
+      const sessionData = await avatar.createStartAvatar({
+        avatarName: avatarId,
+        quality: "high",
+        voice: {
+          voiceId: dynamicVoiceId || undefined,
+          rate: 1.0,
+          emotion: "friendly",
+        },
+        language,
+        ...(knowledgeBase && { knowledgeId: knowledgeBase }),
+      });
+
+      console.log("LiveAvatar session started:", sessionData.session_id);
+      setSessionId(sessionData.session_id);
+      setIsConnected(true);
+      setIsConnecting(false);
+      onConnected?.();
 
     } catch (err) {
       console.error("Failed to start LiveAvatar session:", err);
@@ -259,7 +257,7 @@ export function useLiveAvatar(options: UseLiveAvatarOptions): UseLiveAvatarRetur
     if (!sessionRef.current) return;
 
     try {
-      await sessionRef.current.stop();
+      await sessionRef.current.stopAvatar();
       sessionRef.current = null;
       setIsConnected(false);
       setSessionId(null);
@@ -281,7 +279,11 @@ export function useLiveAvatar(options: UseLiveAvatarOptions): UseLiveAvatarRetur
     }
 
     try {
-      await sessionRef.current.speak(text, { mode: "repeat" });
+      await sessionRef.current.speak({
+        text,
+        taskType: "repeat",
+        taskMode: "async",
+      });
     } catch (err) {
       console.error("Failed to make avatar speak:", err);
       throw err;
@@ -297,7 +299,11 @@ export function useLiveAvatar(options: UseLiveAvatarOptions): UseLiveAvatarRetur
     }
 
     try {
-      await sessionRef.current.speak(userInput, { mode: "talk" });
+      await sessionRef.current.speak({
+        text: userInput,
+        taskType: "talk",
+        taskMode: "async",
+      });
     } catch (err) {
       console.error("Failed to make avatar talk:", err);
       throw err;
