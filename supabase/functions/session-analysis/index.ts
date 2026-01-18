@@ -118,97 +118,112 @@ Analizza secondo questi 4 criteri:
    - Cosa dovrei chiedere nella prossima sessione?
    - Contesto da ricordare per la prossima volta`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: "Sei un analista esperto di conversazioni terapeutiche. Estrai insights strutturati in italiano." },
-          { role: "user", content: analysisPrompt },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "save_session_analysis",
-              description: "Salva l'analisi strutturata della sessione",
-              parameters: {
-                type: "object",
-                properties: {
-                  emotional: {
-                    type: "object",
-                    properties: {
-                      predominant_mood: { type: "string", description: "Emozione principale (ansia, gioia, solitudine, stress, tristezza, rabbia, calma, confusione, speranza)" },
-                      mood_intensity: { type: "number", description: "Intensità 0-10" },
-                      emotional_trajectory: { type: "string", enum: ["improving", "stable", "declining"] },
-                      detected_emotions: { type: "array", items: { type: "string" } },
-                    },
-                    required: ["predominant_mood", "mood_intensity", "emotional_trajectory", "detected_emotions"],
-                  },
-                  entities: {
-                    type: "object",
-                    properties: {
-                      people: {
-                        type: "array",
-                        items: {
-                          type: "object",
-                          properties: {
-                            name: { type: "string" },
-                            relationship: { type: "string" },
-                          },
-                          required: ["name"],
-                        },
+    // Retry logic with exponential backoff for transient errors (503, 429, etc.)
+    const makeRequest = async (attempt = 1): Promise<Response> => {
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: "Sei un analista esperto di conversazioni terapeutiche. Estrai insights strutturati in italiano." },
+            { role: "user", content: analysisPrompt },
+          ],
+          tools: [
+            {
+              type: "function",
+              function: {
+                name: "save_session_analysis",
+                description: "Salva l'analisi strutturata della sessione",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    emotional: {
+                      type: "object",
+                      properties: {
+                        predominant_mood: { type: "string", description: "Emozione principale (ansia, gioia, solitudine, stress, tristezza, rabbia, calma, confusione, speranza)" },
+                        mood_intensity: { type: "number", description: "Intensità 0-10" },
+                        emotional_trajectory: { type: "string", enum: ["improving", "stable", "declining"] },
+                        detected_emotions: { type: "array", items: { type: "string" } },
                       },
-                      events: {
-                        type: "array",
-                        items: {
-                          type: "object",
-                          properties: {
-                            description: { type: "string" },
-                            date: { type: "string" },
-                            importance: { type: "string", enum: ["low", "medium", "high"] },
+                      required: ["predominant_mood", "mood_intensity", "emotional_trajectory", "detected_emotions"],
+                    },
+                    entities: {
+                      type: "object",
+                      properties: {
+                        people: {
+                          type: "array",
+                          items: {
+                            type: "object",
+                            properties: {
+                              name: { type: "string" },
+                              relationship: { type: "string" },
+                            },
+                            required: ["name"],
                           },
-                          required: ["description", "importance"],
                         },
+                        events: {
+                          type: "array",
+                          items: {
+                            type: "object",
+                            properties: {
+                              description: { type: "string" },
+                              date: { type: "string" },
+                              importance: { type: "string", enum: ["low", "medium", "high"] },
+                            },
+                            required: ["description", "importance"],
+                          },
+                        },
+                        places: { type: "array", items: { type: "string" } },
+                        topics: { type: "array", items: { type: "string" } },
                       },
-                      places: { type: "array", items: { type: "string" } },
-                      topics: { type: "array", items: { type: "string" } },
+                      required: ["people", "events", "places", "topics"],
                     },
-                    required: ["people", "events", "places", "topics"],
-                  },
-                  preferences: {
-                    type: "object",
-                    properties: {
-                      prefers_philosophical: { type: "boolean" },
-                      prefers_practical: { type: "boolean" },
-                      response_depth: { type: "string", enum: ["brief", "moderate", "deep"] },
-                      emotional_support_needed: { type: "boolean" },
+                    preferences: {
+                      type: "object",
+                      properties: {
+                        prefers_philosophical: { type: "boolean" },
+                        prefers_practical: { type: "boolean" },
+                        response_depth: { type: "string", enum: ["brief", "moderate", "deep"] },
+                        emotional_support_needed: { type: "boolean" },
+                      },
+                      required: ["prefers_philosophical", "prefers_practical", "response_depth", "emotional_support_needed"],
                     },
-                    required: ["prefers_philosophical", "prefers_practical", "response_depth", "emotional_support_needed"],
-                  },
-                  synthesis: {
-                    type: "object",
-                    properties: {
-                      new_learnings: { type: "array", items: { type: "string" } },
-                      key_insight: { type: "string" },
-                      suggested_followup: { type: "string" },
-                      context_for_next_session: { type: "string" },
+                    synthesis: {
+                      type: "object",
+                      properties: {
+                        new_learnings: { type: "array", items: { type: "string" } },
+                        key_insight: { type: "string" },
+                        suggested_followup: { type: "string" },
+                        context_for_next_session: { type: "string" },
+                      },
+                      required: ["new_learnings", "key_insight", "suggested_followup", "context_for_next_session"],
                     },
-                    required: ["new_learnings", "key_insight", "suggested_followup", "context_for_next_session"],
                   },
+                  required: ["emotional", "entities", "preferences", "synthesis"],
                 },
-                required: ["emotional", "entities", "preferences", "synthesis"],
               },
             },
-          },
-        ],
-        tool_choice: { type: "function", function: { name: "save_session_analysis" } },
-      }),
-    });
+          ],
+          tool_choice: { type: "function", function: { name: "save_session_analysis" } },
+        }),
+      });
+
+      // Retry on 503 (service unavailable) or 429 (rate limit) with exponential backoff
+      if ((response.status === 503 || response.status === 429) && attempt < 3) {
+        const delay = Math.pow(2, attempt) * 1000; // 2s, 4s
+        console.log(`AI gateway returned ${response.status}, retrying in ${delay}ms (attempt ${attempt}/3)`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return makeRequest(attempt + 1);
+      }
+
+      return response;
+    };
+
+    const response = await makeRequest();
 
     if (!response.ok) {
       const errorText = await response.text();
