@@ -16,15 +16,15 @@ import {
   Image,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useHeyGenStreaming } from "@/hooks/useHeyGenStreaming";
+import { useLiveAvatar } from "@/hooks/useLiveAvatar";
 import { useVapiCall } from "@/hooks/useVapiCall";
+import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useBandwidthMonitor } from "@/hooks/useBandwidthMonitor";
 import { useTemporalContext } from "@/hooks/useTemporalContext";
 import { useIdleGestures } from "@/hooks/useIdleGestures";
 import { useAudioVideoSync } from "@/hooks/useAudioVideoSync";
 import { VisionResult } from "@/hooks/useVisionProcessing";
-import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/hooks/useLanguage";
 import { getAvatarGreeting, getVoiceIdForAvatar } from "@/data/avatars";
 import { useAvatarIdentity } from "@/hooks/useAvatarIdentity";
@@ -96,6 +96,9 @@ export function ImmersiveVideoCall({
 
   // Temporal context for dynamic backgrounds
   const temporalContext = useTemporalContext();
+
+  // Multilingual support - must be before useLiveAvatar
+  const { language } = useLanguage();
 
   // WebRTC Debug logs
   const { logs: debugLogs, connectionState, iceConnectionState, iceGatheringState, addLog, clearLogs, updateConnectionStates } = useWebRTCDebugLogs();
@@ -183,29 +186,70 @@ export function ImmersiveVideoCall({
     setIsUserSpeaking(false);
   }, []);
 
-  // HeyGen streaming for realistic avatar
+  // LiveAvatar streaming for realistic avatar (replaces HeyGen SDK)
   const {
-    isConnecting: isHeyGenConnecting,
-    isConnected: isHeyGenConnected,
-    isSpeaking: isHeyGenSpeaking,
-    isProcessing: isHeyGenProcessing,
-    mediaStream: heygenStream,
-    connectionError,
-    startSession: startHeyGenSession,
-    sendText: sendHeyGenText,
-    sendGesture: sendHeyGenGesture,
-    setEmotion: setHeyGenEmotion,
-    stopSession: stopHeyGenSession,
-  } = useHeyGenStreaming({
-    avatarId: heygenAvatarId,
+    isConnecting: isLiveAvatarConnecting,
+    isConnected: isLiveAvatarConnected,
+    isSpeaking: isLiveAvatarSpeaking,
+    isUserSpeaking: isLiveAvatarUserSpeaking,
+    mediaStream: liveAvatarStream,
+    sessionId: liveAvatarSessionId,
+    error: liveAvatarError,
+    startSession: startLiveAvatarSession,
+    stopSession: stopLiveAvatarSession,
+    speak: sendLiveAvatarText,
+    interrupt: interruptLiveAvatar,
+  } = useLiveAvatar({
+    avatarId: heygenAvatarId || "Bryan_IT_Sitting_public",
     voiceId: heygenVoiceId,
+    gender: heygenGender,
+    language: language as SupportedLanguage,
     onConnected: handleHeyGenConnected,
-    onSpeaking: handleHeyGenSpeaking,
+    onAvatarSpeaking: handleHeyGenSpeaking,
     onError: handleHeyGenError,
-    onProcessing: handleHeyGenProcessing,
-    onDebugLog: addLog,
-    onConnectionStateChange: updateConnectionStates,
   });
+
+  // Alias for backward compatibility
+  const isHeyGenConnecting = isLiveAvatarConnecting;
+  const isHeyGenConnected = isLiveAvatarConnected;
+  const isHeyGenSpeaking = isLiveAvatarSpeaking;
+  const isHeyGenProcessing = false; // LiveAvatar handles this internally
+  const heygenStream = liveAvatarStream;
+  const connectionError = liveAvatarError?.message || null;
+  const startHeyGenSession = startLiveAvatarSession;
+  const stopHeyGenSession = stopLiveAvatarSession;
+  const sendHeyGenText = sendLiveAvatarText;
+
+  // Helper functions for gestures and emotions via Edge Function
+  const sendHeyGenGesture = useCallback(async (gesture: "wave" | "nod" | "smile") => {
+    if (!liveAvatarSessionId) return;
+    try {
+      await supabase.functions.invoke("heygen-streaming", {
+        body: {
+          action: "send-gesture",
+          sessionId: liveAvatarSessionId,
+          gesture,
+        },
+      });
+    } catch (err) {
+      console.warn("[LiveAvatar] Gesture not supported:", err);
+    }
+  }, [liveAvatarSessionId]);
+
+  const setHeyGenEmotion = useCallback(async (emotion: "neutral" | "happy" | "sad" | "surprised" | "serious") => {
+    if (!liveAvatarSessionId) return;
+    try {
+      await supabase.functions.invoke("heygen-streaming", {
+        body: {
+          action: "set-emotion",
+          sessionId: liveAvatarSessionId,
+          emotion,
+        },
+      });
+    } catch (err) {
+      console.warn("[LiveAvatar] Emotion not supported:", err);
+    }
+  }, [liveAvatarSessionId]);
 
   // Idle gestures for natural movement during silence
   useIdleGestures({
@@ -282,9 +326,6 @@ export function ImmersiveVideoCall({
     };
     setHeyGenEmotion(emotionMap[emotion]);
   }, [setHeyGenEmotion]);
-
-  // Multilingual support
-  const { language } = useLanguage();
 
   // Avatar identity and session tracking for video calls
   const { identity: avatarIdentity, affinity: userAffinity, incrementMessages } = useAvatarIdentity(avatarId);
