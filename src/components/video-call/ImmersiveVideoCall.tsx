@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Video,
@@ -152,21 +152,33 @@ export function ImmersiveVideoCall({
   });
 
   // Bandwidth monitoring with automatic fallback
-  const { bandwidthInfo, isLowBandwidth } = useBandwidthMonitor({
-    checkInterval: 5000,
-    onQualityChange: (quality) => {
-      setConnectionQuality(quality === "critical" ? "poor" : quality === "poor" ? "poor" : quality === "good" ? "good" : "excellent");
-    },
-    onFallbackTriggered: () => {
-      if (!isFallbackMode) {
-        setIsFallbackMode(true);
-        toast({
-          title: "Connessione limitata",
-          description: "Passaggio a modalità solo audio per garantire la qualità",
-        });
-      }
-    },
-  });
+  const handleQualityChange = useCallback((quality: "excellent" | "good" | "poor" | "critical") => {
+    setConnectionQuality(
+      quality === "critical" ? "poor" : quality === "poor" ? "poor" : quality === "good" ? "good" : "excellent"
+    );
+  }, []);
+
+  const handleFallbackTriggered = useCallback(() => {
+    setIsFallbackMode((prev) => {
+      if (prev) return prev;
+      toast({
+        title: "Connessione limitata",
+        description: "Passaggio a modalità solo audio per garantire la qualità",
+      });
+      return true;
+    });
+  }, [toast]);
+
+  const bandwidthMonitorOptions = useMemo(
+    () => ({
+      checkInterval: 5000,
+      onQualityChange: handleQualityChange,
+      onFallbackTriggered: handleFallbackTriggered,
+    }),
+    [handleQualityChange, handleFallbackTriggered]
+  );
+
+  const { bandwidthInfo, isLowBandwidth } = useBandwidthMonitor(bandwidthMonitorOptions);
 
   // Stable callback refs
   const handleHeyGenConnected = useCallback(() => {
