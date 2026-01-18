@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      analytics_events: {
+        Row: {
+          created_at: string | null
+          device_info: Json | null
+          event_data: Json | null
+          event_type: string
+          id: string
+          session_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          device_info?: Json | null
+          event_data?: Json | null
+          event_type: string
+          id?: string
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          device_info?: Json | null
+          event_data?: Json | null
+          event_type?: string
+          id?: string
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       avatar_identity: {
         Row: {
           age: number
@@ -149,6 +179,57 @@ export type Database = {
           id?: string
           message_content?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      daily_challenges: {
+        Row: {
+          challenge_id: string
+          challenge_name: string
+          challenge_type: string
+          completed_at: string | null
+          created_at: string | null
+          current_progress: number | null
+          expires_at: string
+          id: string
+          requirement_metric: string
+          requirement_target: number
+          requirement_type: string
+          token_reward: number | null
+          user_id: string
+          xp_reward: number | null
+        }
+        Insert: {
+          challenge_id: string
+          challenge_name: string
+          challenge_type: string
+          completed_at?: string | null
+          created_at?: string | null
+          current_progress?: number | null
+          expires_at: string
+          id?: string
+          requirement_metric: string
+          requirement_target: number
+          requirement_type: string
+          token_reward?: number | null
+          user_id: string
+          xp_reward?: number | null
+        }
+        Update: {
+          challenge_id?: string
+          challenge_name?: string
+          challenge_type?: string
+          completed_at?: string | null
+          created_at?: string | null
+          current_progress?: number | null
+          expires_at?: string
+          id?: string
+          requirement_metric?: string
+          requirement_target?: number
+          requirement_type?: string
+          token_reward?: number | null
+          user_id?: string
+          xp_reward?: number | null
         }
         Relationships: []
       }
@@ -388,13 +469,20 @@ export type Database = {
       }
       profiles: {
         Row: {
+          acquisition_source: string | null
           avatar_url: string | null
           bio: string | null
           created_at: string
+          daily_streak: number | null
           display_name: string | null
+          gamification_xp: number | null
           has_completed_onboarding: boolean
           id: string
+          last_activity: string | null
+          longest_streak: number | null
           notification_preferences: Json | null
+          onboarding_step: number | null
+          referral_code_used: string | null
           safe_space_sound: string | null
           safe_space_theme: string | null
           stripe_customer_id: string | null
@@ -407,13 +495,20 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          acquisition_source?: string | null
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
+          daily_streak?: number | null
           display_name?: string | null
+          gamification_xp?: number | null
           has_completed_onboarding?: boolean
           id?: string
+          last_activity?: string | null
+          longest_streak?: number | null
           notification_preferences?: Json | null
+          onboarding_step?: number | null
+          referral_code_used?: string | null
           safe_space_sound?: string | null
           safe_space_theme?: string | null
           stripe_customer_id?: string | null
@@ -426,13 +521,20 @@ export type Database = {
           user_id: string
         }
         Update: {
+          acquisition_source?: string | null
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
+          daily_streak?: number | null
           display_name?: string | null
+          gamification_xp?: number | null
           has_completed_onboarding?: boolean
           id?: string
+          last_activity?: string | null
+          longest_streak?: number | null
           notification_preferences?: Json | null
+          onboarding_step?: number | null
+          referral_code_used?: string | null
           safe_space_sound?: string | null
           safe_space_theme?: string | null
           stripe_customer_id?: string | null
@@ -486,33 +588,48 @@ export type Database = {
       }
       referrals: {
         Row: {
+          activated_at: string | null
           bonus_tokens: number
           completed_at: string | null
+          converted_at: string | null
           created_at: string
           id: string
           referral_code: string
           referred_id: string | null
+          referred_reward: number | null
           referrer_id: string
+          referrer_reward: number | null
+          rewards_claimed: boolean | null
           status: string
         }
         Insert: {
+          activated_at?: string | null
           bonus_tokens?: number
           completed_at?: string | null
+          converted_at?: string | null
           created_at?: string
           id?: string
           referral_code: string
           referred_id?: string | null
+          referred_reward?: number | null
           referrer_id: string
+          referrer_reward?: number | null
+          rewards_claimed?: boolean | null
           status?: string
         }
         Update: {
+          activated_at?: string | null
           bonus_tokens?: number
           completed_at?: string | null
+          converted_at?: string | null
           created_at?: string
           id?: string
           referral_code?: string
           referred_id?: string | null
+          referred_reward?: number | null
           referrer_id?: string
+          referrer_reward?: number | null
+          rewards_claimed?: boolean | null
           status?: string
         }
         Relationships: []
@@ -727,6 +844,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_achievements: {
+        Row: {
+          achievement_id: string
+          id: string
+          metadata: Json | null
+          unlocked_at: string | null
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          id?: string
+          metadata?: Json | null
+          unlocked_at?: string | null
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          id?: string
+          metadata?: Json | null
+          unlocked_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_avatar_affinity: {
         Row: {
           affinity_level: number | null
@@ -817,6 +958,33 @@ export type Database = {
         }
         Relationships: []
       }
+      xp_log: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          reason: string
+          source: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          id?: string
+          reason: string
+          source?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          reason?: string
+          source?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       global_knowledge: {
@@ -863,6 +1031,14 @@ export type Database = {
       }
     }
     Functions: {
+      award_xp: {
+        Args: { p_amount: number; p_reason: string; p_user_id: string }
+        Returns: {
+          level_up: boolean
+          new_level: number
+          new_xp: number
+        }[]
+      }
       get_user_private_context: {
         Args: { p_avatar_id?: string; p_user_id: string }
         Returns: {
@@ -874,6 +1050,10 @@ export type Database = {
           key: string
           value: string
         }[]
+      }
+      increment_tokens: {
+        Args: { p_amount: number; p_user_id: string }
+        Returns: number
       }
       search_global_knowledge: {
         Args: {
@@ -921,6 +1101,13 @@ export type Database = {
           key: string
           similarity: number
           value: string
+        }[]
+      }
+      update_streak: {
+        Args: { p_user_id: string }
+        Returns: {
+          current_streak: number
+          is_new_day: boolean
         }[]
       }
     }
