@@ -675,7 +675,7 @@ export function ImmersiveVideoCall({
         <>
           {/* WhatsApp-style Call Overlay - shows until first frame */}
           <CallOverlay
-            isOpen={!showVideoOverlay}
+            isOpen={callState !== "ended" && !showVideoOverlay}
             callState={callState}
             avatarName={avatarName}
             avatarImage={avatarImage}
