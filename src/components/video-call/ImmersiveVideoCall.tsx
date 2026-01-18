@@ -98,6 +98,7 @@ export function ImmersiveVideoCall({
   const [showVideoOverlay, setShowVideoOverlay] = useState(false);
   const firstFrameReceived = useRef(false);
   const overlayShownAt = useRef<number>(0);
+  const hasSentKickoffRef = useRef(false);
 
   // Transcripts for overlay
   const [userTranscript, setUserTranscript] = useState("");
@@ -336,6 +337,7 @@ export function ImmersiveVideoCall({
     startCall: startVapiCall,
     endCall: endVapiCall,
     toggleMute: toggleVapiMute,
+    sendMessage: sendVapiMessage,
   } = useVapiCall({
     assistantId: vapiAssistantId,
     // Multilingual support - pass detected language and avatar gender
