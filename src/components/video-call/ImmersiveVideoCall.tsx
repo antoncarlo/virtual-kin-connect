@@ -58,6 +58,8 @@ interface ImmersiveVideoCallProps {
   heygenVoiceId?: string;
   heygenGender?: 'male' | 'female';
   vapiAssistantId?: string;
+  /** If false, start in audio-only mode (no local camera, no avatar video) */
+  videoEnabled?: boolean;
 }
 
 export function ImmersiveVideoCall({
@@ -71,6 +73,7 @@ export function ImmersiveVideoCall({
   heygenVoiceId,
   heygenGender = 'male',
   vapiAssistantId,
+  videoEnabled = true,
 }: ImmersiveVideoCallProps) {
   const heygenVideoRef = useRef<HTMLVideoElement>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -78,7 +81,7 @@ export function ImmersiveVideoCall({
   const { toast } = useToast();
 
   // UI State
-  const [isCameraOn, setIsCameraOn] = useState(true);
+  const [isCameraOn, setIsCameraOn] = useState(videoEnabled);
   const [isMicOn, setIsMicOn] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [hasLocalVideo, setHasLocalVideo] = useState(false);
@@ -441,7 +444,7 @@ export function ImmersiveVideoCall({
     };
   }, [heygenStream, isAudioOutputSupported, registerAudioElement, unregisterAudioElement]);
 
-  // Handle first frame - stop ringtone and show video
+  // Handle first frame - mark video ready (do NOT stop ringtone here)
   useEffect(() => {
     const video = heygenVideoRef.current;
     if (!video || !heygenStream) return;
@@ -449,20 +452,12 @@ export function ImmersiveVideoCall({
     const handleLoadedData = () => {
       if (!firstFrameReceived.current) {
         firstFrameReceived.current = true;
-        console.log("[ImmersiveVideoCall] First frame received - stopping ringtone");
+        console.log("[ImmersiveVideoCall] First frame received");
 
-        // Stop the ringtone immediately
-        stopRingtone();
-
-        // Ensure the WhatsApp overlay is visible for at least a short moment
-        const MIN_OVERLAY_MS = 800;
-        const elapsed = Date.now() - (overlayShownAt.current || Date.now());
-        const delayMs = Math.max(0, MIN_OVERLAY_MS - elapsed);
-
-        window.setTimeout(() => {
-          setCallState("connected");
+        // Show the video view only once Vapi is connected
+        if (vapiConnectionState === "connected") {
           setShowVideoOverlay(true);
-        }, delayMs);
+        }
       }
     };
 
@@ -476,36 +471,67 @@ export function ImmersiveVideoCall({
     return () => {
       video.removeEventListener("loadeddata", handleLoadedData);
     };
-  }, [heygenStream, stopRingtone]);
+  }, [heygenStream, vapiConnectionState]);
 
-  // AUDIO-ONLY FALLBACK: Stop ringtone when Vapi connects (even without video)
-  // Also send a kickoff message to trigger assistant greeting
+  // VAPI STATE MACHINE (audio-only + video)
+  // - Overlay rings immediately
+  // - Vapi starts immediately on mount
+  // - Ringtone stops ONLY when Vapi is connected (call-start)
   useEffect(() => {
-    if (isVapiConnected && !hasSentKickoffRef.current && isInitialized) {
-      hasSentKickoffRef.current = true;
-      console.log("[ImmersiveVideoCall] Vapi connected - sending kickoff message");
+    if (!isOpen || !isInitialized) return;
 
-      // Send a kickoff message to trigger the assistant's greeting
-      // This ensures the assistant starts speaking immediately
-      sendVapiMessage("Ciao, sono qui!");
-
-      // If no video stream yet, stop ringtone and mark as connected (audio-only mode)
-      if (!heygenStream && !firstFrameReceived.current) {
-        console.log("[ImmersiveVideoCall] Audio-only mode - stopping ringtone");
-        stopRingtone();
-
-        // Small delay for UX continuity
-        const MIN_OVERLAY_MS = 800;
-        const elapsed = Date.now() - (overlayShownAt.current || Date.now());
-        const delayMs = Math.max(0, MIN_OVERLAY_MS - elapsed);
-
-        window.setTimeout(() => {
-          setCallState("connected");
-          // Keep overlay visible for audio-only calls (showVideoOverlay = false)
-        }, delayMs);
-      }
+    // Keep callState in sync with Vapi
+    if (vapiConnectionState === "checking-permissions" || vapiConnectionState === "connecting") {
+      setCallState("connecting");
+      return;
     }
-  }, [isVapiConnected, isInitialized, heygenStream, sendVapiMessage, stopRingtone]);
+
+    if (vapiConnectionState === "reconnecting") {
+      setCallState("reconnecting");
+      return;
+    }
+
+    if (vapiConnectionState === "connected") {
+      console.log("[ImmersiveVideoCall] Vapi Connesso");
+
+      if (isRingtonePlaying) {
+        console.log("[ImmersiveVideoCall] Stop Ringtone");
+        stopRingtone();
+      }
+
+      setCallState("connected");
+
+      // If the first video frame is already ready, transition to the main video view now
+      if (firstFrameReceived.current) {
+        setShowVideoOverlay(true);
+      }
+
+      // Kickoff audio: force assistant to say something immediately
+      if (!hasSentKickoffRef.current) {
+        hasSentKickoffRef.current = true;
+        console.log("[ImmersiveVideoCall] Kickoff audio → send hidden message");
+        sendVapiMessage("Say hello");
+      }
+
+      return;
+    }
+
+    if (vapiConnectionState === "ended") {
+      setCallState("ended");
+      return;
+    }
+
+    if (vapiConnectionState === "error") {
+      setCallState("reconnecting");
+    }
+  }, [
+    isOpen,
+    isInitialized,
+    vapiConnectionState,
+    isRingtonePlaying,
+    stopRingtone,
+    sendVapiMessage,
+  ]);
 
 
   const startLocalCamera = useCallback(async () => {
@@ -567,78 +593,88 @@ export function ImmersiveVideoCall({
     }
   }, [stopLocalCamera, startLocalCamera]);
 
-  // Initialize when modal opens - WhatsApp-style with ringtone
+  // Initialize when modal opens - eager Vapi connection + ringtone
   useEffect(() => {
     if (isOpen && !isInitialized) {
       setIsInitialized(true);
       setShowWelcome(true);
       setLoadingStage("initializing");
 
-      // STEP 1: Show WhatsApp overlay immediately (perceived latency = 0)
+      // Reset per-call refs
+      hasSentKickoffRef.current = false;
+      firstFrameReceived.current = false;
+      overlayShownAt.current = Date.now();
+
+      // UI: overlay immediately + ring
       setCallState("initiating");
       setShowVideoOverlay(false);
-      overlayShownAt.current = Date.now();
-      firstFrameReceived.current = false;
-
-      // STEP 2: Start ringtone immediately for audio feedback
       startRingtone();
 
-      // STEP 3: Start local camera
-      startLocalCamera();
+      // BACKEND: start Vapi IMMEDIATAMENTE (always, even audio-only)
+      console.log("[ImmersiveVideoCall] Avvio connessione Vapi...");
+      setLoadingStage("connecting");
+      setCallState("connecting");
+      startVapiCall();
 
-      // STEP 4: Parallel initialization for reduced latency
-      // Start both Vapi and HeyGen in parallel
-      const initTimer = setTimeout(() => {
-        setCallState("connecting");
-        setLoadingStage("connecting");
+      // Video path (optional): start local camera + avatar video in parallel
+      if (videoEnabled) {
+        startLocalCamera();
 
-        // Start Vapi call
-        if (vapiAssistantId) {
-          startVapiCall();
-        }
-
-        // Start HeyGen session in parallel
         if (heygenAvatarId && heygenVideoRef.current) {
           setLoadingStage("stabilizing");
           startHeyGenSession(heygenVideoRef.current);
         }
-      }, 100); // Minimal delay for UI to render
-
-      return () => {
-        clearTimeout(initTimer);
-      };
+      } else {
+        // Ensure camera is off in audio-only mode
+        setIsCameraOn(false);
+        stopLocalCamera();
+      }
     }
 
     if (!isOpen && isInitialized) {
-      // Stop ringtone if still playing
       stopRingtone();
 
       stopLocalCamera();
       stopHeyGenSession();
       endVapiCall();
+
       setCallDuration(0);
       setIsInitialized(false);
       setShowWelcome(true);
       setCallState("ended");
       firstFrameReceived.current = false;
       setShowVideoOverlay(false);
+      hasSentKickoffRef.current = false;
+
       if (document.fullscreenElement) {
         document.exitFullscreen?.().catch(() => {});
       }
     }
-  }, [isOpen, isInitialized, heygenAvatarId, vapiAssistantId, startLocalCamera, startHeyGenSession, startVapiCall, stopLocalCamera, stopHeyGenSession, endVapiCall, startRingtone, stopRingtone]);
+  }, [
+    isOpen,
+    isInitialized,
+    videoEnabled,
+    heygenAvatarId,
+    startLocalCamera,
+    stopLocalCamera,
+    startHeyGenSession,
+    stopHeyGenSession,
+    startVapiCall,
+    endVapiCall,
+    startRingtone,
+    stopRingtone,
+  ]);
 
-  // Call duration timer - only start after first response (welcome message)
+  // Call duration timer - start as soon as the call is connected
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    // Only start timer when we've received the first response from Marco
-    if (hasReceivedFirstResponse && (isVapiConnected || isHeyGenConnected)) {
+    if (isVapiConnected || isHeyGenConnected) {
       interval = setInterval(() => {
         setCallDuration((prev) => prev + 1);
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [isVapiConnected, isHeyGenConnected, hasReceivedFirstResponse]);
+  }, [isVapiConnected, isHeyGenConnected]);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

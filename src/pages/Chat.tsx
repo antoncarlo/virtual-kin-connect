@@ -26,7 +26,6 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { useMem0 } from "@/hooks/useMem0";
 import { useConvEmotion } from "@/hooks/useConvEmotion";
 import { IncomingCallModal } from "@/components/IncomingCallModal";
-import { VideoCallModal } from "@/components/VideoCallModal";
 import { ImmersiveVideoCall } from "@/components/video-call";
 import { ChatBubble } from "@/components/chat/ChatBubble";
 import { TypingIndicator } from "@/components/chat/TypingIndicator";
@@ -56,6 +55,7 @@ export default function Chat() {
   const [isTyping, setIsTyping] = useState(false);
   const [showIncomingCall, setShowIncomingCall] = useState(false);
   const [showVideoCall, setShowVideoCall] = useState(false);
+  const [callVideoEnabled, setCallVideoEnabled] = useState(true);
   const [showGallery, setShowGallery] = useState(false);
   const [showAboutPanel, setShowAboutPanel] = useState(false);
   const [hoursSinceLastChat, setHoursSinceLastChat] = useState<number | undefined>();
@@ -414,10 +414,11 @@ export default function Chat() {
     }
   };
 
-  // Handle accepting the incoming call - now opens ImmersiveVideoCall
+  // Handle accepting the incoming call - now opens ImmersiveVideoCall (audio-only)
   const handleAcceptCall = () => {
     setShowIncomingCall(false);
-    setShowVideoCall(true); // Open the immersive call modal
+    setCallVideoEnabled(false);
+    setShowVideoCall(true);
   };
 
   // Handle rejecting the incoming call
@@ -505,7 +506,7 @@ export default function Chat() {
     await triggerSessionAnalysis();
   };
 
-  // Voice call now opens the same ImmersiveVideoCall modal
+  // Voice call now opens the same ImmersiveVideoCall modal (audio-only)
   const handleVoiceCall = () => {
     if (!avatar?.vapiAssistantId) {
       toast({
@@ -516,12 +517,8 @@ export default function Chat() {
       return;
     }
 
-    // Toggle: if already in call, close it; otherwise open
-    if (showVideoCall) {
-      setShowVideoCall(false);
-    } else {
-      setShowVideoCall(true);
-    }
+    setCallVideoEnabled(false);
+    setShowVideoCall(true);
   };
 
   if (!avatar) {
@@ -551,30 +548,20 @@ export default function Chat() {
         onReject={handleRejectCall}
       />
       
-      {/* Video Call Modal - Use Immersive HeyGen if available, otherwise fallback */}
-      {avatar.heygenAvatarId ? (
-        <ImmersiveVideoCall
-          isOpen={showVideoCall}
-          onClose={() => setShowVideoCall(false)}
-          avatarName={avatar.name}
-          avatarImage={avatar.imageUrl}
-          avatarId={avatar.id}
-          avatarPersonality={avatar.personality}
-          heygenAvatarId={avatar.heygenAvatarId}
-          heygenVoiceId={avatar.defaultVoiceId}
-          heygenGender={avatar.heygenGender}
-          vapiAssistantId={avatar.vapiAssistantId}
-        />
-      ) : (
-        <VideoCallModal
-          isOpen={showVideoCall}
-          onClose={() => setShowVideoCall(false)}
-          avatarName={avatar.name}
-          avatarImage={avatar.imageUrl}
-          avatarModelUrl={avatar.rpmAvatarUrl}
-          vapiAssistantId={avatar.vapiAssistantId}
-        />
-      )}
+      {/* Video/Voice Call Modal - Always use ImmersiveVideoCall */}
+      <ImmersiveVideoCall
+        isOpen={showVideoCall}
+        onClose={() => setShowVideoCall(false)}
+        avatarName={avatar.name}
+        avatarImage={avatar.imageUrl}
+        avatarId={avatar.id}
+        avatarPersonality={avatar.personality}
+        heygenAvatarId={avatar.heygenAvatarId}
+        heygenVoiceId={avatar.defaultVoiceId}
+        heygenGender={avatar.heygenGender}
+        vapiAssistantId={avatar.vapiAssistantId}
+        videoEnabled={callVideoEnabled}
+      />
 
       {/* Shared Memories Gallery */}
       <AnimatePresence>
@@ -779,7 +766,10 @@ export default function Chat() {
         <ChatInput
           onSend={handleSend}
           onVoiceCall={handleVoiceCall}
-          onVideoCall={() => setShowVideoCall(true)}
+          onVideoCall={() => {
+            setCallVideoEnabled(true);
+            setShowVideoCall(true);
+          }}
           disabled={isVapiConnecting}
           isLoading={isLoading}
           isVoiceCallActive={isVapiConnected}
