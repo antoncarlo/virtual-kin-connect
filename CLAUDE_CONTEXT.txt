@@ -1,0 +1,804 @@
+# ============================================================
+# KINDRED PROJECT - COMPLETE SOURCE CODE FOR CLAUDE.AI ANALYSIS
+# ============================================================
+# Generated: 2026-01-18
+# Purpose: Comprehensive codebase context for AI analysis
+# ============================================================
+
+# ============================================================
+# SECTION 1: PROJECT CONFIGURATION
+# ============================================================
+
+# --- package.json (dependencies excerpt) ---
+{
+  "dependencies": {
+    "@daily-co/daily-js": "^0.85.0",
+    "@elevenlabs/react": "^0.12.3",
+    "@supabase/supabase-js": "^2.90.0",
+    "@tanstack/react-query": "^5.83.0",
+    "@vapi-ai/web": "^2.5.2",
+    "framer-motion": "^12.24.10",
+    "lucide-react": "^0.462.0",
+    "react": "^18.3.1",
+    "react-router-dom": "^6.30.1",
+    "livekit-client": "^2.17.0"
+  }
+}
+
+# --- tailwind.config.ts ---
+# Standard Tailwind + Shadcn configuration with custom theme
+
+# --- vite.config.ts ---
+# Vite config with React plugin and path aliases (@/)
+
+# ============================================================
+# SECTION 2: AVATAR DEFINITIONS
+# ============================================================
+
+# --- src/data/avatars.ts ---
+import marcoImg from "@/assets/avatars/marco-new.jpg";
+import sofiaImg from "@/assets/avatars/sofia-new.jpg";
+
+export interface Avatar {
+  id: string;
+  name: string;
+  role: string;
+  tagline: string;
+  description: string;
+  personality: string[];
+  imageUrl: string;
+  vapiAssistantId?: string;
+  rpmAvatarUrl?: string;
+  heygenAvatarId?: string;
+  heygenVoiceId?: string;
+  gradient: string;
+}
+
+export const avatars: Avatar[] = [
+  {
+    id: "marco",
+    name: "Marco",
+    role: "Best Friend",
+    tagline: "Always there for you",
+    description: "Marco is the perfect companion for every moment...",
+    personality: ["Supportive", "Funny", "Loyal", "Adventurous"],
+    imageUrl: marcoImg,
+    vapiAssistantId: "36638539-4add-4e0a-9c14-e250c41b333c",
+    rpmAvatarUrl: "https://models.readyplayer.me/64f0265e8d5a8ed7ed439e9f.glb",
+    heygenAvatarId: "Bryan_IT_Sitting_public",
+    heygenVoiceId: "it-IT-DiegoNeural",
+    gradient: "from-blue-500 to-purple-600",
+  },
+  {
+    id: "sofia",
+    name: "Sofia",
+    role: "The Confidant",
+    tagline: "Your secrets are safe with me",
+    description: "Sofia is the wise friend everyone deserves...",
+    personality: ["Empathetic", "Wise", "Thoughtful", "Caring"],
+    imageUrl: sofiaImg,
+    vapiAssistantId: "a5138f3d-84c0-4c33-8c53-8eafd4bf9264",
+    rpmAvatarUrl: "https://models.readyplayer.me/64f02727f65de82da87b2619.glb",
+    heygenAvatarId: "Elias_Outdoors_public",
+    heygenVoiceId: "it-IT-ElsaNeural",
+    gradient: "from-purple-500 to-pink-500",
+  },
+];
+
+# ============================================================
+# SECTION 3: VAPI VOICE CALL INTEGRATION
+# ============================================================
+
+# --- src/hooks/useVapiCall.ts (key sections) ---
+
+export type ConnectionState = 
+  | "idle" | "checking-permissions" | "connecting" 
+  | "connected" | "reconnecting" | "error" | "ended";
+
+export function useVapiCall({
+  assistantId,
+  onTranscript,
+  onSpeechStart,
+  onSpeechEnd,
+  onCallStart,
+  onCallEnd,
+  onError,
+  onUserSpeechStart,
+  onUserSpeechEnd,
+  onConnectionStateChange,
+}: UseVapiCallProps) {
+  const [connectionState, setConnectionState] = useState<ConnectionState>("idle");
+  const vapiRef = useRef<Vapi | null>(null);
+
+  const fetchVapiPublicKey = useCallback(async () => {
+    const response = await supabase.functions.invoke('vapi-public-key');
+    return response.data?.publicKey;
+  }, []);
+
+  const startCall = useCallback(async () => {
+    const vapi = new Vapi(publicKey);
+    vapiRef.current = vapi;
+
+    vapi.on('call-start', () => {
+      setConnectionState("connected");
+      onCallStart?.();
+    });
+    
+    vapi.on('speech-start', () => {
+      onSpeechStart?.();
+    });
+    
+    vapi.on('speech-end', () => {
+      onSpeechEnd?.();
+    });
+    
+    vapi.on('volume-level', (level) => {
+      if (level > 0.1) {
+        onUserSpeechStart?.();
+      } else {
+        onUserSpeechEnd?.();
+      }
+    });
+    
+    vapi.on('message', (message) => {
+      if (message.type === 'language-detected') {
+        console.log('Language detected:', message);
+      }
+      if (message.type === 'transcript') {
+        onTranscript?.(message.text, message.isFinal);
+      }
+    });
+
+    await vapi.start(assistantId, {
+      transcriber: {
+        provider: "deepgram",
+        model: "nova-2-general",
+        language: "multi",
+        smartFormat: true,
+      },
+    });
+  }, [assistantId]);
+
+  const endCall = useCallback(() => {
+    vapiRef.current?.stop();
+  }, []);
+
+  return {
+    startCall,
+    endCall,
+    connectionState,
+    isConnected,
+    isSpeaking,
+    isUserSpeaking,
+    toggleMute,
+    sendMessage,
+  };
+}
+
+# ============================================================
+# SECTION 4: HEYGEN VIDEO STREAMING (WebRTC)
+# ============================================================
+
+# --- src/hooks/useHeyGenStreaming.ts (key sections) ---
+
+export const PUBLIC_AVATARS = {
+  BRYAN_IT_SITTING: "Bryan_IT_Sitting_public",
+  ELIAS_OUTDOORS: "Elias_Outdoors_public",
+} as const;
+
+export function useHeyGenStreaming({
+  avatarId = PUBLIC_AVATARS.BRYAN_IT_SITTING,
+  voiceId,
+  quality = "high",
+  onConnected,
+  onDisconnected,
+  onSpeaking,
+  onError,
+}: UseHeyGenStreamingProps = {}) {
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const sessionInfoRef = useRef<SessionInfo | null>(null);
+
+  const createPeerConnection = useCallback((iceServers: RTCIceServer[]) => {
+    const pc = new RTCPeerConnection({
+      iceServers: iceServers.length > 0 ? iceServers : [
+        { urls: "stun:stun.l.google.com:19302" },
+      ],
+      iceCandidatePoolSize: 10,
+    });
+
+    pc.onicecandidate = async (event) => {
+      if (event.candidate && sessionInfoRef.current) {
+        await supabase.functions.invoke('heygen-streaming', {
+          body: {
+            action: 'ice-candidate',
+            sessionId: sessionInfoRef.current.session_id,
+            candidate: event.candidate,
+          },
+        });
+      }
+    };
+
+    pc.ontrack = (event) => {
+      mediaStreamRef.current?.addTrack(event.track);
+    };
+
+    return pc;
+  }, []);
+
+  const startSession = useCallback(async (videoElement?: HTMLVideoElement) => {
+    const createResponse = await supabase.functions.invoke('heygen-streaming', {
+      body: {
+        action: 'create-session',
+        avatarId: avatarId,
+        quality: 'high',
+      },
+    });
+
+    sessionInfoRef.current = {
+      session_id: createResponse.data.data.session_id,
+      sdp: createResponse.data.data.sdp,
+      ice_servers2: createResponse.data.data.ice_servers2 || [],
+    };
+
+    const pc = createPeerConnection(sessionInfoRef.current.ice_servers2);
+    pc.addTransceiver("video", { direction: "recvonly" });
+    pc.addTransceiver("audio", { direction: "recvonly" });
+
+    await pc.setRemoteDescription(new RTCSessionDescription(sessionInfoRef.current.sdp));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+
+    await supabase.functions.invoke('heygen-streaming', {
+      body: {
+        action: 'start-session',
+        sessionId: sessionInfoRef.current.session_id,
+        sdp: answer,
+      },
+    });
+  }, [avatarId, createPeerConnection]);
+
+  const sendText = useCallback(async (text: string) => {
+    await supabase.functions.invoke('heygen-streaming', {
+      body: {
+        action: 'send-task',
+        sessionId: sessionInfoRef.current.session_id,
+        text: text,
+      },
+    });
+  }, []);
+
+  return {
+    startSession,
+    stopSession,
+    sendText,
+    setListeningMode,
+    sendGesture,
+    setEmotion,
+    isConnected,
+    isSpeaking,
+    mediaStream,
+  };
+}
+
+# ============================================================
+# SECTION 5: HEYGEN EDGE FUNCTION
+# ============================================================
+
+# --- supabase/functions/heygen-streaming/index.ts ---
+
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const HEYGEN_API_URL = "https://api.heygen.com";
+
+serve(async (req) => {
+  const apiKey = Deno.env.get('HEYGEN_API_KEY');
+  const body = await req.json();
+  const { action, sessionId, text, avatarId, voiceId } = body;
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-Api-Key': apiKey,
+  };
+
+  switch (action) {
+    case 'list-public-avatars':
+      response = await fetch(`${HEYGEN_API_URL}/v1/streaming/avatar.list`, {
+        method: 'GET',
+        headers,
+      });
+      break;
+
+    case 'create-session':
+      const sessionBody = {
+        avatar_id: avatarId || 'Bryan_IT_Sitting_public',
+        quality: 'high',
+        version: 'v2',
+        video_encoding: 'H264',
+        background: { type: 'color', value: '#1a1a2e' },
+      };
+      response = await fetch(`${HEYGEN_API_URL}/v1/streaming.new`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(sessionBody),
+      });
+      break;
+
+    case 'start-session':
+      response = await fetch(`${HEYGEN_API_URL}/v1/streaming.start`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ session_id: sessionId, sdp: body.sdp }),
+      });
+      break;
+
+    case 'send-task':
+      response = await fetch(`${HEYGEN_API_URL}/v1/streaming.task`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          session_id: sessionId,
+          text: text,
+          task_type: 'repeat',
+        }),
+      });
+      break;
+
+    case 'set-listening':
+      response = await fetch(`${HEYGEN_API_URL}/v1/streaming.task`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          session_id: sessionId,
+          task_type: body.isListening ? 'listening' : 'idle',
+        }),
+      });
+      break;
+
+    case 'stop-session':
+      response = await fetch(`${HEYGEN_API_URL}/v1/streaming.stop`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ session_id: sessionId }),
+      });
+      break;
+  }
+
+  return new Response(JSON.stringify(data), {
+    headers: { 'Content-Type': 'application/json' },
+  });
+});
+
+# ============================================================
+# SECTION 6: CHAT EDGE FUNCTION (RAG + CRISIS DETECTION)
+# ============================================================
+
+# --- supabase/functions/chat/index.ts (key sections) ---
+
+function getTemporalContext(timezone?: string): TemporalContext {
+  const now = new Date();
+  const hour = now.getHours();
+  
+  let timeOfDay, circadianTone;
+  if (hour >= 6 && hour < 12) {
+    timeOfDay = "morning";
+    circadianTone = "Incoraggiante, energizzante, focalizzato sulle possibilità";
+  } else if (hour >= 12 && hour < 18) {
+    timeOfDay = "afternoon";
+    circadianTone = "Supportivo, pratico, orientato alle soluzioni";
+  } else if (hour >= 18 && hour < 23) {
+    timeOfDay = "evening";
+    circadianTone = "Riflessivo, calmo, accogliente";
+  } else {
+    timeOfDay = "night";
+    circadianTone = "Sussurrato, dolce, protettivo";
+  }
+
+  return { formattedDateTime, timeOfDay, circadianTone, hour };
+}
+
+const CRISIS_PATTERNS = [
+  /suicid/i, /ammazzarmi/i, /uccidermi/i, /togliermi la vita/i,
+  /non voglio più vivere/i, /farla finita/i, /voglio morire/i,
+  /autolesion/i, /tagliarmi/i, /non ce la faccio più/i,
+];
+
+function detectCrisis(text: string): string | null {
+  for (const pattern of CRISIS_PATTERNS) {
+    if (pattern.test(text)) return pattern.toString();
+  }
+  return null;
+}
+
+async function searchKnowledge(supabase, embedding, avatarId) {
+  const { data } = await supabase.rpc('search_knowledge', {
+    query_embedding: embedding,
+    match_count: 5,
+    match_threshold: 0.7,
+    filter_avatar_id: avatarId,
+  });
+  return data;
+}
+
+async function getSocialGraph(supabase, userId, avatarId) {
+  const { data } = await supabase
+    .from("social_graph")
+    .select("person_name, relationship, context, sentiment")
+    .eq("user_id", userId)
+    .eq("avatar_id", avatarId)
+    .limit(10);
+  return data;
+}
+
+serve(async (req) => {
+  const { messages, avatarName, avatarId, userTimezone } = await req.json();
+  
+  const temporalContext = getTemporalContext(userTimezone);
+  const lastSeenContext = await getLastSeenContext(supabase, userId, avatarId);
+  const socialGraph = await getSocialGraph(supabase, userId, avatarId);
+  const goals = await getTemporalGoals(supabase, userId, avatarId);
+  const avatarIdentity = await getAvatarIdentity(supabase, avatarId);
+  const knowledgeResults = await searchKnowledge(supabase, embedding, avatarId);
+
+  const systemPrompt = buildSystemPrompt({
+    avatarIdentity,
+    temporalContext,
+    lastSeenContext,
+    socialGraph,
+    goals,
+    knowledgeResults,
+  });
+
+  const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+  const crisisType = detectCrisis(lastUserMessage?.content || '');
+  
+  if (crisisType) {
+    await logCrisis(supabase, userId, avatarId, crisisType, lastUserMessage.content);
+  }
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      messages: [{ role: 'system', content: systemPrompt }, ...messages],
+      temperature: 0.8,
+      max_tokens: 800,
+    }),
+  });
+
+  return new Response(JSON.stringify(aiResponse), {
+    headers: { 'Content-Type': 'application/json' },
+  });
+});
+
+# ============================================================
+# SECTION 7: VAPI ASSISTANT CREATION
+# ============================================================
+
+# --- supabase/functions/create-vapi-assistants/index.ts (key config) ---
+
+const assistantConfig = {
+  name: `${avatar.name} - Kindred Multilingual`,
+  transcriber: {
+    provider: "deepgram",
+    model: "nova-2-general",
+    language: "multi",
+    smartFormat: true,
+    endpointing: 300,
+  },
+  voice: {
+    provider: "11labs",
+    voiceId: voiceId,
+    model: "eleven_multilingual_v2",
+    stability: 0.6,
+    similarityBoost: 0.8,
+    optimizeStreamingLatency: 3,
+  },
+  model: {
+    provider: "openai",
+    model: "gpt-4o",
+    messages: [{
+      role: "system",
+      content: `You are ${avatar.name}, a virtual companion.
+      
+CRITICAL LANGUAGE INSTRUCTIONS:
+- You are a polyglot who speaks ALL languages fluently
+- ALWAYS detect and respond in the SAME language the user speaks
+- If user switches language mid-conversation, switch immediately
+- Your personality and identity remain the same regardless of language
+- Adapt cultural expressions to match the language being used
+
+Your personality: ${avatar.personality.join(', ')}
+Your role: ${avatar.role}
+
+Remember: Same ${avatar.name}, any language. Be natural, warm, supportive.`,
+    }],
+  },
+  firstMessage: `Ciao! Sono ${avatar.name}. Come stai oggi?`,
+  serverUrl: "https://vrnjccybvrdzakrrfard.supabase.co/functions/v1/vapi-call",
+};
+
+# ============================================================
+# SECTION 8: MULTILINGUAL SYSTEM
+# ============================================================
+
+# --- src/lib/i18n.ts ---
+
+export type Language = 'it' | 'en' | 'es' | 'fr' | 'de' | 'pt';
+
+export const translations: Record<Language, Record<string, string>> = {
+  it: {
+    'chat.placeholder': 'Scrivi un messaggio...',
+    'chat.send': 'Invia',
+    'chat.listening': 'Ascoltando...',
+    'chat.processing': 'Elaborazione...',
+    'call.start': 'Avvia chiamata',
+    'call.end': 'Termina chiamata',
+    'call.connecting': 'Connessione in corso...',
+    'call.connected': 'Connesso',
+  },
+  en: {
+    'chat.placeholder': 'Type a message...',
+    'chat.send': 'Send',
+    'chat.listening': 'Listening...',
+    'chat.processing': 'Processing...',
+    'call.start': 'Start call',
+    'call.end': 'End call',
+    'call.connecting': 'Connecting...',
+    'call.connected': 'Connected',
+  },
+};
+
+# --- src/hooks/useLanguage.ts ---
+
+export function useLanguage() {
+  const [language, setLanguage] = useState<Language>(() => {
+    const saved = localStorage.getItem('kindred-language');
+    if (saved) return saved as Language;
+    const browserLang = navigator.language.split('-')[0];
+    return SUPPORTED_LANGUAGES.includes(browserLang) ? browserLang as Language : 'it';
+  });
+
+  const detectFromMessage = useCallback((text: string): Language => {
+    if (/\b(the|and|is|are|you|your)\b/i.test(text)) return 'en';
+    if (/\b(il|la|che|sono|è|come|stai)\b/i.test(text)) return 'it';
+    if (/\b(el|la|que|es|están|como)\b/i.test(text)) return 'es';
+    if (/\b(le|la|que|est|sont|comment)\b/i.test(text)) return 'fr';
+    if (/\b(der|die|das|ist|sind|wie)\b/i.test(text)) return 'de';
+    return language;
+  }, [language]);
+
+  const t = useCallback((key: string): string => {
+    return translations[language][key] || translations['it'][key] || key;
+  }, [language]);
+
+  return { language, setLanguage, detectFromMessage, t };
+}
+
+# ============================================================
+# SECTION 9: DATABASE SCHEMA (Supabase Types)
+# ============================================================
+
+# --- src/integrations/supabase/types.ts (key tables) ---
+
+export type Database = {
+  public: {
+    Tables: {
+      profiles: {
+        Row: {
+          id: string;
+          user_id: string;
+          display_name: string | null;
+          subscription_tier: string | null;
+          tokens_balance: number;
+          has_completed_onboarding: boolean;
+        };
+      };
+      chat_messages: {
+        Row: {
+          id: string;
+          user_id: string;
+          avatar_id: string;
+          role: string;
+          content: string;
+          created_at: string;
+        };
+      };
+      user_context: {
+        Row: {
+          id: string;
+          user_id: string;
+          avatar_id: string;
+          context_type: string;
+          key: string;
+          value: string;
+          confidence: number | null;
+          embedding: string | null;
+          is_cross_avatar: boolean;
+          privacy_level: string;
+        };
+      };
+      knowledge_base: {
+        Row: {
+          id: string;
+          title: string;
+          content: string;
+          category: string;
+          knowledge_type: string;
+          embedding: string | null;
+          is_global: boolean;
+          avatar_id: string | null;
+        };
+      };
+      avatar_identity: {
+        Row: {
+          id: string;
+          avatar_id: string;
+          name: string;
+          age: number;
+          personality_traits: Json | null;
+          speech_patterns: string[] | null;
+          deep_secrets: Json | null;
+        };
+      };
+      social_graph: {
+        Row: {
+          id: string;
+          user_id: string;
+          avatar_id: string;
+          person_name: string;
+          relationship: string | null;
+          sentiment: string | null;
+          mention_count: number;
+        };
+      };
+      temporal_goals: {
+        Row: {
+          id: string;
+          user_id: string;
+          goal_description: string;
+          goal_category: string | null;
+          status: string;
+          progress_notes: Json | null;
+        };
+      };
+      session_insights: {
+        Row: {
+          id: string;
+          user_id: string;
+          avatar_id: string;
+          topic: string | null;
+          mood: string | null;
+          summary: string | null;
+          duration_seconds: number | null;
+        };
+      };
+      crisis_logs: {
+        Row: {
+          id: string;
+          user_id: string;
+          avatar_id: string;
+          crisis_type: string;
+          message_content: string;
+          action_taken: string;
+        };
+      };
+    };
+    Functions: {
+      search_knowledge: {
+        Args: {
+          query_embedding: string;
+          match_count?: number;
+          match_threshold?: number;
+          filter_avatar_id?: string;
+        };
+        Returns: Array<{
+          id: string;
+          title: string;
+          content: string;
+          category: string;
+          similarity: number;
+        }>;
+      };
+      search_user_context: {
+        Args: {
+          p_user_id: string;
+          p_avatar_id: string;
+          query_embedding: string;
+          match_count?: number;
+        };
+        Returns: Array<{
+          id: string;
+          key: string;
+          value: string;
+          similarity: number;
+        }>;
+      };
+    };
+  };
+};
+
+# ============================================================
+# SECTION 10: MAIN COMPONENTS
+# ============================================================
+
+# --- src/components/HeyGenVideoCall.tsx (excerpt) ---
+
+export function HeyGenVideoCall({ avatar, onClose }: Props) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  
+  const {
+    startSession,
+    stopSession,
+    sendText,
+    setListeningMode,
+    isConnected,
+    isSpeaking,
+    mediaStream,
+  } = useHeyGenStreaming({
+    avatarId: avatar.heygenAvatarId,
+    quality: 'high',
+    onConnected: () => toast({ title: 'Avatar connesso' }),
+  });
+
+  const {
+    startCall: startVapiCall,
+    endCall: endVapiCall,
+    isConnected: isVapiConnected,
+    isSpeaking: isAvatarSpeaking,
+  } = useVapiCall({
+    assistantId: avatar.vapiAssistantId,
+    onTranscript: (text, isFinal) => {
+      if (isFinal && isConnected) {
+        sendText(text);
+      }
+    },
+    onUserSpeechStart: () => setListeningMode(true),
+    onUserSpeechEnd: () => setListeningMode(false),
+  });
+
+  return (
+    <div className="fixed inset-0 bg-background/95 flex items-center justify-center">
+      {!isConnected && (
+        <div className="text-center">
+          <p>Marco si sta connettendo...</p>
+        </div>
+      )}
+      
+      <div className="relative w-80 h-80 rounded-full overflow-hidden">
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          className="w-full h-full object-cover"
+        />
+      </div>
+
+      <div className="absolute bottom-8 flex gap-4">
+        <Button onClick={() => endVapiCall()} variant="destructive">
+          <PhoneOff className="w-6 h-6" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+# ============================================================
+# SECTION 11: SECRETS REQUIRED
+# ============================================================
+
+# Environment variables needed (configure in Supabase Secrets):
+
+# VAPI_PRIVATE_KEY     - VAPI private API key
+# VAPI_PUBLIC_KEY      - VAPI public key for client SDK
+# HEYGEN_API_KEY       - HeyGen API key for avatar streaming
+# ELEVENLABS_API_KEY   - ElevenLabs API key for TTS
+# OPENAI_API_KEY       - OpenAI API key for GPT-4o
+# DAILY_API_KEY        - Daily.co API key (fallback video)
+
+# ============================================================
+# END OF CONTEXT FILE
+# ============================================================
