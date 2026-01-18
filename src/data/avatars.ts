@@ -28,7 +28,8 @@ export const avatars: Avatar[] = [
     // Updated: Multilingual v2 assistant with auto-language detection
     vapiAssistantId: "36638539-4add-4e0a-9c14-e250c41b333c",
     rpmAvatarUrl: "https://models.readyplayer.me/64f0265e8d5a8ed7ed439e9f.glb?morphTargets=ARKit,Oculus Visemes",
-    heygenAvatarId: "ad933deb045a4effa9ddb43ae4af091a",
+    // HeyGen PUBLIC avatar for video streaming
+    heygenAvatarId: "Bryan_IT_Sitting_public",
     heygenVoiceId: "it-IT-DiegoNeural",
     gradient: "from-blue-500 to-purple-600",
   },
@@ -43,7 +44,8 @@ export const avatars: Avatar[] = [
     // Updated: Multilingual v2 assistant with auto-language detection
     vapiAssistantId: "a5138f3d-84c0-4c33-8c53-8eafd4bf9264",
     rpmAvatarUrl: "https://models.readyplayer.me/64f02727f65de82da87b2619.glb?morphTargets=ARKit,Oculus Visemes",
-    heygenAvatarId: "ann_lite_20230714",
+    // HeyGen PUBLIC avatar alternative for video streaming
+    heygenAvatarId: "Elias_Outdoors_public",
     heygenVoiceId: "it-IT-ElsaNeural",
     gradient: "from-purple-500 to-pink-500",
   },
