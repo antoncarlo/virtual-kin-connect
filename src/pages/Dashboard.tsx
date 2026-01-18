@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Users, MessageCircle, Phone, Settings, LogOut, Loader2, 
+import {
+  Users, MessageCircle, Phone, Settings, LogOut, Loader2,
   Zap, Crown, ChevronRight, History, CreditCard, Bell,
-  Home, Menu, X, Sparkles, Video, Heart, Gift, Copy, Check
+  Home, Menu, X, Sparkles, Video, Heart, Gift, Copy, Check,
+  Trophy, Target, Flame
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -19,6 +20,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useSessionInsights } from "@/hooks/useSessionInsights";
 import { useReferrals } from "@/hooks/useReferrals";
+import { useGamification } from "@/hooks/useGamification";
 import { SubscriptionModal } from "@/components/SubscriptionModal";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { UserInsights } from "@/components/dashboard/UserInsights";
@@ -29,10 +31,17 @@ import { ProfileSettings } from "@/components/settings/ProfileSettings";
 import { SecuritySettings } from "@/components/settings/SecuritySettings";
 import { BillingSettings } from "@/components/settings/BillingSettings";
 import { DangerZoneSettings } from "@/components/settings/DangerZoneSettings";
+import {
+  LevelProgress,
+  StreakCounter,
+  AchievementsPanel,
+  DailyChallenges,
+  ReferralCard,
+} from "@/components/gamification";
 import type { User } from "@supabase/supabase-js";
 import kindredIcon from "@/assets/kindred-icon.png";
 
-type TabType = "home" | "avatars" | "history" | "tokens" | "settings";
+type TabType = "home" | "avatars" | "progress" | "history" | "tokens" | "settings";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -49,6 +58,7 @@ export default function Dashboard() {
   const { favorites } = useFavorites();
   const { insights } = useSessionInsights();
   const { referralCode, referrals, generateReferralCode, getTotalBonusTokens } = useReferrals();
+  const gamification = useGamification();
 
   // Get token balance from profile
   const tokenBalance = profile?.tokens_balance || 0;
@@ -121,6 +131,7 @@ export default function Dashboard() {
   const navItems = [
     { id: "home" as TabType, label: "Home", icon: Home },
     { id: "avatars" as TabType, label: "My Avatars", icon: Users },
+    { id: "progress" as TabType, label: "Progress", icon: Trophy },
     { id: "history" as TabType, label: "History", icon: History },
     { id: "tokens" as TabType, label: "Tokens", icon: Zap },
     { id: "settings" as TabType, label: "Settings", icon: Settings },
@@ -267,9 +278,9 @@ export default function Dashboard() {
         <div className="container mx-auto px-4 py-8 lg:px-8">
           <AnimatePresence mode="wait">
             {activeTab === "home" && (
-              <HomeTab 
+              <HomeTab
                 key="home"
-                user={user} 
+                user={user}
                 messageCount={messageCount}
                 totalMinutes={totalMinutes}
                 tokenBalance={tokenBalance}
@@ -280,33 +291,38 @@ export default function Dashboard() {
                 onUpgrade={() => setShowSubscriptionModal(true)}
                 favorites={favorites}
                 onNavigateToTokens={() => setActiveTab("tokens")}
+                gamification={gamification}
+                onNavigateToProgress={() => setActiveTab("progress")}
               />
             )}
             {activeTab === "avatars" && (
-              <AvatarsTab 
+              <AvatarsTab
                 key="avatars"
                 onSelectAvatar={handleSelectAvatar}
                 favorites={favorites}
+              />
+            )}
+            {activeTab === "progress" && (
+              <ProgressTab
+                key="progress"
+                gamification={gamification}
               />
             )}
             {activeTab === "history" && (
               <HistoryTab key="history" insights={insights} />
             )}
             {activeTab === "tokens" && (
-              <TokensTab 
-                key="tokens" 
+              <TokensTab
+                key="tokens"
                 tokenBalance={tokenBalance}
-                referralCode={referralCode}
-                referrals={referrals}
-                onGenerateCode={generateReferralCode}
-                totalBonusTokens={getTotalBonusTokens()}
+                gamification={gamification}
               />
             )}
             {activeTab === "settings" && (
-              <SettingsTab 
-                key="settings" 
-                user={user} 
-                profile={profile} 
+              <SettingsTab
+                key="settings"
+                user={user}
+                profile={profile}
                 onUpgrade={() => setShowSubscriptionModal(true)}
                 onProfileUpdate={() => {}}
               />
@@ -325,9 +341,9 @@ export default function Dashboard() {
   );
 }
 
-// Home Tab Component - Redesigned
-function HomeTab({ 
-  user, 
+// Home Tab Component - Redesigned with Gamification
+function HomeTab({
+  user,
   messageCount,
   totalMinutes,
   tokenBalance,
@@ -338,7 +354,9 @@ function HomeTab({
   onUpgrade,
   favorites,
   onNavigateToTokens,
-}: { 
+  gamification,
+  onNavigateToProgress,
+}: {
   user: User | null;
   messageCount: number;
   totalMinutes: number;
@@ -350,6 +368,8 @@ function HomeTab({
   onUpgrade: () => void;
   favorites: string[];
   onNavigateToTokens: () => void;
+  gamification: ReturnType<typeof useGamification>;
+  onNavigateToProgress: () => void;
 }) {
   const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Friend";
   
@@ -382,6 +402,49 @@ function HomeTab({
         tokensBalance={tokenBalance}
         onUpgrade={onNavigateToTokens}
       />
+
+      {/* Gamification Section */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-gold" />
+            Il tuo Progresso
+          </h2>
+          <Button variant="ghost" size="sm" onClick={onNavigateToProgress}>
+            Vedi tutto <ChevronRight className="w-4 h-4 ml-1" />
+          </Button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Level Progress */}
+          <LevelProgress
+            totalXP={gamification.totalXP}
+            currentLevel={gamification.currentLevel.level}
+            showDetails={false}
+          />
+          {/* Streak Counter */}
+          <StreakCounter
+            currentStreak={gamification.streak.currentCount}
+            longestStreak={gamification.streak.longestCount}
+            multiplier={gamification.streak.multiplier}
+          />
+        </div>
+
+        {/* Daily Challenges Preview */}
+        {gamification.challenges.length > 0 && (
+          <div className="mt-4 p-4 bg-gradient-to-r from-primary/10 to-accent/10 rounded-xl border border-primary/20">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <Target className="w-4 h-4 text-primary" />
+                Sfide Attive
+              </h3>
+              <Badge variant="secondary">{gamification.challenges.filter(c => !c.completedAt).length}</Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Completa le sfide giornaliere per guadagnare XP e token bonus!
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* User Insights */}
       <UserInsights
@@ -505,42 +568,85 @@ function HistoryTab({ insights }: { insights: any[] }) {
   );
 }
 
-// Tokens Tab
-function TokensTab({ tokenBalance, referralCode, referrals, onGenerateCode, totalBonusTokens }: { 
-  tokenBalance: number; 
-  referralCode: string | null;
-  referrals: any[];
-  onGenerateCode: () => Promise<string | null>;
-  totalBonusTokens: number;
+// Progress Tab - Full Gamification View
+function ProgressTab({
+  gamification,
+}: {
+  gamification: ReturnType<typeof useGamification>;
 }) {
-  const [copied, setCopied] = useState(false);
-  
-  const handleCopyCode = async () => {
-    if (!referralCode) {
-      await onGenerateCode();
-    }
-    if (referralCode) {
-      navigator.clipboard.writeText(referralCode);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
       <div className="mb-8">
-        <h1 className="text-3xl font-display font-bold mb-2">My Tokens</h1>
-        <p className="text-muted-foreground">Purchase tokens for voice and video calls</p>
+        <h1 className="text-3xl font-display font-bold mb-2 flex items-center gap-3">
+          <Trophy className="w-8 h-8 text-gold" />
+          Il tuo Progresso
+        </h1>
+        <p className="text-muted-foreground">Traccia i tuoi achievement, sfide e livello</p>
       </div>
 
+      {/* Level and Streak Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <LevelProgress
+          totalXP={gamification.totalXP}
+          currentLevel={gamification.currentLevel.level}
+          showDetails={true}
+        />
+        <StreakCounter
+          currentStreak={gamification.streak.currentCount}
+          longestStreak={gamification.streak.longestCount}
+          multiplier={gamification.streak.multiplier}
+        />
+      </div>
+
+      {/* Daily Challenges */}
+      <div className="mb-8 glass border-gradient rounded-xl p-6">
+        <DailyChallenges
+          challenges={gamification.challenges}
+          onChallengeClick={(id) => gamification.completeChallenge(id)}
+        />
+      </div>
+
+      {/* Achievements */}
+      <div className="glass border-gradient rounded-xl p-6">
+        <AchievementsPanel
+          unlockedAchievements={gamification.achievements}
+          userStats={gamification.userStats}
+        />
+      </div>
+    </motion.div>
+  );
+}
+
+// Tokens Tab - Enhanced with Referral Card
+function TokensTab({
+  tokenBalance,
+  gamification,
+}: {
+  tokenBalance: number;
+  gamification: ReturnType<typeof useGamification>;
+}) {
+  return (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+      <div className="mb-8">
+        <h1 className="text-3xl font-display font-bold mb-2">I miei Token</h1>
+        <p className="text-muted-foreground">Gestisci i tuoi token per chiamate vocali e video</p>
+      </div>
+
+      {/* Token Balance Card */}
       <div className="glass border-gradient rounded-xl p-6 mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-muted-foreground mb-1">Current balance</p>
+            <p className="text-sm text-muted-foreground mb-1">Saldo attuale</p>
             <div className="flex items-baseline gap-2">
               <span className="text-4xl font-bold text-gradient">{tokenBalance}</span>
-              <span className="text-muted-foreground">tokens</span>
+              <span className="text-muted-foreground">token</span>
             </div>
+            {gamification.streak.multiplier > 1 && (
+              <p className="text-xs text-primary mt-2 flex items-center gap-1">
+                <Flame className="w-3 h-3" />
+                Bonus streak: ×{gamification.streak.multiplier.toFixed(1)}
+              </p>
+            )}
           </div>
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gold to-accent flex items-center justify-center">
             <Zap className="w-8 h-8 text-background" />
@@ -548,23 +654,42 @@ function TokensTab({ tokenBalance, referralCode, referrals, onGenerateCode, tota
         </div>
       </div>
 
-      {/* Referral Section */}
-      <div className="glass border-gradient rounded-xl p-6 mb-8">
-        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Gift className="w-5 h-5 text-gold" /> Invite Friends
-        </h3>
-        <p className="text-sm text-muted-foreground mb-4">Earn 50 tokens for every friend who signs up!</p>
-        <div className="flex gap-2">
-          <Input value={referralCode || "Generate your code"} readOnly className="bg-secondary/50" />
-          <Button onClick={handleCopyCode} className="gradient-primary">
-            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-          </Button>
+      {/* Gamification Referral Card */}
+      {gamification.referralCode && (
+        <div className="mb-8">
+          <ReferralCard
+            code={gamification.referralCode}
+            totalReferrals={gamification.referralStats.totalReferrals}
+            convertedReferrals={gamification.referralStats.convertedReferrals}
+            totalEarned={gamification.referralStats.totalEarned}
+            currentTier={gamification.referralStats.currentTier}
+            nextTier={gamification.referralStats.nextTier}
+          />
         </div>
-        {referrals.length > 0 && (
-          <p className="text-sm text-muted-foreground mt-3">
-            {referrals.length} friends invited • {totalBonusTokens} tokens earned
-          </p>
-        )}
+      )}
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="glass border-gradient rounded-xl p-4 text-center">
+          <Trophy className="w-6 h-6 mx-auto mb-2 text-gold" />
+          <p className="text-2xl font-bold">{gamification.achievements.length}</p>
+          <p className="text-xs text-muted-foreground">Achievement</p>
+        </div>
+        <div className="glass border-gradient rounded-xl p-4 text-center">
+          <Flame className="w-6 h-6 mx-auto mb-2 text-orange-500" />
+          <p className="text-2xl font-bold">{gamification.streak.currentCount}</p>
+          <p className="text-xs text-muted-foreground">Giorni di streak</p>
+        </div>
+        <div className="glass border-gradient rounded-xl p-4 text-center">
+          <Target className="w-6 h-6 mx-auto mb-2 text-primary" />
+          <p className="text-2xl font-bold">{gamification.challenges.filter(c => c.completedAt).length}</p>
+          <p className="text-xs text-muted-foreground">Sfide completate</p>
+        </div>
+        <div className="glass border-gradient rounded-xl p-4 text-center">
+          <Sparkles className="w-6 h-6 mx-auto mb-2 text-purple-500" />
+          <p className="text-2xl font-bold">{gamification.totalXP.toLocaleString()}</p>
+          <p className="text-xs text-muted-foreground">XP totali</p>
+        </div>
       </div>
     </motion.div>
   );
