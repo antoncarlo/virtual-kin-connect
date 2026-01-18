@@ -14,7 +14,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase-client";
 import type { SupportedLanguage } from "@/lib/multilingual";
 import { getHeyGenVoiceId } from "@/lib/multilingual";
 import type { CallState } from "@/components/video-call/CallOverlay";

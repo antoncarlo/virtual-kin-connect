@@ -194,7 +194,7 @@ export class LiveAvatarClient {
    * Get Supabase auth token
    */
   private async getSupabaseToken(): Promise<string> {
-    const { supabase } = await import("@/integrations/supabase/client");
+    const { supabase } = await import("@/lib/supabase-client");
     const { data } = await supabase.auth.getSession();
     return data.session?.access_token || "";
   }

@@ -5,7 +5,7 @@
  * levels, challenges, and rewards to boost engagement.
  */
 
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase-client";
 
 // Types
 export type AchievementCategory =

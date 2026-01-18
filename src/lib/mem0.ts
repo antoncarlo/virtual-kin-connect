@@ -8,7 +8,7 @@
  * @see https://github.com/mem0ai/mem0
  */
 
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase-client";
 
 // Mem0 API configuration
 const MEM0_API_URL = "https://api.mem0.ai/v1";

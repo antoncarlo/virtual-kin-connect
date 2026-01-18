@@ -5,7 +5,7 @@
  * preference tracking, and behavioral adaptation.
  */
 
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase-client";
 
 // Types
 export type LearningCategory =
