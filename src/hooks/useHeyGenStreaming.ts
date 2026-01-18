@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase-client";
 import { DebugLog } from "@/components/video-call/WebRTCDebugPanel";
 
 // Public Avatar IDs from HeyGen

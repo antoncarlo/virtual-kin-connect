@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { avatars } from "@/data/avatars";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase-client";
 import { useToast } from "@/hooks/use-toast";
 import { useChatHistory } from "@/hooks/useChatHistory";
 import { useVapiCall } from "@/hooks/useVapiCall";

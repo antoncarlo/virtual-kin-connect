@@ -5,7 +5,7 @@
  * and multi-model orchestration for optimal AI responses.
  */
 
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase-client";
 
 // Types
 export type ModelTier = 'fast' | 'balanced' | 'quality';

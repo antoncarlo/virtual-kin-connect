@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { AvatarCard } from "@/components/AvatarCard";
 import { avatars, type Avatar as AvatarType } from "@/data/avatars";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase-client";
 import { useToast } from "@/hooks/use-toast";
 import { useProfile } from "@/hooks/useProfile";
 import { useFavorites } from "@/hooks/useFavorites";

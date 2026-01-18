@@ -29,7 +29,7 @@
  */
 
 import { useRef, useState, useCallback, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase-client";
 import type { SupportedLanguage } from "@/lib/multilingual";
 
 // ============================================================================

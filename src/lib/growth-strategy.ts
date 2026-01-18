@@ -5,7 +5,7 @@
  * onboarding optimization, and retention strategies.
  */
 
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase-client";
 
 // Types
 export type ReferralStatus = 'pending' | 'registered' | 'activated' | 'converted';

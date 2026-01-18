@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase-client";
 import { useToast } from "@/hooks/use-toast";
 import { SafeSpaceSelector, themes, sounds } from "@/components/SafeSpaceSelector";
 import kindredIcon from "@/assets/kindred-icon.png";
