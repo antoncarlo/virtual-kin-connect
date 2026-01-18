@@ -27,6 +27,8 @@ import {
   Headphones,
   X,
   Wifi,
+  Video,
+  VideoOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -67,6 +69,8 @@ export interface CallOverlayProps {
   callDuration?: number;
   /** Whether microphone is muted */
   isMuted: boolean;
+  /** Whether camera is enabled */
+  isCameraOn: boolean;
   /** Whether avatar is speaking */
   isSpeaking?: boolean;
   /** Whether user is speaking */
@@ -77,6 +81,8 @@ export interface CallOverlayProps {
   videoElement?: React.ReactNode;
   /** Callback when mute is toggled */
   onMuteToggle: () => void;
+  /** Callback when camera is toggled */
+  onVideoToggle: () => void;
   /** Callback when audio output device changes */
   onAudioOutputChange?: (deviceId: string) => void;
   /** Callback when call is ended */
@@ -135,11 +141,13 @@ export function CallOverlay({
   avatarImage,
   callDuration = 0,
   isMuted,
+  isCameraOn,
   isSpeaking = false,
   isUserSpeaking = false,
   connectionQuality = "good",
   videoElement,
   onMuteToggle,
+  onVideoToggle,
   onAudioOutputChange,
   onEndCall,
   audioDevices = [],
@@ -391,31 +399,110 @@ export function CallOverlay({
               </AnimatePresence>
 
               {/* Control buttons */}
-              <div className="flex items-center justify-center gap-6">
-                {/* Mute button */}
-                <motion.div whileTap={{ scale: 0.9 }}>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={onMuteToggle}
-                    className={`w-16 h-16 rounded-full transition-all ${
-                      isMuted
-                        ? "bg-red-500/80 hover:bg-red-500 text-white"
-                        : "bg-white/10 hover:bg-white/20 text-white"
-                    }`}
-                  >
-                    {isMuted ? (
-                      <MicOff className="w-7 h-7" />
-                    ) : (
-                      <Mic className="w-7 h-7" />
-                    )}
-                  </Button>
-                  <p className="text-xs text-white/60 text-center mt-2">
-                    {isMuted ? "Attiva" : "Muto"}
-                  </p>
-                </motion.div>
+              <div className="flex flex-col items-center justify-center gap-8">
+                {/* Top row */}
+                <div className="flex items-start justify-center gap-6">
+                  {/* Mute button */}
+                  <motion.div whileTap={{ scale: 0.9 }}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={onMuteToggle}
+                      className={`w-16 h-16 rounded-full transition-all ${
+                        isMuted
+                          ? "bg-red-500/80 hover:bg-red-500 text-white"
+                          : "bg-white/10 hover:bg-white/20 text-white"
+                      }`}
+                    >
+                      {isMuted ? (
+                        <MicOff className="w-7 h-7" />
+                      ) : (
+                        <Mic className="w-7 h-7" />
+                      )}
+                    </Button>
+                    <p className="text-xs text-white/60 text-center mt-2">
+                      {isMuted ? "Attiva" : "Muto"}
+                    </p>
+                  </motion.div>
 
-                {/* End call button */}
+                  {/* Video button */}
+                  <motion.div whileTap={{ scale: 0.9 }}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={onVideoToggle}
+                      className={`w-16 h-16 rounded-full transition-all ${
+                        !isCameraOn
+                          ? "bg-red-500/80 hover:bg-red-500 text-white"
+                          : "bg-white/10 hover:bg-white/20 text-white"
+                      }`}
+                    >
+                      {isCameraOn ? (
+                        <Video className="w-7 h-7" />
+                      ) : (
+                        <VideoOff className="w-7 h-7" />
+                      )}
+                    </Button>
+                    <p className="text-xs text-white/60 text-center mt-2">
+                      Video
+                    </p>
+                  </motion.div>
+
+                  {/* Audio output selector */}
+                  <motion.div whileTap={{ scale: 0.9 }}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="w-16 h-16 rounded-full bg-white/10 hover:bg-white/20 text-white"
+                        >
+                          <Volume2 className="w-7 h-7" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="center"
+                        className="w-64 bg-slate-800/95 backdrop-blur-xl border-white/10"
+                      >
+                        <div className="px-3 py-2 text-xs text-white/50 uppercase tracking-wider">
+                          Uscita Audio
+                        </div>
+                        {audioDevices.length > 0 ? (
+                          audioDevices.map((device) => {
+                            const DeviceIcon = getDeviceIcon(device.label);
+                            const isSelected = device.deviceId === selectedAudioDevice;
+                            return (
+                              <DropdownMenuItem
+                                key={device.deviceId}
+                                onClick={() => onAudioOutputChange?.(device.deviceId)}
+                                className={`flex items-center gap-3 px-3 py-3 cursor-pointer ${
+                                  isSelected
+                                    ? "bg-primary/20 text-white"
+                                    : "text-white/80 hover:text-white"
+                                }`}
+                              >
+                                <DeviceIcon className="w-5 h-5" />
+                                <span className="flex-1 truncate">
+                                  {device.label || "Dispositivo sconosciuto"}
+                                </span>
+                                {isSelected && (
+                                  <div className="w-2 h-2 bg-primary rounded-full" />
+                                )}
+                              </DropdownMenuItem>
+                            );
+                          })
+                        ) : (
+                          <div className="px-3 py-4 text-center text-white/50 text-sm">
+                            Nessun dispositivo rilevato
+                          </div>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <p className="text-xs text-white/60 text-center mt-2">Audio</p>
+                  </motion.div>
+                </div>
+
+                {/* Bottom row - End call */}
                 <motion.div whileTap={{ scale: 0.9 }}>
                   <Button
                     variant="ghost"
@@ -425,64 +512,7 @@ export function CallOverlay({
                   >
                     <Phone className="w-8 h-8 rotate-[135deg]" />
                   </Button>
-                  <p className="text-xs text-white/60 text-center mt-2">
-                    Chiudi
-                  </p>
-                </motion.div>
-
-                {/* Audio output selector */}
-                <motion.div whileTap={{ scale: 0.9 }}>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="w-16 h-16 rounded-full bg-white/10 hover:bg-white/20 text-white"
-                      >
-                        <Volume2 className="w-7 h-7" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="center"
-                      className="w-64 bg-slate-800/95 backdrop-blur-xl border-white/10"
-                    >
-                      <div className="px-3 py-2 text-xs text-white/50 uppercase tracking-wider">
-                        Uscita Audio
-                      </div>
-                      {audioDevices.length > 0 ? (
-                        audioDevices.map((device) => {
-                          const DeviceIcon = getDeviceIcon(device.label);
-                          const isSelected = device.deviceId === selectedAudioDevice;
-                          return (
-                            <DropdownMenuItem
-                              key={device.deviceId}
-                              onClick={() => onAudioOutputChange?.(device.deviceId)}
-                              className={`flex items-center gap-3 px-3 py-3 cursor-pointer ${
-                                isSelected
-                                  ? "bg-primary/20 text-white"
-                                  : "text-white/80 hover:text-white"
-                              }`}
-                            >
-                              <DeviceIcon className="w-5 h-5" />
-                              <span className="flex-1 truncate">
-                                {device.label || "Dispositivo sconosciuto"}
-                              </span>
-                              {isSelected && (
-                                <div className="w-2 h-2 bg-primary rounded-full" />
-                              )}
-                            </DropdownMenuItem>
-                          );
-                        })
-                      ) : (
-                        <div className="px-3 py-4 text-center text-white/50 text-sm">
-                          Nessun dispositivo rilevato
-                        </div>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <p className="text-xs text-white/60 text-center mt-2">
-                    Audio
-                  </p>
+                  <p className="text-xs text-white/60 text-center mt-2">Riaggancia</p>
                 </motion.div>
               </div>
             </motion.div>

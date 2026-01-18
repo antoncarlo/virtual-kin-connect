@@ -94,9 +94,10 @@ export function ImmersiveVideoCall({
   const [loadingStage, setLoadingStage] = useState<"initializing" | "connecting" | "stabilizing" | "ready">("initializing");
 
   // WhatsApp-style call state
-  const [callState, setCallState] = useState<CallState>("ended");
+  const [callState, setCallState] = useState<CallState>("initiating");
   const [showVideoOverlay, setShowVideoOverlay] = useState(false);
   const firstFrameReceived = useRef(false);
+  const overlayShownAt = useRef<number>(0);
 
   // Transcripts for overlay
   const [userTranscript, setUserTranscript] = useState("");
@@ -448,12 +449,18 @@ export function ImmersiveVideoCall({
         firstFrameReceived.current = true;
         console.log("[ImmersiveVideoCall] First frame received - stopping ringtone");
 
-        // Stop the ringtone
+        // Stop the ringtone immediately
         stopRingtone();
 
-        // Transition to connected state
-        setCallState("connected");
-        setShowVideoOverlay(true);
+        // Ensure the WhatsApp overlay is visible for at least a short moment
+        const MIN_OVERLAY_MS = 800;
+        const elapsed = Date.now() - (overlayShownAt.current || Date.now());
+        const delayMs = Math.max(0, MIN_OVERLAY_MS - elapsed);
+
+        window.setTimeout(() => {
+          setCallState("connected");
+          setShowVideoOverlay(true);
+        }, delayMs);
       }
     };
 
@@ -538,6 +545,8 @@ export function ImmersiveVideoCall({
 
       // STEP 1: Show WhatsApp overlay immediately (perceived latency = 0)
       setCallState("initiating");
+      setShowVideoOverlay(false);
+      overlayShownAt.current = Date.now();
       firstFrameReceived.current = false;
 
       // STEP 2: Start ringtone immediately for audio feedback
@@ -687,16 +696,18 @@ export function ImmersiveVideoCall({
         <>
           {/* WhatsApp-style Call Overlay - shows until first frame */}
           <CallOverlay
-            isOpen={callState !== "ended" && !showVideoOverlay}
+            isOpen={!showVideoOverlay}
             callState={callState}
             avatarName={avatarName}
             avatarImage={avatarImage}
             callDuration={callDuration}
             isMuted={!isMicOn}
+            isCameraOn={isCameraOn}
             isSpeaking={isSpeaking}
             isUserSpeaking={isUserCurrentlySpeaking}
             connectionQuality={connectionQuality}
             onMuteToggle={handleToggleMic}
+            onVideoToggle={handleToggleCamera}
             onAudioOutputChange={selectAudioDevice}
             onEndCall={handleClose}
             audioDevices={formattedAudioDevices}
