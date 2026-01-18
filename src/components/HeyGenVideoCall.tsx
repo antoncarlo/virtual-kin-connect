@@ -9,10 +9,11 @@ import {
   Maximize2,
   Minimize2,
   Loader2,
-  AlertCircle,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useHeyGenStreaming } from "@/hooks/useHeyGenStreaming";
+import { useHeyGenStreaming, PUBLIC_AVATARS } from "@/hooks/useHeyGenStreaming";
 import { useVapiCall } from "@/hooks/useVapiCall";
 import { useToast } from "@/hooks/use-toast";
 
@@ -47,18 +48,25 @@ export function HeyGenVideoCall({
   const [callDuration, setCallDuration] = useState(0);
   const [transcript, setTranscript] = useState("");
   const [isInitialized, setIsInitialized] = useState(false);
+  const [showConnectingText, setShowConnectingText] = useState(true);
 
-  // Stable callback refs to prevent hook re-initialization
+  // Stable callbacks
   const handleHeyGenConnected = useCallback(() => {
+    setShowConnectingText(false);
     toast({
-      title: "Avatar HeyGen connesso",
-      description: "Streaming video realistico attivo",
+      title: "Avatar connesso",
+      description: "Streaming video HD attivo",
     });
   }, [toast]);
 
   const handleHeyGenError = useCallback((error: Error) => {
     console.error("HeyGen error:", error);
-  }, []);
+    toast({
+      title: "Errore avatar",
+      description: error.message,
+      variant: "destructive",
+    });
+  }, [toast]);
 
   const handleVapiTranscript = useCallback((text: string, isFinal: boolean) => {
     setTranscript(text);
@@ -74,18 +82,31 @@ export function HeyGenVideoCall({
     });
   }, [toast, avatarName]);
 
-  // HeyGen streaming for realistic avatar
+  const handleUserSpeechStart = useCallback(() => {
+    // Enable listening animations when user speaks
+  }, []);
+
+  const handleUserSpeechEnd = useCallback(() => {
+    // Disable listening animations when user stops
+  }, []);
+
+  // HeyGen streaming with PUBLIC avatar
   const {
     isConnecting: isHeyGenConnecting,
     isConnected: isHeyGenConnected,
     isSpeaking: isHeyGenSpeaking,
+    isListening: isHeyGenListening,
     mediaStream: heygenStream,
+    connectionStatus,
     startSession: startHeyGenSession,
     sendText: sendHeyGenText,
+    setListeningMode,
     stopSession: stopHeyGenSession,
   } = useHeyGenStreaming({
-    avatarId: heygenAvatarId,
+    // Use PUBLIC avatar ID
+    avatarId: heygenAvatarId || PUBLIC_AVATARS.BRYAN_IT_SITTING,
     voiceId: heygenVoiceId,
+    quality: "high",
     onConnected: handleHeyGenConnected,
     onError: handleHeyGenError,
   });
@@ -95,6 +116,7 @@ export function HeyGenVideoCall({
     isConnecting: isVapiConnecting,
     isConnected: isVapiConnected,
     isSpeaking: isVapiSpeaking,
+    isUserSpeaking,
     startCall: startVapiCall,
     endCall: endVapiCall,
     toggleMute: toggleVapiMute,
@@ -102,14 +124,23 @@ export function HeyGenVideoCall({
     assistantId: vapiAssistantId,
     onTranscript: handleVapiTranscript,
     onCallStart: handleVapiCallStart,
+    onUserSpeechStart: handleUserSpeechStart,
+    onUserSpeechEnd: handleUserSpeechEnd,
   });
 
-  // Send transcript to HeyGen for lip-sync
+  // Sync VAPI transcript to HeyGen for lip-sync
   useEffect(() => {
     if (transcript && isHeyGenConnected) {
       sendHeyGenText(transcript);
     }
   }, [transcript, isHeyGenConnected, sendHeyGenText]);
+
+  // Enable listening mode when user is speaking
+  useEffect(() => {
+    if (isHeyGenConnected) {
+      setListeningMode(isUserSpeaking);
+    }
+  }, [isUserSpeaking, isHeyGenConnected, setListeningMode]);
 
   // Attach HeyGen stream to video element
   useEffect(() => {
@@ -148,20 +179,21 @@ export function HeyGenVideoCall({
     setHasLocalVideo(false);
   }, []);
 
-  // Initialize when modal opens - run only once per open
+  // Initialize when modal opens
   useEffect(() => {
     if (isOpen && !isInitialized) {
       setIsInitialized(true);
+      setShowConnectingText(true);
       startLocalCamera();
 
-      // Start HeyGen session with video element after a brief delay
+      // Start HeyGen session
       const heygenTimer = setTimeout(() => {
-        if (heygenAvatarId && heygenVideoRef.current) {
+        if (heygenVideoRef.current) {
           startHeyGenSession(heygenVideoRef.current);
         }
       }, 500);
 
-      // Start Vapi call after HeyGen
+      // Start Vapi call
       const vapiTimer = setTimeout(() => {
         if (vapiAssistantId) {
           startVapiCall();
@@ -175,15 +207,15 @@ export function HeyGenVideoCall({
     }
     
     if (!isOpen && isInitialized) {
-      // Cleanup when modal closes
       stopLocalCamera();
       stopHeyGenSession();
       endVapiCall();
       setCallDuration(0);
       setTranscript("");
       setIsInitialized(false);
+      setShowConnectingText(true);
     }
-  }, [isOpen, isInitialized, heygenAvatarId, vapiAssistantId, startLocalCamera, startHeyGenSession, startVapiCall, stopLocalCamera, stopHeyGenSession, endVapiCall]);
+  }, [isOpen, isInitialized, vapiAssistantId, startLocalCamera, startHeyGenSession, startVapiCall, stopLocalCamera, stopHeyGenSession, endVapiCall]);
 
   // Call duration timer
   useEffect(() => {
@@ -242,6 +274,7 @@ export function HeyGenVideoCall({
   const getStatusText = () => {
     if (isConnecting) return "Connessione in corso...";
     if (isConnected && isSpeaking) return "Sta parlando...";
+    if (isConnected && isUserSpeaking) return "Ti sta ascoltando...";
     if (isConnected) return "In ascolto...";
     return "In attesa";
   };
@@ -253,35 +286,37 @@ export function HeyGenVideoCall({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/95"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900"
         >
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
-            className="relative w-full h-full max-w-6xl max-h-[90vh] m-4 flex flex-col"
+            className="relative w-full h-full flex flex-col items-center justify-center"
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-4 bg-background/20 backdrop-blur-lg rounded-t-xl border-b border-white/10">
+            <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-4 bg-black/20 backdrop-blur-sm z-10">
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <img
                     src={avatarImage}
                     alt={avatarName}
-                    className="w-12 h-12 rounded-full border-2 border-primary object-cover"
+                    className="w-10 h-10 rounded-full border-2 border-primary object-cover"
                   />
-                  {isConnected && (
-                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-black" />
+                  {isConnected ? (
+                    <Wifi className="absolute -bottom-1 -right-1 w-4 h-4 text-green-400 bg-slate-900 rounded-full p-0.5" />
+                  ) : (
+                    <WifiOff className="absolute -bottom-1 -right-1 w-4 h-4 text-yellow-400 bg-slate-900 rounded-full p-0.5" />
                   )}
                 </div>
                 <div>
-                  <h3 className="font-semibold text-white text-lg">{avatarName}</h3>
+                  <h3 className="font-semibold text-white">{avatarName}</h3>
                   <div className="flex items-center gap-2">
-                    <p className={`text-sm ${isConnected ? "text-green-400" : "text-yellow-400"}`}>
+                    <p className={`text-xs ${isConnected ? "text-green-400" : "text-yellow-400"}`}>
                       {getStatusText()}
                     </p>
                     {isConnected && (
-                      <span className="text-sm text-white/60">• {formatDuration(callDuration)}</span>
+                      <span className="text-xs text-white/60">• {formatDuration(callDuration)}</span>
                     )}
                   </div>
                 </div>
@@ -297,82 +332,117 @@ export function HeyGenVideoCall({
               </Button>
             </div>
 
-            {/* Main Video Area */}
-            <div className="flex-1 relative bg-gradient-to-br from-slate-900 to-slate-800 rounded-b-xl overflow-hidden">
-              {/* HeyGen Avatar Video (main) */}
-              <div className="absolute inset-0 flex items-center justify-center">
+            {/* Centered Circular Avatar Video */}
+            <div className="relative flex flex-col items-center justify-center">
+              {/* Circular video container */}
+              <div 
+                className={`relative rounded-full overflow-hidden border-4 transition-all duration-300 ${
+                  isSpeaking 
+                    ? "border-primary shadow-[0_0_60px_rgba(139,92,246,0.5)]" 
+                    : isUserSpeaking
+                    ? "border-green-400 shadow-[0_0_40px_rgba(74,222,128,0.4)]"
+                    : "border-white/20"
+                }`}
+                style={{ width: "320px", height: "320px" }}
+              >
                 {isHeyGenConnected ? (
                   <video
                     ref={heygenVideoRef}
                     autoPlay
                     playsInline
-                    className="w-full h-full object-contain"
+                    className="w-full h-full object-cover scale-150"
+                    style={{ objectPosition: "center 30%" }}
                   />
                 ) : (
-                  <div className="flex flex-col items-center justify-center">
-                    <motion.img
+                  <motion.div 
+                    className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-700"
+                    animate={isConnecting ? { opacity: [0.7, 1, 0.7] } : {}}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  >
+                    <img
                       src={avatarImage}
                       alt={avatarName}
-                      animate={isSpeaking ? { scale: [1, 1.02, 1] } : {}}
-                      transition={{ duration: 0.3, repeat: Infinity }}
-                      className="w-48 h-48 rounded-full object-cover border-4 border-primary/50 shadow-2xl"
+                      className="w-full h-full object-cover"
                     />
-                    {!heygenAvatarId && (
-                      <div className="mt-6 flex items-center gap-2 text-yellow-400">
-                        <AlertCircle className="w-5 h-5" />
-                        <span className="text-sm">Avatar HeyGen non configurato</span>
-                      </div>
-                    )}
-                  </div>
+                  </motion.div>
+                )}
+
+                {/* Pulsing ring when speaking */}
+                {isSpeaking && (
+                  <motion.div
+                    className="absolute inset-0 rounded-full border-4 border-primary"
+                    animate={{ scale: [1, 1.1, 1], opacity: [0.8, 0, 0.8] }}
+                    transition={{ duration: 1, repeat: Infinity }}
+                  />
                 )}
               </div>
 
-              {/* Local video (picture-in-picture) */}
-              {hasLocalVideo && (
-                <div className="absolute bottom-4 right-4 w-48 h-36 rounded-lg overflow-hidden border-2 border-white/20 shadow-2xl bg-black">
-                  <video
-                    ref={localVideoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className={`w-full h-full object-cover ${!isCameraOn ? "hidden" : ""}`}
-                  />
-                  {!isCameraOn && (
-                    <div className="flex flex-col items-center justify-center h-full text-white/60 bg-slate-800">
-                      <VideoOff className="w-8 h-8 mb-1" />
-                      <p className="text-xs">Camera off</p>
+              {/* Connection status text */}
+              <AnimatePresence>
+                {showConnectingText && !isHeyGenConnected && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="mt-6 flex flex-col items-center"
+                  >
+                    <div className="flex items-center gap-2 text-white/80">
+                      <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                      <span className="text-lg font-medium">{avatarName} si sta connettendo...</span>
                     </div>
-                  )}
-                </div>
-              )}
+                    <p className="text-sm text-white/50 mt-2">Preparazione streaming video HD</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-              {/* Transcript overlay */}
+              {/* Connected status */}
+              {isHeyGenConnected && !isSpeaking && !isUserSpeaking && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="mt-6 text-white/60 text-sm"
+                >
+                  Parla con {avatarName}...
+                </motion.p>
+              )}
+            </div>
+
+            {/* Local video (picture-in-picture) */}
+            {hasLocalVideo && (
+              <div className="absolute bottom-28 right-6 w-32 h-24 rounded-xl overflow-hidden border-2 border-white/20 shadow-2xl bg-black">
+                <video
+                  ref={localVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className={`w-full h-full object-cover ${!isCameraOn ? "hidden" : ""}`}
+                />
+                {!isCameraOn && (
+                  <div className="flex flex-col items-center justify-center h-full text-white/60 bg-slate-800">
+                    <VideoOff className="w-6 h-6" />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Transcript overlay */}
+            <AnimatePresence>
               {transcript && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="absolute bottom-24 left-4 right-4 max-w-2xl mx-auto"
+                  exit={{ opacity: 0, y: 20 }}
+                  className="absolute bottom-36 left-4 right-4 max-w-xl mx-auto"
                 >
-                  <div className="bg-black/70 backdrop-blur-sm rounded-lg px-4 py-3 text-center">
+                  <div className="bg-black/70 backdrop-blur-sm rounded-xl px-5 py-3 text-center">
                     <p className="text-white text-sm">{transcript}</p>
                   </div>
                 </motion.div>
               )}
-
-              {/* Connection status overlay */}
-              {isConnecting && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-                  <div className="text-center">
-                    <Loader2 className="w-16 h-16 animate-spin text-primary mx-auto mb-4" />
-                    <p className="text-white text-xl font-medium">Connessione avatar realistico...</p>
-                    <p className="text-white/60 text-sm mt-2">Streaming HeyGen in preparazione</p>
-                  </div>
-                </div>
-              )}
-            </div>
+            </AnimatePresence>
 
             {/* Controls */}
-            <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex items-center gap-4 p-4 bg-background/40 backdrop-blur-lg rounded-full border border-white/10">
+            <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex items-center gap-3 p-3 bg-black/40 backdrop-blur-lg rounded-full border border-white/10">
               <Button
                 variant={isCameraOn ? "secondary" : "destructive"}
                 size="icon"
