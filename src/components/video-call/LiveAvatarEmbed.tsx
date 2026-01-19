@@ -97,11 +97,12 @@ export function LiveAvatarEmbed({
         </motion.div>
       )}
 
-      {/* LiveAvatar iframe - fills parent container */}
+      {/* LiveAvatar iframe - fills parent container with full WebRTC permissions */}
       <iframe
         ref={iframeRef}
         src={embedUrl}
-        allow="microphone; camera; autoplay"
+        allow="microphone; camera; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+        allowFullScreen
         title="LiveAvatar"
         className="absolute inset-0 w-full h-full border-0"
         style={{ 
