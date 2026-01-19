@@ -14,6 +14,8 @@ interface UseVapiCallProps {
   language?: SupportedLanguage;
   avatarGender?: 'male' | 'female';
   avatarName?: string;
+  // Mem0 memory context for injection into assistant prompt
+  memoryContext?: string;
   // Callbacks
   onTranscript?: (text: string, isFinal: boolean) => void;
   onSpeechStart?: () => void;
@@ -55,6 +57,7 @@ export function useVapiCall({
   language = 'auto',
   avatarGender = 'male',
   avatarName = 'Marco',
+  memoryContext = '',
   onTranscript,
   onSpeechStart,
   onSpeechEnd,
@@ -427,14 +430,28 @@ export function useVapiCall({
         avatarName,
         voice: voiceConfig,
         transcriber: transcriberConfig,
+        hasMemoryContext: !!memoryContext,
       });
 
-      await vapi.start(assistantId, {
+      // Build assistant overrides with memory context if available
+      const assistantOverrides: Record<string, unknown> = {
         // Override transcriber settings for the user's language
         transcriber: transcriberConfig,
         // Override voice settings for the avatar's language
         voice: voiceConfig,
-      });
+      };
+
+      // Inject Mem0 memory context into the assistant's variable values
+      // This allows the assistant to access user memories during the call
+      if (memoryContext) {
+        assistantOverrides.variableValues = {
+          memoryContext: memoryContext,
+          userName: avatarName, // For personalization
+        };
+        console.log('[Vapi] Injecting Mem0 context into assistant:', memoryContext.substring(0, 100) + '...');
+      }
+
+      await vapi.start(assistantId, assistantOverrides);
 
     } catch (error) {
       console.error('Failed to start Vapi call:', error);
@@ -455,6 +472,7 @@ export function useVapiCall({
     language,
     avatarGender,
     avatarName,
+    memoryContext,
     connectionState,
     hasReceivedFirstResponse,
     isUserSpeaking,
