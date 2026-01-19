@@ -105,9 +105,11 @@ export function ImmersiveVideoCall({
   // WhatsApp-style call state
   const [callState, setCallState] = useState<CallState>("initiating");
   const [showVideoOverlay, setShowVideoOverlay] = useState(false);
+  const [isSlowConnection, setIsSlowConnection] = useState(false);
   const firstFrameReceived = useRef(false);
   const overlayShownAt = useRef<number>(0);
   const hasSentKickoffRef = useRef(false);
+  const slowConnectionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Transcripts for overlay
   const [userTranscript, setUserTranscript] = useState("");
@@ -614,7 +616,13 @@ export function ImmersiveVideoCall({
       // UI: overlay immediately + ring
       setCallState("initiating");
       setShowVideoOverlay(false);
+      setIsSlowConnection(false);
       startRingtone();
+
+      // Start 5-second timeout timer for friendly message
+      slowConnectionTimerRef.current = setTimeout(() => {
+        setIsSlowConnection(true);
+      }, 5000);
 
       // BACKEND: start Vapi IMMEDIATAMENTE (always, even audio-only)
       console.log("[ImmersiveVideoCall] Avvio connessione Vapi...");
@@ -640,6 +648,12 @@ export function ImmersiveVideoCall({
     if (!isOpen && isInitialized) {
       stopRingtone();
 
+      // Clear slow connection timer
+      if (slowConnectionTimerRef.current) {
+        clearTimeout(slowConnectionTimerRef.current);
+        slowConnectionTimerRef.current = null;
+      }
+
       stopLocalCamera();
       stopHeyGenSession();
       endVapiCall();
@@ -648,6 +662,7 @@ export function ImmersiveVideoCall({
       setIsInitialized(false);
       setShowWelcome(true);
       setCallState("ended");
+      setIsSlowConnection(false);
       firstFrameReceived.current = false;
       setShowVideoOverlay(false);
       hasSentKickoffRef.current = false;
@@ -779,12 +794,14 @@ export function ImmersiveVideoCall({
             isSpeaking={isSpeaking}
             isUserSpeaking={isUserCurrentlySpeaking}
             connectionQuality={connectionQuality}
+            isSlowConnection={isSlowConnection}
             onMuteToggle={handleToggleMic}
             onVideoToggle={handleToggleCamera}
             onAudioOutputChange={selectAudioDevice}
             onEndCall={handleClose}
             audioDevices={formattedAudioDevices}
             selectedAudioDevice={selectedAudioDevice}
+            showVideoToggle={videoEnabled}
           />
 
           {/* Main Video View - shows after first frame */}
