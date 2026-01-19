@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Mail, Lock, User, ArrowRight, Loader2, Sparkles, Check } from "lucide-react";
+import { Mail, Lock, User, ArrowRight, Loader2, Heart, Check } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase-client";
-import kindredIcon from "@/assets/kindred-icon.png";
+import { MomoLogo } from "@/components/MomoLogo";
 
 export default function SignUp() {
   const [searchParams] = useSearchParams();
@@ -55,8 +55,8 @@ export default function SignUp() {
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Google sign up failed",
-        description: error.message || "Something went wrong. Please try again.",
+        title: "Registrazione con Google fallita",
+        description: error.message || "Qualcosa è andato storto. Riprova.",
       });
       setIsGoogleLoading(false);
     }
@@ -84,8 +84,8 @@ export default function SignUp() {
       if (error) throw error;
 
       toast({
-        title: "Verifica la tua email!",
-        description: "Ti abbiamo inviato un link di conferma. Controlla la tua casella di posta.",
+        title: "Controlla la tua email!",
+        description: "Ti abbiamo inviato un link per confermare il tuo account.",
       });
 
     } catch (error: any) {
@@ -101,10 +101,10 @@ export default function SignUp() {
 
   const features = [
     "7 giorni di prova gratuita",
-    "Chat illimitata con AI empatica",
-    "Chiamate vocali realistiche",
-    "Video call animate",
-    "Memoria delle conversazioni",
+    "Conversazioni senza fretta",
+    "Chiamate vocali rilassanti",
+    "Spazio sicuro e privato",
+    "Il tuo compagno ti ricorda",
   ];
 
   return (
@@ -114,21 +114,19 @@ export default function SignUp() {
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.8 }}
           className="w-full max-w-md"
         >
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-3 mb-8">
-            <img src={kindredIcon} alt="Kindred" className="w-10 h-10" />
-            <span className="text-xl font-display font-bold text-gradient">
-              Kindred
-            </span>
+          <Link to="/" className="inline-block mb-10">
+            <MomoLogo size="md" />
           </Link>
 
-          <h1 className="text-3xl font-display font-bold mb-2">
-            Inizia la tua prova gratuita
+          <h1 className="text-2xl md:text-3xl font-display font-semibold mb-3 text-foreground">
+            Crea il tuo spazio
           </h1>
-          <p className="text-muted-foreground mb-6">
-            7 giorni gratuiti per scoprire i tuoi companion AI
+          <p className="text-muted-foreground mb-8 leading-relaxed">
+            7 giorni gratuiti per scoprire il tuo compagno
           </p>
 
           {/* Google Sign Up Button */}

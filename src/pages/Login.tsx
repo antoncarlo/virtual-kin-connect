@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Mail, Lock, ArrowRight, Loader2, Sparkles } from "lucide-react";
+import { Mail, Lock, ArrowRight, Loader2, Heart } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase-client";
-import kindredIcon from "@/assets/kindred-icon.png";
+import { MomoLogo } from "@/components/MomoLogo";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -72,7 +72,7 @@ export default function Login() {
 
       toast({
         title: "Bentornato!",
-        description: "Accesso effettuato con successo.",
+        description: "Il tuo spazio ti aspetta.",
       });
 
       navigate("/dashboard");
@@ -93,44 +93,40 @@ export default function Login() {
       <div className="hidden lg:flex flex-1 items-center justify-center relative overflow-hidden">
         <div className="absolute inset-0 gradient-cosmic" />
         
-        {/* Animated orbs */}
+        {/* Gentle animated orbs - slower for sensory comfort */}
         <motion.div 
-          className="absolute top-1/4 right-1/4 w-[400px] h-[400px] bg-primary/15 rounded-full blur-[150px]"
+          className="absolute top-1/4 right-1/4 w-[400px] h-[400px] bg-primary/10 rounded-full blur-[150px]"
           animate={{ 
-            scale: [1, 1.2, 1],
-            x: [0, 30, 0],
+            scale: [1, 1.15, 1],
+            x: [0, 20, 0],
           }}
-          transition={{ duration: 8, repeat: Infinity }}
+          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
         />
         <motion.div 
-          className="absolute bottom-1/4 left-1/4 w-[350px] h-[350px] bg-accent/15 rounded-full blur-[150px]"
+          className="absolute bottom-1/4 left-1/4 w-[350px] h-[350px] bg-secondary/10 rounded-full blur-[150px]"
           animate={{ 
-            scale: [1.2, 1, 1.2],
-            x: [0, -30, 0],
+            scale: [1.15, 1, 1.15],
+            x: [0, -20, 0],
           }}
-          transition={{ duration: 10, repeat: Infinity }}
+          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
         />
         
         <div className="relative z-10 text-center px-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
+            transition={{ delay: 0.3, duration: 0.8 }}
           >
-            <motion.img 
-              src={kindredIcon} 
-              alt="Kindred" 
-              className="w-24 h-24 mx-auto mb-6"
-              animate={{ rotate: [0, 5, -5, 0] }}
-              transition={{ duration: 4, repeat: Infinity }}
-            />
-            <h2 className="text-4xl font-display font-bold mb-4">
-              Welcome back to
+            <div className="flex justify-center mb-8">
+              <MomoLogo size="lg" showText={false} />
+            </div>
+            <h2 className="text-3xl md:text-4xl font-display font-semibold mb-4 text-foreground">
+              Bentornato nel tuo
               <br />
-              <span className="text-gradient">Kindred</span>
+              <span className="text-gradient">spazio sicuro</span>
             </h2>
-            <p className="text-lg text-muted-foreground max-w-md">
-              Your AI companions are waiting for you. Resume your meaningful conversations.
+            <p className="text-base text-muted-foreground max-w-md leading-relaxed">
+              Il tuo compagno ti aspetta, pronto ad ascoltarti.
             </p>
           </motion.div>
         </div>
@@ -141,21 +137,19 @@ export default function Login() {
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.8 }}
           className="w-full max-w-md"
         >
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-3 mb-8">
-            <img src={kindredIcon} alt="Kindred" className="w-10 h-10" />
-            <span className="text-xl font-display font-bold text-gradient">
-              Kindred
-            </span>
+          <Link to="/" className="inline-block mb-10">
+            <MomoLogo size="md" />
           </Link>
 
-          <h1 className="text-3xl font-display font-bold mb-2">
-            Accedi al tuo account
+          <h1 className="text-2xl md:text-3xl font-display font-semibold mb-3 text-foreground">
+            Accedi al tuo spazio
           </h1>
-          <p className="text-muted-foreground mb-6">
-            Continua il tuo viaggio con i companion AI
+          <p className="text-muted-foreground mb-8 leading-relaxed">
+            Continua le tue conversazioni in tranquillità
           </p>
 
           {/* Google Login Button */}
