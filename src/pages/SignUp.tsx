@@ -55,8 +55,8 @@ export default function SignUp() {
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Registrazione con Google fallita",
-        description: error.message || "Qualcosa è andato storto. Riprova.",
+        title: "Google sign up failed",
+        description: error.message || "Something went wrong. Please try again.",
       });
       setIsGoogleLoading(false);
     }
@@ -84,15 +84,15 @@ export default function SignUp() {
       if (error) throw error;
 
       toast({
-        title: "Controlla la tua email!",
-        description: "Ti abbiamo inviato un link per confermare il tuo account.",
+        title: "Check your email!",
+        description: "We've sent you a link to confirm your account.",
       });
 
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Registrazione fallita",
-        description: error.message || "Qualcosa è andato storto. Riprova.",
+        title: "Sign up failed",
+        description: error.message || "Something went wrong. Please try again.",
       });
     } finally {
       setIsLoading(false);
@@ -100,11 +100,11 @@ export default function SignUp() {
   };
 
   const features = [
-    "7 giorni di prova gratuita",
-    "Conversazioni senza fretta",
-    "Chiamate vocali rilassanti",
-    "Spazio sicuro e privato",
-    "Il tuo compagno ti ricorda",
+    "7 days free trial",
+    "Unhurried conversations",
+    "Relaxing voice calls",
+    "Safe and private space",
+    "Your companion remembers you",
   ];
 
   return (
@@ -123,10 +123,10 @@ export default function SignUp() {
           </Link>
 
           <h1 className="text-2xl md:text-3xl font-display font-semibold mb-3 text-foreground">
-            Crea il tuo spazio
+            Create your space
           </h1>
           <p className="text-muted-foreground mb-8 leading-relaxed">
-            7 giorni gratuiti per scoprire il tuo compagno
+            7 days free to discover your companion
           </p>
 
           {/* Google Sign Up Button */}
@@ -159,7 +159,7 @@ export default function SignUp() {
                     d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                   />
                 </svg>
-                Continua con Google
+                Continue with Google
               </>
             )}
           </Button>
@@ -169,20 +169,20 @@ export default function SignUp() {
               <span className="w-full border-t border-border" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">Oppure</span>
+              <span className="bg-background px-2 text-muted-foreground">Or</span>
             </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="firstName">Nome</Label>
+                <Label htmlFor="firstName">First Name</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
                     id="firstName"
                     type="text"
-                    placeholder="Nome"
+                    placeholder="First name"
                     className="pl-9 bg-card border-border h-11"
                     value={formData.firstName}
                     onChange={(e) =>
@@ -193,11 +193,11 @@ export default function SignUp() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lastName">Cognome</Label>
+                <Label htmlFor="lastName">Last Name</Label>
                 <Input
                   id="lastName"
                   type="text"
-                  placeholder="Cognome"
+                  placeholder="Last name"
                   className="bg-card border-border h-11"
                   value={formData.lastName}
                   onChange={(e) =>
@@ -215,7 +215,7 @@ export default function SignUp() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="La tua email"
+                  placeholder="Your email"
                   className="pl-9 bg-card border-border h-11"
                   value={formData.email}
                   onChange={(e) =>
@@ -233,7 +233,7 @@ export default function SignUp() {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Crea una password"
+                  placeholder="Create a password"
                   className="pl-9 bg-card border-border h-11"
                   value={formData.password}
                   onChange={(e) =>
@@ -243,7 +243,7 @@ export default function SignUp() {
                   minLength={6}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">Minimo 6 caratteri</p>
+              <p className="text-xs text-muted-foreground">Minimum 6 characters</p>
             </div>
 
             <Button
@@ -255,7 +255,7 @@ export default function SignUp() {
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
                 <>
-                  Inizia 7 Giorni Gratis
+                  Start 7 Days Free
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </>
               )}
@@ -263,16 +263,16 @@ export default function SignUp() {
           </form>
 
           <p className="text-center text-sm text-muted-foreground mt-4">
-            Hai già un account?{" "}
+            Already have an account?{" "}
             <Link to="/login" className="text-primary font-medium hover:underline">
-              Accedi
+              Log in
             </Link>
           </p>
 
           <p className="text-center text-xs text-muted-foreground mt-3">
-            Registrandoti accetti i nostri{" "}
-            <a href="#" className="text-primary hover:underline">Termini di Servizio</a>
-            {" "}e la{" "}
+            By signing up you agree to our{" "}
+            <a href="#" className="text-primary hover:underline">Terms of Service</a>
+            {" "}and{" "}
             <a href="#" className="text-primary hover:underline">Privacy Policy</a>
           </p>
         </motion.div>
@@ -315,7 +315,7 @@ export default function SignUp() {
               <span className="text-gradient">Perfect Companion</span>
             </h2>
             <p className="text-lg text-muted-foreground mb-8">
-              Unisciti a migliaia di utenti che hanno trovato connessioni significative con i loro companion AI Kindred.
+              Join thousands of users who have found meaningful connections with their momo AI companions.
             </p>
             
             {/* Features list */}

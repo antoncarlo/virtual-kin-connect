@@ -51,8 +51,8 @@ export default function Login() {
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Accesso con Google fallito",
-        description: error.message || "Qualcosa è andato storto. Riprova.",
+        title: "Google login failed",
+        description: error.message || "Something went wrong. Please try again.",
       });
       setIsGoogleLoading(false);
     }
@@ -71,16 +71,16 @@ export default function Login() {
       if (error) throw error;
 
       toast({
-        title: "Bentornato!",
-        description: "Il tuo spazio ti aspetta.",
+        title: "Welcome back!",
+        description: "Your space is ready for you.",
       });
 
       navigate("/dashboard");
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Accesso fallito",
-        description: error.message || "Credenziali non valide. Riprova.",
+        title: "Login failed",
+        description: error.message || "Invalid credentials. Please try again.",
       });
     } finally {
       setIsLoading(false);
@@ -121,12 +121,12 @@ export default function Login() {
               <MomoLogo size="lg" showText={false} />
             </div>
             <h2 className="text-3xl md:text-4xl font-display font-semibold mb-4 text-foreground">
-              Bentornato nel tuo
+              Welcome back to your
               <br />
-              <span className="text-gradient">spazio sicuro</span>
+              <span className="text-gradient">safe space</span>
             </h2>
             <p className="text-base text-muted-foreground max-w-md leading-relaxed">
-              Il tuo compagno ti aspetta, pronto ad ascoltarti.
+              Your companion is waiting, ready to listen.
             </p>
           </motion.div>
         </div>
@@ -146,10 +146,10 @@ export default function Login() {
           </Link>
 
           <h1 className="text-2xl md:text-3xl font-display font-semibold mb-3 text-foreground">
-            Accedi al tuo spazio
+            Sign in to your space
           </h1>
           <p className="text-muted-foreground mb-8 leading-relaxed">
-            Continua le tue conversazioni in tranquillità
+            Continue your conversations in peace
           </p>
 
           {/* Google Login Button */}
@@ -182,7 +182,7 @@ export default function Login() {
                     d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                   />
                 </svg>
-                Continua con Google
+                Continue with Google
               </>
             )}
           </Button>
@@ -192,7 +192,7 @@ export default function Login() {
               <span className="w-full border-t border-border" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">Oppure</span>
+              <span className="bg-background px-2 text-muted-foreground">Or</span>
             </div>
           </div>
 
@@ -204,7 +204,7 @@ export default function Login() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="Inserisci la tua email"
+                  placeholder="Enter your email"
                   className="pl-9 bg-card border-border h-11"
                   value={formData.email}
                   onChange={(e) =>
@@ -222,7 +222,7 @@ export default function Login() {
                   href="#"
                   className="text-sm text-primary hover:underline"
                 >
-                  Password dimenticata?
+                  Forgot password?
                 </a>
               </div>
               <div className="relative">
@@ -230,7 +230,7 @@ export default function Login() {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Inserisci la password"
+                  placeholder="Enter your password"
                   className="pl-9 bg-card border-border h-11"
                   value={formData.password}
                   onChange={(e) =>
@@ -250,7 +250,7 @@ export default function Login() {
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
                 <>
-                  Accedi
+                  Sign In
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </>
               )}
@@ -259,9 +259,9 @@ export default function Login() {
 
           <div className="mt-6 text-center">
             <p className="text-sm text-muted-foreground">
-              Non hai un account?{" "}
+              Don't have an account?{" "}
               <Link to="/signup" className="text-primary font-medium hover:underline">
-                Registrati
+                Sign up
               </Link>
             </p>
           </div>

@@ -153,7 +153,7 @@ export function PricingSection() {
                   asChild
                 >
                   <Link to="/signup">
-                    {plan.price === 0 ? "Inizia Prova Gratuita" : "Get Started"}
+                    {plan.price === 0 ? "Start Free Trial" : "Get Started"}
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Link>
                 </Button>

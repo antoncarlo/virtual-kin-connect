@@ -82,7 +82,7 @@ export function AITransparencySection() {
             <div className="flex-1">
               <h4 className="font-semibold mb-1">Important</h4>
               <p className="text-sm text-muted-foreground">
-                Kindred is designed for emotional support and companionship. It is <strong>not a substitute for professional mental health care</strong>. 
+                momo is designed for emotional support and companionship. It is <strong>not a substitute for professional mental health care</strong>. 
                 If you're experiencing a crisis, please reach out to a qualified professional.
               </p>
             </div>
