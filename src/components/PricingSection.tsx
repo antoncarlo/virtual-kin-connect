@@ -65,7 +65,7 @@ export function PricingSection() {
   const [hoveredToken, setHoveredToken] = useState<number | null>(null);
 
   return (
-    <section id="pricing" className="py-12 relative overflow-hidden bg-muted/30">
+    <section id="pricing" className="py-12 relative overflow-hidden">
       <div className="container mx-auto px-4 relative z-10">
         {/* Section Header */}
         <motion.div

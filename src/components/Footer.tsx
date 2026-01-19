@@ -12,38 +12,38 @@ export function Footer() {
               <MomoLogo size="md" />
             </Link>
             <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
-              Un compagno AI gentile, progettato per chi cerca connessione autentica in uno spazio calmo.
+              A gentle AI companion, designed for those seeking authentic connection in a calm space.
             </p>
           </div>
 
           {/* Product */}
           <div>
-            <h4 className="font-semibold text-foreground mb-6">Esplora</h4>
+            <h4 className="font-semibold text-foreground mb-6">Explore</h4>
             <nav className="space-y-4">
               <a href="#features" className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-300">
-                Come funziona
+                How it works
               </a>
               <a href="#pricing" className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-300">
-                Piani
+                Plans
               </a>
               <Link to="/demo" className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-300">
-                Prova la demo
+                Try the demo
               </Link>
               <a href="#avatars" className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-300">
-                Compagni
+                Companions
               </a>
             </nav>
           </div>
 
           {/* Company */}
           <div>
-            <h4 className="font-semibold text-foreground mb-6">Chi siamo</h4>
+            <h4 className="font-semibold text-foreground mb-6">About</h4>
             <nav className="space-y-4">
               <a href="#" className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-300">
-                La nostra missione
+                Our mission
               </a>
               <a href="#" className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-300">
-                Lavora con noi
+                Careers
               </a>
               <a href="#" className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-300">
                 Blog
@@ -53,16 +53,16 @@ export function Footer() {
 
           {/* Legal */}
           <div>
-            <h4 className="font-semibold text-foreground mb-6">Legale</h4>
+            <h4 className="font-semibold text-foreground mb-6">Legal</h4>
             <nav className="space-y-4">
               <Link to="/our-promise" className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-300">
-                La nostra promessa
+                Our promise
               </Link>
               <a href="#" className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-300">
                 Privacy
               </a>
               <a href="#" className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-300">
-                Termini
+                Terms
               </a>
             </nav>
           </div>
@@ -71,7 +71,7 @@ export function Footer() {
         {/* Bottom bar */}
         <div className="pt-10 border-t border-border/20 flex flex-col md:flex-row items-center justify-between gap-6">
           <p className="text-sm text-muted-foreground">
-            © 2025 momo. Fatto con cura.
+            © 2025 momo. Made with care.
           </p>
           <div className="flex items-center gap-8">
             <a href="#" className="text-muted-foreground hover:text-foreground transition-colors duration-300">
