@@ -1,40 +1,9 @@
 import { motion } from "framer-motion";
-import { Heart, Sparkles, Users, Target, Lightbulb, Globe, Shield, Zap } from "lucide-react";
+import { Heart, Sparkles, Target, Lightbulb, Globe, Shield, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
-
-const teamMembers = [
-  {
-    name: "Elena Rossi",
-    role: "Founder & CEO",
-    bio: "Former neuroscience researcher with a passion for making mental wellness accessible to everyone.",
-    avatar: "ER",
-    gradient: "from-primary to-accent",
-  },
-  {
-    name: "Marco Bianchi",
-    role: "CTO",
-    bio: "AI engineer with 10+ years in conversational AI, previously at leading tech companies.",
-    avatar: "MB",
-    gradient: "from-accent to-primary",
-  },
-  {
-    name: "Sofia Chen",
-    role: "Head of Product",
-    bio: "UX designer specialized in accessible design for neurodivergent users.",
-    avatar: "SC",
-    gradient: "from-primary/80 to-accent/80",
-  },
-  {
-    name: "Alex Thompson",
-    role: "Lead AI Researcher",
-    bio: "PhD in computational linguistics, focused on empathetic AI systems.",
-    avatar: "AT",
-    gradient: "from-accent/80 to-primary/80",
-  },
-];
 
 const values = [
   {
@@ -258,39 +227,6 @@ export default function AboutUs() {
             </div>
           </motion.section>
 
-          {/* Team */}
-          <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="mb-20"
-          >
-            <div className="text-center mb-12">
-              <h2 className="text-3xl font-display font-bold mb-4">Meet the Team</h2>
-              <p className="text-muted-foreground max-w-2xl mx-auto">
-                The passionate people behind MOMO
-              </p>
-            </div>
-            
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {teamMembers.map((member, index) => (
-                <motion.div
-                  key={member.name}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.45 + index * 0.05 }}
-                  className="glass rounded-2xl p-6 border border-border/50 text-center group hover:border-primary/30 transition-all duration-300"
-                >
-                  <div className={`w-20 h-20 rounded-full bg-gradient-to-br ${member.gradient} mx-auto mb-4 flex items-center justify-center text-white font-bold text-xl shadow-lg group-hover:scale-105 transition-transform duration-300`}>
-                    {member.avatar}
-                  </div>
-                  <h3 className="font-semibold text-lg">{member.name}</h3>
-                  <p className="text-primary text-sm font-medium mb-2">{member.role}</p>
-                  <p className="text-muted-foreground text-sm">{member.bio}</p>
-                </motion.div>
-              ))}
-            </div>
-          </motion.section>
 
           {/* Stats */}
           <motion.section
