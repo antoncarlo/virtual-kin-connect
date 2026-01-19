@@ -39,15 +39,15 @@ export function Footer() {
           <div>
             <h4 className="font-semibold text-foreground mb-6">About</h4>
             <nav className="space-y-4">
-              <a href="#" className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-300">
-                Our mission
-              </a>
-              <a href="#" className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-300">
-                Careers
-              </a>
-              <a href="#" className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-300">
-                Blog
-              </a>
+              <Link to="/about" className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-300">
+                Our story
+              </Link>
+              <Link to="/our-promise" className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-300">
+                Our promise
+              </Link>
+              <Link to="/about" className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-300">
+                Team
+              </Link>
             </nav>
           </div>
 
