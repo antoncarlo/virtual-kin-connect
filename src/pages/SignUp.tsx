@@ -306,17 +306,13 @@ export default function SignUp() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
           >
-            <motion.img 
-              src={kindredIcon} 
-              alt="Kindred" 
-              className="w-20 h-20 mx-auto mb-6"
-              animate={{ rotate: [0, 5, -5, 0] }}
-              transition={{ duration: 4, repeat: Infinity }}
-            />
+            <div className="flex justify-center mb-6">
+              <MomoLogo size="lg" />
+            </div>
             <h2 className="text-4xl font-display font-bold mb-4">
-              Trova il Tuo
+              Find Your
               <br />
-              <span className="text-gradient">Companion Perfetto</span>
+              <span className="text-gradient">Perfect Companion</span>
             </h2>
             <p className="text-lg text-muted-foreground mb-8">
               Unisciti a migliaia di utenti che hanno trovato connessioni significative con i loro companion AI Kindred.

@@ -274,8 +274,8 @@ export default function Login() {
             transition={{ delay: 0.5 }}
           >
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <Sparkles className="w-5 h-5 text-gold" />
-              <span>Chat, chiamate vocali e video con AI empatica</span>
+              <Heart className="w-5 h-5 text-primary" />
+              <span>Chat, voice & video calls with empathic AI</span>
             </div>
           </motion.div>
         </motion.div>

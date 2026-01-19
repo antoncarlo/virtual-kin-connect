@@ -42,7 +42,7 @@ export function HeroSection() {
           >
             <Heart className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium text-foreground/70">
-              Il tuo spazio sicuro
+              Your safe space
             </span>
           </motion.div>
 
@@ -53,9 +53,9 @@ export function HeroSection() {
             transition={{ duration: 1, delay: 0.2, ease: "easeOut" }}
             className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-display font-semibold leading-tight mb-8 tracking-tight"
           >
-            <span className="text-foreground">Ciao, sono qui</span>
+            <span className="text-foreground">Hello, I'm here</span>
             <br />
-            <span className="text-gradient">per te</span>
+            <span className="text-gradient">for you</span>
           </motion.h1>
 
           {/* Subtitle - calming message */}
@@ -65,8 +65,8 @@ export function HeroSection() {
             transition={{ duration: 1, delay: 0.4, ease: "easeOut" }}
             className="text-base md:text-lg text-muted-foreground mb-16 max-w-lg mx-auto leading-relaxed"
           >
-            Un compagno gentile che ti ascolta davvero, 
-            senza fretta e senza giudizio.
+            A gentle companion who truly listens, 
+            without rush and without judgment.
           </motion.p>
 
           {/* Single prominent CTA */}
@@ -87,7 +87,7 @@ export function HeroSection() {
                 asChild
               >
                 <Link to="/signup">
-                  Apri il tuo spazio
+                  Open your space
                   <ArrowRight className="ml-3 w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" />
                 </Link>
               </Button>
@@ -101,7 +101,7 @@ export function HeroSection() {
             transition={{ duration: 1, delay: 1 }}
             className="text-sm text-muted-foreground/60 mt-8"
           >
-            7 giorni gratuiti · Nessuna carta richiesta
+            7 days free · No card required
           </motion.p>
 
         </div>
