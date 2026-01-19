@@ -16,7 +16,7 @@ import {
   Image,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useLiveAvatar } from "@/hooks/useLiveAvatar";
+// useLiveAvatar hook removed - now using iframe embed approach
 import { useVapiCall } from "@/hooks/useVapiCall";
 import { supabase } from "@/lib/supabase-client";
 import { useToast } from "@/hooks/use-toast";
@@ -42,6 +42,7 @@ import { CinematicFilter } from "./CinematicFilter";
 import { LoadingTransition } from "./LoadingTransition";
 import { ResponsiveVideoContainer } from "./ResponsiveVideoContainer";
 import { WebRTCDebugPanel, useWebRTCDebugLogs } from "./WebRTCDebugPanel";
+import { LiveAvatarEmbed, DEFAULT_LIVEAVATAR_EMBED_ID } from "./LiveAvatarEmbed";
 // New imports for WhatsApp-style UX
 import { CallOverlay, type CallState } from "./CallOverlay";
 import { useRingtone } from "@/hooks/useRingtone";
@@ -60,6 +61,8 @@ interface ImmersiveVideoCallProps {
   vapiAssistantId?: string;
   /** If false, start in audio-only mode (no local camera, no avatar video) */
   videoEnabled?: boolean;
+  /** LiveAvatar embed ID for iframe-based avatar */
+  liveAvatarEmbedId?: string;
   /** Pre-warmed token from useHeyGenPrewarm hook */
   prewarmToken?: string | null;
   /** Whether pre-warming is complete */
@@ -78,6 +81,7 @@ export function ImmersiveVideoCall({
   heygenGender = 'male',
   vapiAssistantId,
   videoEnabled = true,
+  liveAvatarEmbedId = DEFAULT_LIVEAVATAR_EMBED_ID,
   prewarmToken = null,
   isPrewarmed = false,
 }: ImmersiveVideoCallProps) {
@@ -101,6 +105,7 @@ export function ImmersiveVideoCall({
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
   const [isProcessingRAG, setIsProcessingRAG] = useState(false);
   const [loadingStage, setLoadingStage] = useState<"initializing" | "connecting" | "stabilizing" | "ready">("initializing");
+  const [isEmbedReady, setIsEmbedReady] = useState(false); // For iframe embed
 
   // WhatsApp-style call state
   const [callState, setCallState] = useState<CallState>("initiating");
@@ -193,37 +198,7 @@ export function ImmersiveVideoCall({
 
   const { bandwidthInfo, isLowBandwidth } = useBandwidthMonitor(bandwidthMonitorOptions);
 
-  // Stable callback refs
-  const handleHeyGenConnected = useCallback(() => {
-    console.log("HeyGen connected - video stabilized");
-    setConnectionQuality("excellent");
-    setLoadingStage("ready");
-    setCallState("buffering");
-    markVideoStart();
-  }, [markVideoStart]);
-
-  const handleHeyGenError = useCallback((error: Error) => {
-    console.error("HeyGen error:", error);
-    setConnectionQuality("poor");
-  }, []);
-
-  const handleHeyGenSpeaking = useCallback((speaking: boolean) => {
-    if (speaking) {
-      markVideoStart();
-    } else {
-      markVideoEnd();
-      if (pendingText.length > 0) {
-        // Process next queued text
-        const [next, ...rest] = pendingText;
-        setPendingText(rest);
-      }
-    }
-  }, [pendingText, markVideoStart, markVideoEnd]);
-
-  const handleHeyGenProcessing = useCallback((processing: boolean) => {
-    setIsProcessingRAG(processing);
-  }, []);
-
+  // Callbacks for Vapi connection state
   const handleVapiTranscript = useCallback((text: string, isFinal: boolean) => {
     setAssistantTranscript(text);
     if (isFinal && text) {
@@ -245,95 +220,6 @@ export function ImmersiveVideoCall({
   const handleVapiSpeechEnd = useCallback(() => {
     setIsUserSpeaking(false);
   }, []);
-
-  // LiveAvatar streaming for realistic avatar (replaces HeyGen SDK)
-  const {
-    isConnecting: isLiveAvatarConnecting,
-    isConnected: isLiveAvatarConnected,
-    isSpeaking: isLiveAvatarSpeaking,
-    isUserSpeaking: isLiveAvatarUserSpeaking,
-    mediaStream: liveAvatarStream,
-    sessionId: liveAvatarSessionId,
-    error: liveAvatarError,
-    startSession: startLiveAvatarSession,
-    stopSession: stopLiveAvatarSession,
-    speak: sendLiveAvatarText,
-    interrupt: interruptLiveAvatar,
-  } = useLiveAvatar({
-    avatarId: heygenAvatarId || "Bryan_IT_Sitting_public",
-    voiceId: heygenVoiceId,
-    gender: heygenGender,
-    language: language as SupportedLanguage,
-    onConnected: handleHeyGenConnected,
-    onAvatarSpeaking: handleHeyGenSpeaking,
-    onError: handleHeyGenError,
-  });
-
-  // Alias for backward compatibility
-  const isHeyGenConnecting = isLiveAvatarConnecting;
-  const isHeyGenConnected = isLiveAvatarConnected;
-  const isHeyGenSpeaking = isLiveAvatarSpeaking;
-  const isHeyGenProcessing = false; // LiveAvatar handles this internally
-  const heygenStream = liveAvatarStream;
-  const connectionError = liveAvatarError?.message || null;
-  const startHeyGenSession = startLiveAvatarSession;
-  const stopHeyGenSession = stopLiveAvatarSession;
-  const sendHeyGenText = sendLiveAvatarText;
-
-  // Helper functions for gestures and emotions via Edge Function
-  const sendHeyGenGesture = useCallback(async (gesture: "wave" | "nod" | "smile") => {
-    if (!liveAvatarSessionId) return;
-    try {
-      await supabase.functions.invoke("heygen-streaming", {
-        body: {
-          action: "send-gesture",
-          sessionId: liveAvatarSessionId,
-          gesture,
-        },
-      });
-    } catch (err) {
-      console.warn("[LiveAvatar] Gesture not supported:", err);
-    }
-  }, [liveAvatarSessionId]);
-
-  const setHeyGenEmotion = useCallback(async (emotion: "neutral" | "happy" | "sad" | "surprised" | "serious") => {
-    if (!liveAvatarSessionId) return;
-    try {
-      await supabase.functions.invoke("heygen-streaming", {
-        body: {
-          action: "set-emotion",
-          sessionId: liveAvatarSessionId,
-          emotion,
-        },
-      });
-    } catch (err) {
-      console.warn("[LiveAvatar] Emotion not supported:", err);
-    }
-  }, [liveAvatarSessionId]);
-
-  // Idle gestures for natural movement during silence
-  useIdleGestures({
-    isConnected: isHeyGenConnected,
-    isSpeaking: isHeyGenSpeaking,
-    isProcessing: isProcessingRAG || isHeyGenProcessing,
-    isUserSpeaking,
-    onGesture: (gesture) => {
-      // Map gesture types to HeyGen gestures
-      const gestureMap: Record<string, "wave" | "nod" | "smile"> = {
-        nod: "nod",
-        smile: "smile",
-        listening: "nod",
-        thinking: "nod",
-        blink: "nod", // HeyGen handles blink automatically, use nod as fallback
-      };
-      const heygenGesture = gestureMap[gesture] || "nod";
-      sendHeyGenGesture(heygenGesture);
-    },
-    config: {
-      minInterval: 4000,
-      maxInterval: 10000,
-    },
-  });
 
   // Vapi for voice conversation with enhanced state management
   // Pass language and gender for multilingual voice support
@@ -369,117 +255,40 @@ export function ImmersiveVideoCall({
     },
   });
 
-  // Handle vision result
+  // Handle vision result - with embed, we just show transcript (avatar handles speech internally)
   const handleVisionResult = useCallback((result: VisionResult) => {
-    sendHeyGenText(result.suggestedResponse);
     setAssistantTranscript(result.suggestedResponse);
     setTimeout(() => setAssistantTranscript(""), 4000);
-  }, [sendHeyGenText]);
+  }, []);
 
-  // Handle emotion from vision
-  const handleVisionEmotion = useCallback((emotion: VisionResult["emotion"]) => {
-    const emotionMap: Record<VisionResult["emotion"], "neutral" | "happy" | "sad" | "surprised" | "serious"> = {
-      neutral: "neutral",
-      happy: "happy",
-      interested: "happy",
-      surprised: "surprised",
-      thoughtful: "serious",
-    };
-    setHeyGenEmotion(emotionMap[emotion]);
-  }, [setHeyGenEmotion]);
+  // Handle emotion from vision - not applicable with embed
+  const handleVisionEmotion = useCallback((_emotion: VisionResult["emotion"]) => {
+    // Embed handles emotions internally
+  }, []);
 
   // Avatar identity and session tracking for video calls
   const { identity: avatarIdentity, affinity: userAffinity, incrementMessages } = useAvatarIdentity(avatarId);
   const { startSession: startInsightSession, endSession: endInsightSession } = useSessionInsights(avatarId);
 
-  // Send welcome greeting when connected - MULTILINGUAL
+  // Send welcome greeting when embed is ready - Start session tracking
   useEffect(() => {
-    if (isHeyGenConnected && showWelcome) {
-      // Get avatar object for greeting - use the actual heygenGender prop
-      const avatar = {
-        id: avatarId,
-        name: avatarName,
-        heygenGender: heygenGender,
-      };
-
-      // Use multilingual greeting based on detected language
-      const greeting = getAvatarGreeting(avatar as any, language as SupportedLanguage);
-
-      // Delay to let the video stabilize
-      const timer = setTimeout(() => {
-        // Only send to HeyGen for lip-sync (no audio - VAPI handles audio)
-        sendHeyGenText(greeting);
-        setAssistantTranscript(greeting);
-        setTimeout(() => setAssistantTranscript(""), 3000);
-      }, 1500);
-
+    if (isEmbedReady && showWelcome) {
       // Hide welcome animation and start session tracking
       setTimeout(() => {
         setShowWelcome(false);
         startInsightSession();
-      }, 3000);
-
-      return () => clearTimeout(timer);
+      }, 2000);
     }
-  }, [isHeyGenConnected, showWelcome, sendHeyGenText, avatarId, avatarName, heygenGender, language, startInsightSession]);
+  }, [isEmbedReady, showWelcome, startInsightSession]);
 
-  // Sync Vapi transcript to HeyGen lip-sync with buffering
+  // Show video overlay when both embed and Vapi are ready
   useEffect(() => {
-    if (assistantTranscript && isHeyGenConnected && !isHeyGenSpeaking) {
-      sendHeyGenText(assistantTranscript);
-    } else if (assistantTranscript && isHeyGenConnected && isHeyGenSpeaking) {
-      // Queue the text if already speaking
-      setPendingText(prev => [...prev, assistantTranscript]);
+    if (isEmbedReady && vapiConnectionState === "connected" && !firstFrameReceived.current) {
+      firstFrameReceived.current = true;
+      console.log("[ImmersiveVideoCall] Embed and Vapi ready - showing video");
+      setShowVideoOverlay(true);
     }
-  }, [assistantTranscript, isHeyGenConnected, isHeyGenSpeaking, sendHeyGenText]);
-
-  // Attach HeyGen stream to video element
-  useEffect(() => {
-    if (heygenStream && heygenVideoRef.current) {
-      heygenVideoRef.current.srcObject = heygenStream;
-      heygenVideoRef.current.play().catch(console.error);
-
-      // Register for audio output management
-      if (isAudioOutputSupported) {
-        registerAudioElement(heygenVideoRef.current);
-      }
-    }
-
-    return () => {
-      if (heygenVideoRef.current && isAudioOutputSupported) {
-        unregisterAudioElement(heygenVideoRef.current);
-      }
-    };
-  }, [heygenStream, isAudioOutputSupported, registerAudioElement, unregisterAudioElement]);
-
-  // Handle first frame - mark video ready (do NOT stop ringtone here)
-  useEffect(() => {
-    const video = heygenVideoRef.current;
-    if (!video || !heygenStream) return;
-
-    const handleLoadedData = () => {
-      if (!firstFrameReceived.current) {
-        firstFrameReceived.current = true;
-        console.log("[ImmersiveVideoCall] First frame received");
-
-        // Show the video view only once Vapi is connected
-        if (vapiConnectionState === "connected") {
-          setShowVideoOverlay(true);
-        }
-      }
-    };
-
-    video.addEventListener("loadeddata", handleLoadedData);
-
-    // Also check if video already has data
-    if (video.readyState >= 2 && !firstFrameReceived.current) {
-      handleLoadedData();
-    }
-
-    return () => {
-      video.removeEventListener("loadeddata", handleLoadedData);
-    };
-  }, [heygenStream, vapiConnectionState]);
+  }, [isEmbedReady, vapiConnectionState]);
 
   // VAPI STATE MACHINE (audio-only + video)
   // - Overlay rings immediately
@@ -630,14 +439,10 @@ export function ImmersiveVideoCall({
       setCallState("connecting");
       startVapiCall();
 
-      // Video path (optional): start local camera + avatar video in parallel
+      // Video path: just start local camera (embed handles avatar)
       if (videoEnabled) {
         startLocalCamera();
-
-        if (heygenAvatarId && heygenVideoRef.current) {
-          setLoadingStage("stabilizing");
-          startHeyGenSession(heygenVideoRef.current);
-        }
+        setLoadingStage("stabilizing");
       } else {
         // Ensure camera is off in audio-only mode
         setIsCameraOn(false);
@@ -655,7 +460,6 @@ export function ImmersiveVideoCall({
       }
 
       stopLocalCamera();
-      stopHeyGenSession();
       endVapiCall();
 
       setCallDuration(0);
@@ -663,6 +467,7 @@ export function ImmersiveVideoCall({
       setShowWelcome(true);
       setCallState("ended");
       setIsSlowConnection(false);
+      setIsEmbedReady(false);
       firstFrameReceived.current = false;
       setShowVideoOverlay(false);
       hasSentKickoffRef.current = false;
@@ -675,11 +480,8 @@ export function ImmersiveVideoCall({
     isOpen,
     isInitialized,
     videoEnabled,
-    heygenAvatarId,
     startLocalCamera,
     stopLocalCamera,
-    startHeyGenSession,
-    stopHeyGenSession,
     startVapiCall,
     endVapiCall,
     startRingtone,
@@ -689,13 +491,13 @@ export function ImmersiveVideoCall({
   // Call duration timer - start as soon as the call is connected
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isVapiConnected || isHeyGenConnected) {
+    if (isVapiConnected || isEmbedReady) {
       interval = setInterval(() => {
         setCallDuration((prev) => prev + 1);
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [isVapiConnected, isHeyGenConnected]);
+  }, [isVapiConnected, isEmbedReady]);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -717,13 +519,6 @@ export function ImmersiveVideoCall({
     
     // Stop local camera
     stopLocalCamera();
-    
-    // Stop HeyGen session (fire and forget)
-    try {
-      stopHeyGenSession();
-    } catch (e) {
-      console.warn("[ImmersiveVideoCall] HeyGen cleanup error:", e);
-    }
     
     // End Vapi call (fire and forget)
     try {
@@ -767,7 +562,6 @@ export function ImmersiveVideoCall({
   }, [
     stopRingtone,
     stopLocalCamera,
-    stopHeyGenSession,
     endVapiCall,
     callDuration,
     avatarId,
@@ -803,9 +597,9 @@ export function ImmersiveVideoCall({
     }
   };
 
-  const isConnecting = isHeyGenConnecting || isVapiConnecting || vapiConnectionState === "checking-permissions";
-  const isConnected = isHeyGenConnected || isVapiConnected;
-  const isSpeaking = isHeyGenSpeaking || isVapiSpeaking;
+  const isConnecting = isVapiConnecting || vapiConnectionState === "checking-permissions";
+  const isConnected = isEmbedReady || isVapiConnected;
+  const isSpeaking = isVapiSpeaking;
   const isUserCurrentlySpeaking = isUserSpeaking || isVapiUserSpeaking;
 
   // Format audio devices for CallOverlay
@@ -853,7 +647,7 @@ export function ImmersiveVideoCall({
               {/* Responsive Video Container with Cinematic Effects */}
               <ResponsiveVideoContainer
                 isConnecting={isConnecting}
-                isConnected={isHeyGenConnected}
+                isConnected={isEmbedReady}
                 temporalWarmth={temporalContext.timeOfDay === "evening" || temporalContext.timeOfDay === "night" ? 50 : 25}
               >
                 {/* Fallback Mode - Voice Only with Static Image */}
@@ -867,22 +661,43 @@ export function ImmersiveVideoCall({
                   )}
                 </AnimatePresence>
 
-                {/* Main Avatar Video - Full Screen with Aspect Ratio */}
+                {/* Main Avatar Video - LiveAvatar Embed (iframe-based) */}
                 {!isFallbackMode && (
                   <div className="absolute inset-0 flex items-center justify-center">
-                    {isHeyGenConnected ? (
-                      <>
-                        {/* CRITICAL: Video must be muted - audio comes from VAPI */}
-                        <video
-                        ref={heygenVideoRef}
-                        id="heygen-video-render"
-                        autoPlay
-                        playsInline
-                        muted={true}
-                        className="w-full h-full object-cover"
-                        style={{ filter: temporalContext.lightingFilter }}
-                      />
-                      {/* Cinematic overlay on video */}
+                    {/* LiveAvatar Embed - iframe approach for reliability */}
+                    <LiveAvatarEmbed
+                      embedId={liveAvatarEmbedId}
+                      className="w-full h-full"
+                      onReady={() => {
+                        console.log("[ImmersiveVideoCall] LiveAvatar embed ready");
+                        setIsEmbedReady(true);
+                        setConnectionQuality("excellent");
+                        setLoadingStage("ready");
+                        setCallState("buffering");
+                        
+                        // Mark first frame received for overlay transition
+                        if (!firstFrameReceived.current) {
+                          firstFrameReceived.current = true;
+                          // Show video view only once both embed and Vapi are connected
+                          if (vapiConnectionState === "connected") {
+                            setShowVideoOverlay(true);
+                          }
+                        }
+                      }}
+                      onError={(error) => {
+                        console.error("[ImmersiveVideoCall] LiveAvatar embed error:", error);
+                        setConnectionQuality("poor");
+                        toast({
+                          title: "Avatar connection failed",
+                          description: "Using audio-only mode",
+                          variant: "destructive",
+                        });
+                        setIsFallbackMode(true);
+                      }}
+                    />
+                    
+                    {/* Cinematic overlay on video */}
+                    {isEmbedReady && (
                       <CinematicFilter
                         intensity="light"
                         warmth={temporalContext.timeOfDay === "evening" ? 45 : temporalContext.timeOfDay === "night" ? 30 : 20}
@@ -890,65 +705,9 @@ export function ImmersiveVideoCall({
                         vignette={true}
                         isConnecting={false}
                       />
-                    </>
-                  ) : connectionError ? (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="flex flex-col items-center justify-center h-full bg-black/80 text-white p-8"
-                    >
-                      <div className="text-red-500 mb-4 text-4xl">⚠️</div>
-                      <h3 className="text-xl font-semibold mb-2">Video Connection Error</h3>
-                      <p className="text-white/70 text-center mb-4 max-w-md">{connectionError}</p>
-                      <p className="text-sm text-white/50">Check the console for debug details</p>
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      animate={isSpeaking ? { scale: [1, 1.02, 1] } : isUserCurrentlySpeaking ? { scale: [1, 1.01, 1] } : {}}
-                      transition={{ duration: 0.8, repeat: Infinity, ease: "easeInOut" }}
-                      className="relative flex items-center justify-center"
-                    >
-                      {/* Glow effect */}
-                      <motion.div 
-                        animate={{ 
-                          opacity: isSpeaking ? [0.6, 0.8, 0.6] : isUserCurrentlySpeaking ? [0.3, 0.5, 0.3] : [0.2, 0.4, 0.2],
-                          scale: isSpeaking ? [1, 1.1, 1] : [1, 1.05, 1]
-                        }}
-                        transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                        className="absolute inset-0 rounded-full bg-gradient-to-r from-primary via-accent to-primary blur-3xl"
-                        style={{ width: '120%', height: '120%', left: '-10%', top: '-10%' }}
-                      />
-                      
-                      {/* Avatar Image - Centered */}
-                      <div className="relative z-10">
-                        <img
-                          src={avatarImage}
-                          alt={avatarName}
-                          className="w-48 h-48 sm:w-56 sm:h-56 md:w-72 md:h-72 lg:w-80 lg:h-80 rounded-full object-cover border-4 border-white/30 shadow-2xl"
-                        />
-                        
-                        {/* Speaking ring animation */}
-                        {isSpeaking && (
-                          <motion.div
-                            animate={{ scale: [1, 1.15, 1], opacity: [0.8, 0, 0.8] }}
-                            transition={{ duration: 1.5, repeat: Infinity }}
-                            className="absolute inset-0 rounded-full border-4 border-primary"
-                          />
-                        )}
-                        
-                        {/* Listening indicator */}
-                        {isUserCurrentlySpeaking && (
-                          <motion.div
-                            animate={{ scale: [1, 1.1, 1], opacity: [0.6, 0.3, 0.6] }}
-                            transition={{ duration: 1, repeat: Infinity }}
-                            className="absolute inset-0 rounded-full border-2 border-white/50"
-                          />
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </div>
-              )}
+                    )}
+                  </div>
+                )}
 
               {/* Loading Transition with Blur Effect */}
               <LoadingTransition
@@ -1227,7 +986,7 @@ export function ImmersiveVideoCall({
               avatarId={avatarId}
               avatarPersonality={avatarPersonality}
               onSendMessage={(text) => {
-                sendHeyGenText(text);
+                // With embed, just show transcript (embed handles speech internally)
                 setAssistantTranscript(text);
                 setTimeout(() => setAssistantTranscript(""), 4000);
               }}
