@@ -8,7 +8,7 @@ const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("Root element not found");
 
 createRoot(rootElement).render(
-  <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+  <ThemeProvider attribute="class" defaultTheme="light" forcedTheme="light">
     <App />
   </ThemeProvider>
 );
