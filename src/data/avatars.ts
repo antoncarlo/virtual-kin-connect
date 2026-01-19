@@ -1,5 +1,5 @@
-import marcoImg from "@/assets/avatars/marco-new.jpg";
-import sofiaImg from "@/assets/avatars/sofia-new.jpg";
+import marcoImg from "@/assets/avatars/marco-realistic.jpg";
+import sofiaImg from "@/assets/avatars/sofia-realistic.jpg";
 import {
   HEYGEN_AVATARS,
   HEYGEN_VOICES,
