@@ -703,42 +703,79 @@ export function ImmersiveVideoCall({
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const handleClose = async () => {
-    // Track video call activity for gamification
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.id && callDuration > 0) {
-        // Record activity for gamification
-        await recordActivity(session.user.id, 'video_call');
-
-        // Record learning event
-        await recordLearningEvent(
-          session.user.id,
-          avatarId,
-          'message',
-          `Video call duration: ${callDuration} seconds`,
-          { type: 'video_call', duration: callDuration }
-        );
-
-        // Increment avatar affinity
-        await incrementMessages();
-
-        // End session insights tracking
-        const messages = assistantTranscript ? [{ role: 'assistant' as const, content: assistantTranscript }] : [];
-        await endInsightSession(messages, avatarId);
-      }
-    } catch (error) {
-      console.error('Failed to record video call activity:', error);
+  const handleClose = useCallback(() => {
+    console.log("[ImmersiveVideoCall] Closing call...");
+    
+    // Stop ringtone immediately
+    stopRingtone();
+    
+    // Clear slow connection timer
+    if (slowConnectionTimerRef.current) {
+      clearTimeout(slowConnectionTimerRef.current);
+      slowConnectionTimerRef.current = null;
     }
-
+    
+    // Stop local camera
     stopLocalCamera();
-    stopHeyGenSession();
-    endVapiCall();
+    
+    // Stop HeyGen session (fire and forget)
+    try {
+      stopHeyGenSession();
+    } catch (e) {
+      console.warn("[ImmersiveVideoCall] HeyGen cleanup error:", e);
+    }
+    
+    // End Vapi call (fire and forget)
+    try {
+      endVapiCall();
+    } catch (e) {
+      console.warn("[ImmersiveVideoCall] Vapi cleanup error:", e);
+    }
+    
+    // Exit fullscreen if active
     if (document.fullscreenElement) {
       document.exitFullscreen?.().catch(() => {});
     }
+    
+    // Track activity in background (non-blocking)
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.id && callDuration > 0) {
+          await Promise.all([
+            recordActivity(session.user.id, 'video_call'),
+            recordLearningEvent(
+              session.user.id,
+              avatarId,
+              'message',
+              `Video call duration: ${callDuration} seconds`,
+              { type: 'video_call', duration: callDuration }
+            ),
+            incrementMessages(),
+          ]);
+          
+          const messages = assistantTranscript ? [{ role: 'assistant' as const, content: assistantTranscript }] : [];
+          await endInsightSession(messages, avatarId);
+        }
+      } catch (error) {
+        console.error('[ImmersiveVideoCall] Failed to record activity:', error);
+      }
+    })();
+    
+    // Close immediately - don't wait for tracking
     onClose();
-  };
+  }, [
+    stopRingtone,
+    stopLocalCamera,
+    stopHeyGenSession,
+    endVapiCall,
+    callDuration,
+    avatarId,
+    assistantTranscript,
+    incrementMessages,
+    endInsightSession,
+    onClose,
+  ]);
 
   const handleToggleCamera = () => {
     if (localStreamRef.current) {
