@@ -52,6 +52,12 @@ export function Navbar() {
           >
             Pricing
           </a>
+          <Link
+            to="/about"
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-300"
+          >
+            About Us
+          </Link>
         </nav>
 
         {/* CTA Buttons */}
@@ -110,6 +116,13 @@ export function Navbar() {
           >
             Pricing
           </a>
+          <Link
+            to="/about"
+            className="block text-base font-medium text-muted-foreground hover:text-foreground py-3"
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            About Us
+          </Link>
           <div className="flex flex-col gap-4 pt-6 border-t border-border">
             <Button variant="ghost" className="w-full rounded-2xl" asChild>
               <Link to="/login">Log in</Link>
