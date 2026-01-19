@@ -58,12 +58,12 @@ export function Footer() {
               <Link to="/our-promise" className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-300">
                 Our promise
               </Link>
-              <a href="#" className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-300">
+              <Link to="/privacy" className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-300">
                 Privacy
-              </a>
-              <a href="#" className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-300">
+              </Link>
+              <Link to="/terms" className="block text-sm text-muted-foreground hover:text-foreground transition-colors duration-300">
                 Terms
-              </a>
+              </Link>
             </nav>
           </div>
         </div>

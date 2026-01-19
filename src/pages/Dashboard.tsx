@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Users, MessageCircle, Phone, Settings, LogOut, Loader2,
@@ -177,9 +177,9 @@ export default function Dashboard() {
             }`}
           >
             {/* Logo */}
-            <div className="p-6 border-b border-border">
+            <Link to="/" className="block p-6 border-b border-border hover:opacity-80 transition-opacity">
               <MomoLogo size="md" />
-            </div>
+            </Link>
 
             {/* User Info */}
             <div className="p-4 border-b border-border">
