@@ -43,7 +43,6 @@ const features = [
 export function FeaturesSection() {
   return (
     <section id="features" className="py-12 relative overflow-hidden">
-      <div className="absolute inset-0 gradient-subtle" />
 
       <div className="container mx-auto px-4 relative z-10">
         {/* Section Header */}
