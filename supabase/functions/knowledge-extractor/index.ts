@@ -116,6 +116,21 @@ Se non trovi nulla di rilevante: {"publicFacts": [], "privateFacts": []}`;
     if (!response.ok) {
       const errorText = await response.text();
       console.error("AI extraction error:", response.status, errorText);
+      
+      // Graceful handling for quota exhaustion (402) and service unavailable (503)
+      if (response.status === 402 || response.status === 503) {
+        console.log(`AI Gateway unavailable (${response.status}), skipping extraction`);
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            status: "skipped", 
+            reason: response.status === 402 ? "quota_exhausted" : "service_unavailable",
+            extracted: 0 
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
       throw new Error(`AI extraction failed: ${response.status}`);
     }
 
