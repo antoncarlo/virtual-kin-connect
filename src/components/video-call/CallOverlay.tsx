@@ -54,6 +54,8 @@ export interface CallOverlayProps {
   connectionQuality?: "excellent" | "good" | "poor";
   /** Video element to show when connected */
   videoElement?: React.ReactNode;
+  /** Whether connection is taking too long (show friendly message) */
+  isSlowConnection?: boolean;
   /** Callback when mute is toggled */
   onMuteToggle: () => void;
   /** Callback when camera is toggled */
@@ -74,7 +76,12 @@ export interface CallOverlayProps {
 // HELPER FUNCTIONS
 // ============================================================================
 
-const getStatusText = (state: CallState): string => {
+const getStatusText = (state: CallState, isSlowConnection: boolean = false): string => {
+  // Show friendly timeout message when connection takes too long
+  if (isSlowConnection && ["initiating", "connecting", "buffering"].includes(state)) {
+    return "Preparing the room for us...";
+  }
+  
   switch (state) {
     case "initiating":
       return "Ringing...";
@@ -109,6 +116,7 @@ export function CallOverlay({
   isUserSpeaking = false,
   connectionQuality = "good",
   videoElement,
+  isSlowConnection = false,
   onMuteToggle,
   onVideoToggle,
   onAudioOutputChange,
@@ -181,7 +189,7 @@ export function CallOverlay({
             isMuted={isMuted}
             isCameraOn={isCameraOn}
             connectionQuality={connectionQuality}
-            statusText={isConnecting ? getStatusText(callState) : undefined}
+            statusText={isConnecting ? getStatusText(callState, isSlowConnection) : undefined}
             onMuteToggle={onMuteToggle}
             onVideoToggle={onVideoToggle}
             onAudioOutputChange={onAudioOutputChange}
