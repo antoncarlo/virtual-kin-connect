@@ -88,7 +88,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background flex grid-pattern">
       {/* Left Side - Visual */}
       <div className="hidden lg:flex flex-1 items-center justify-center relative overflow-hidden">
         <div className="absolute inset-0 gradient-cosmic" />

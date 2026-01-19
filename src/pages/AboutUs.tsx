@@ -37,7 +37,7 @@ const milestones = [
 
 export default function AboutUs() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background grid-pattern">
       <Navbar />
       
       <div className="container mx-auto px-4 pt-24 pb-12">
