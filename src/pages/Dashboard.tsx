@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Users, MessageCircle, Phone, Settings, LogOut, Loader2,
   Zap, Crown, ChevronRight, History, CreditCard, Bell,
-  Home, Menu, X, Sparkles, Video, Heart, Gift, Copy, Check,
+  Home, Menu, X, Heart, Video, Gift, Copy, Check,
   Trophy, Target, Flame
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,7 @@ import {
   ReferralCard,
 } from "@/components/gamification";
 import type { User } from "@supabase/supabase-js";
-import kindredIcon from "@/assets/kindred-icon.png";
+import { MomoLogo } from "@/components/MomoLogo";
 
 type TabType = "home" | "avatars" | "progress" | "history" | "tokens" | "settings";
 
@@ -145,7 +145,7 @@ export default function Dashboard() {
           animate={{ opacity: 1, scale: 1 }}
           className="flex flex-col items-center gap-4"
         >
-          <img src={kindredIcon} alt="Kindred" className="w-16 h-16 animate-pulse" />
+          <MomoLogo size="lg" showText={false} />
           <Loader2 className="w-6 h-6 animate-spin text-primary" />
         </motion.div>
       </div>
@@ -158,7 +158,7 @@ export default function Dashboard() {
       <Button
         variant="ghost"
         size="icon"
-        className="fixed top-4 left-4 z-50 lg:hidden"
+        className="fixed top-4 left-4 z-50 lg:hidden rounded-2xl"
         onClick={() => setSidebarOpen(!sidebarOpen)}
       >
         {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -178,12 +178,7 @@ export default function Dashboard() {
           >
             {/* Logo */}
             <div className="p-6 border-b border-border">
-              <div className="flex items-center gap-3">
-                <img src={kindredIcon} alt="Kindred" className="w-10 h-10" />
-                <span className="text-xl font-display font-bold text-gradient">
-                  Kindred
-                </span>
-              </div>
+              <MomoLogo size="md" />
             </div>
 
             {/* User Info */}
