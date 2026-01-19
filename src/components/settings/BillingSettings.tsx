@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { CreditCard, Plus, Sparkles, Calendar, Receipt, ExternalLink } from "lucide-react";
+import { CreditCard, Plus, Sparkles, Calendar, Receipt, ExternalLink, Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
+import { useStripeCheckout } from "@/hooks/useStripeCheckout";
+import { TokenPurchaseModal } from "@/components/TokenPurchaseModal";
 
 interface BillingSettingsProps {
   profile: any;
@@ -14,13 +15,22 @@ export function BillingSettings({ profile, onUpgrade }: BillingSettingsProps) {
   const plan = profile?.subscription_tier || "Free";
   const tokensBalance = profile?.tokens_balance || 0;
   const trialEndsAt = profile?.trial_ends_at;
+  const hasStripeCustomer = !!profile?.stripe_customer_id;
+  
+  const [showTokenModal, setShowTokenModal] = useState(false);
+  const { openPortal, isLoading } = useStripeCheckout();
   
   const trialDaysRemaining = trialEndsAt 
     ? Math.max(0, Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : 0;
 
-  // Mock payment methods (in production, these would come from Stripe)
-  const [paymentMethods] = useState<any[]>([]);
+  const handleManageBilling = () => {
+    if (hasStripeCustomer) {
+      openPortal();
+    } else {
+      onUpgrade();
+    }
+  };
 
   return (
     <motion.div
@@ -51,56 +61,85 @@ export function BillingSettings({ profile, onUpgrade }: BillingSettingsProps) {
               {tokensBalance} tokens available
             </p>
           </div>
-          <Button className="gradient-primary" onClick={onUpgrade}>
-            {plan === "Free" ? "Upgrade to Premium" : "Manage Plan"}
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowTokenModal(true)}
+              className="gap-2"
+            >
+              <Coins className="w-4 h-4" /> Buy Tokens
+            </Button>
+            <Button 
+              className="gradient-primary" 
+              onClick={handleManageBilling}
+              disabled={isLoading}
+            >
+              {isLoading ? "Loading..." : plan === "Free" || plan === "trial" ? "Upgrade" : "Manage Billing"}
+            </Button>
+          </div>
         </div>
 
-        {plan === "Free" && (
+        {(plan === "Free" || plan === "trial") && (
           <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
             <p className="text-sm text-muted-foreground">
-              <strong className="text-foreground">Upgrade to Premium</strong> to unlock unlimited conversations, 
-              shared memories, priority support, and more!
+              <strong className="text-foreground">Upgrade to Essential or Premium</strong> to unlock voice calls, 
+              video calls, priority support, and more!
             </p>
           </div>
         )}
       </div>
 
-      {/* Payment Methods */}
+      {/* Token Balance */}
+      <div className="glass border-gradient rounded-xl p-6">
+        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+          <Coins className="w-5 h-5 text-gold" /> Token Balance
+        </h3>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-3xl font-bold">{tokensBalance}</div>
+            <p className="text-sm text-muted-foreground">
+              tokens = {tokensBalance} minutes of calls
+            </p>
+          </div>
+          <Button 
+            onClick={() => setShowTokenModal(true)}
+            className="bg-gradient-to-r from-gold to-amber-500 text-background hover:opacity-90"
+          >
+            <Plus className="w-4 h-4 mr-2" /> Buy More
+          </Button>
+        </div>
+
+        <div className="mt-4 p-3 rounded-lg bg-secondary/30 text-sm text-muted-foreground">
+          💡 1 token = 1 minute of voice or video call. Tokens never expire!
+        </div>
+      </div>
+
+      {/* Payment Methods - Link to Stripe Portal */}
       <div className="glass border-gradient rounded-xl p-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <CreditCard className="w-5 h-5" /> Payment Methods
         </h3>
 
-        {paymentMethods.length === 0 ? (
-          <div className="text-center py-6">
-            <CreditCard className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-            <p className="text-muted-foreground text-sm mb-4">
-              No payment methods added yet
-            </p>
-            <Button variant="outline" className="gap-2">
-              <Plus className="w-4 h-4" /> Add Payment Method
+        <div className="text-center py-6">
+          <CreditCard className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+          <p className="text-muted-foreground text-sm mb-4">
+            {hasStripeCustomer 
+              ? "Manage your payment methods in the billing portal"
+              : "Make your first purchase to add a payment method"
+            }
+          </p>
+          {hasStripeCustomer && (
+            <Button 
+              variant="outline" 
+              className="gap-2"
+              onClick={() => openPortal()}
+              disabled={isLoading}
+            >
+              <ExternalLink className="w-4 h-4" /> Open Billing Portal
             </Button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {paymentMethods.map((method, index) => (
-              <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
-                <div className="flex items-center gap-3">
-                  <CreditCard className="w-5 h-5 text-muted-foreground" />
-                  <div>
-                    <p className="font-medium">•••• {method.last4}</p>
-                    <p className="text-xs text-muted-foreground">Expires {method.expiry}</p>
-                  </div>
-                </div>
-                <Button variant="ghost" size="sm">Remove</Button>
-              </div>
-            ))}
-            <Button variant="outline" size="sm" className="gap-2 w-full">
-              <Plus className="w-4 h-4" /> Add New Card
-            </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Billing History */}
@@ -112,13 +151,30 @@ export function BillingSettings({ profile, onUpgrade }: BillingSettingsProps) {
         <div className="text-center py-6">
           <Calendar className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
           <p className="text-muted-foreground text-sm">
-            No billing history available
+            {hasStripeCustomer
+              ? "View your billing history in the billing portal"
+              : "No billing history available"
+            }
           </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Your invoices and receipts will appear here
-          </p>
+          {hasStripeCustomer && (
+            <Button 
+              variant="link" 
+              className="mt-2 gap-2"
+              onClick={() => openPortal()}
+              disabled={isLoading}
+            >
+              <ExternalLink className="w-4 h-4" /> View Invoices
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* Token Purchase Modal */}
+      <TokenPurchaseModal
+        isOpen={showTokenModal}
+        onClose={() => setShowTokenModal(false)}
+        currentBalance={tokensBalance}
+      />
     </motion.div>
   );
 }

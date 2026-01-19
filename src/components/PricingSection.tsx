@@ -6,6 +6,7 @@ import { useState } from "react";
 
 const plans = [
   {
+    id: "free_trial",
     name: "Free Trial",
     avatars: 1,
     price: 0,
@@ -15,50 +16,55 @@ const plans = [
     features: [
       "1 AI companion avatar",
       "Unlimited chat messages",
-      "Voice calls included",
+      "No voice or video calls",
       "Full conversation memory",
       "No credit card required",
     ],
+    limitations: ["Chat only"],
   },
   {
+    id: "essential",
     name: "Essential",
-    avatars: 2,
-    price: 19,
+    avatars: 1,
+    price: 29,
     priceNote: "/month",
     icon: Star,
     popular: true,
     features: [
-      "2 AI companion avatars",
+      "1 AI companion avatar",
       "Unlimited chat messages",
-      "Voice calls included",
+      "Voice calls up to 10 min/day",
       "Full conversation memory",
       "Priority support",
-      "Video calls",
     ],
+    limitations: ["No video calls"],
   },
   {
+    id: "premium",
     name: "Premium",
     avatars: 6,
-    price: 29,
+    price: 49,
     priceNote: "/month",
     icon: Crown,
     popular: false,
     features: [
       "All 6 AI companions",
-      "Unlimited everything",
+      "Unlimited chat messages",
       "Voice & video calls",
       "Full conversation memory",
       "Priority support",
       "Early access to new features",
     ],
+    limitations: [],
   },
 ];
 
+// 1 token = €0.40 = 1 minute of call/video
 const tokenPackages = [
-  { tokens: 100, price: 10, bonus: "", popular: false, minutes: "~15 min" },
-  { tokens: 250, price: 20, bonus: "+25 bonus", popular: false, minutes: "~40 min" },
-  { tokens: 500, price: 35, bonus: "+75 bonus", popular: true, minutes: "~90 min" },
-  { tokens: 1000, price: 60, bonus: "+200 bonus", popular: false, minutes: "~180 min" },
+  { id: "tokens_5", tokens: 5, price: 2, bonus: "", popular: false, minutes: "5 min" },
+  { id: "tokens_15", tokens: 15, price: 5, bonus: "+1 free", popular: false, minutes: "15 min" },
+  { id: "tokens_30", tokens: 30, price: 10, bonus: "+2 free", popular: true, minutes: "30 min" },
+  { id: "tokens_60", tokens: 60, price: 20, bonus: "+5 free", popular: false, minutes: "60 min" },
 ];
 
 export function PricingSection() {
