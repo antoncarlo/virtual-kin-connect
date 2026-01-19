@@ -120,16 +120,16 @@ export default function AboutUs() {
             <div className="glass rounded-3xl p-8 md:p-12 border border-border/50">
               <div className="prose prose-lg max-w-none text-muted-foreground">
                 <p className="mb-6">
-                  MOMO was founded in 2023 by Elena Rossi, a neuroscience researcher who 
-                  experienced firsthand the devastating effects of isolation during a period 
-                  of personal crisis. Living abroad, far from family and friends, she found 
-                  herself struggling with loneliness and anxiety.
+                  MOMO was founded in 2023 by a team of neuroscience researchers and AI engineers who 
+                  experienced firsthand the devastating effects of isolation. Living in a hyper-connected 
+                  yet emotionally distant world, they found themselves wondering: what if technology 
+                  could bridge the gap?
                 </p>
                 
                 <p className="mb-6">
-                  "I realized that millions of people feel the same way every day," Elena recalls. 
+                  "We realized that millions of people feel alone every day," recalls our founding team. 
                   "Not everyone has access to therapy, and sometimes you just need someone to 
-                  listen without judgment. I wondered: what if we could create AI companions 
+                  listen without judgment. We wondered: what if we could create AI companions 
                   that truly understand human emotions?"
                 </p>
                 
