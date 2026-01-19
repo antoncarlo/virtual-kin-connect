@@ -41,8 +41,8 @@ import { VisionUpload } from "./VisionUpload";
 import { CinematicFilter } from "./CinematicFilter";
 import { LoadingTransition } from "./LoadingTransition";
 import { ResponsiveVideoContainer } from "./ResponsiveVideoContainer";
-// WebRTCDebugPanel removed - not needed for iframe embed approach
-import { LiveAvatarEmbed, DEFAULT_LIVEAVATAR_EMBED_ID } from "./LiveAvatarEmbed";
+// Using SDK-based streaming instead of iframe embed
+import { useHeyGenStreaming, PUBLIC_AVATARS } from "@/hooks/useHeyGenStreaming";
 // New imports for WhatsApp-style UX
 import { CallOverlay, type CallState } from "./CallOverlay";
 import { useRingtone } from "@/hooks/useRingtone";
@@ -61,8 +61,6 @@ interface ImmersiveVideoCallProps {
   vapiAssistantId?: string;
   /** If false, start in audio-only mode (no local camera, no avatar video) */
   videoEnabled?: boolean;
-  /** LiveAvatar embed ID for iframe-based avatar */
-  liveAvatarEmbedId?: string;
   /** Pre-warmed token from useHeyGenPrewarm hook */
   prewarmToken?: string | null;
   /** Whether pre-warming is complete */
@@ -81,7 +79,6 @@ export function ImmersiveVideoCall({
   heygenGender = 'male',
   vapiAssistantId,
   videoEnabled = true,
-  liveAvatarEmbedId = DEFAULT_LIVEAVATAR_EMBED_ID,
   prewarmToken = null,
   isPrewarmed = false,
 }: ImmersiveVideoCallProps) {
@@ -152,7 +149,54 @@ export function ImmersiveVideoCall({
     },
   });
 
-  // WebRTC Debug logs removed - not applicable for iframe embed approach
+  // WebRTC Debug logs removed - now using SDK-based streaming
+  
+  // HeyGen Streaming SDK hook for avatar video
+  const {
+    isConnecting: isHeyGenConnecting,
+    isConnected: isHeyGenConnected,
+    isSpeaking: isAvatarSpeaking,
+    mediaStream: heygenMediaStream,
+    connectionError: heygenConnectionError,
+    startSession: startHeyGenSession,
+    stopSession: stopHeyGenSession,
+    sendText: sendHeyGenText,
+    setListeningMode,
+    interrupt: interruptHeyGen,
+  } = useHeyGenStreaming({
+    avatarId: heygenAvatarId || PUBLIC_AVATARS.BRYAN_IT_SITTING,
+    voiceId: heygenVoiceId,
+    quality: "high",
+    onConnected: () => {
+      console.log("[ImmersiveVideoCall] HeyGen SDK connected");
+      setIsEmbedReady(true);
+      setConnectionQuality("excellent");
+      setLoadingStage("ready");
+      setCallState("buffering");
+      
+      // Mark first frame received for overlay transition
+      if (!firstFrameReceived.current) {
+        firstFrameReceived.current = true;
+        if (vapiConnectionState === "connected") {
+          setShowVideoOverlay(true);
+        }
+      }
+    },
+    onDisconnected: () => {
+      console.log("[ImmersiveVideoCall] HeyGen SDK disconnected");
+      setIsEmbedReady(false);
+    },
+    onError: (error) => {
+      console.error("[ImmersiveVideoCall] HeyGen SDK error:", error);
+      setConnectionQuality("poor");
+      toast({
+        title: "Avatar connection failed",
+        description: "Using audio-only mode",
+        variant: "destructive",
+      });
+      setIsFallbackMode(true);
+    },
+  });
 
   // Audio-Video sync for Vapi-HeyGen bridge
   const { 
@@ -438,10 +482,14 @@ export function ImmersiveVideoCall({
       setCallState("connecting");
       startVapiCall();
 
-      // Video path: just start local camera (embed handles avatar)
+      // Video path: start local camera AND HeyGen SDK session
       if (videoEnabled) {
         startLocalCamera();
         setLoadingStage("stabilizing");
+        
+        // Start HeyGen SDK session for avatar streaming
+        console.log("[ImmersiveVideoCall] Starting HeyGen SDK session...");
+        startHeyGenSession(heygenVideoRef.current || undefined);
       } else {
         // Ensure camera is off in audio-only mode
         setIsCameraOn(false);
@@ -459,6 +507,7 @@ export function ImmersiveVideoCall({
       }
 
       stopLocalCamera();
+      stopHeyGenSession(); // Stop HeyGen SDK session
       endVapiCall();
 
       setCallDuration(0);
@@ -485,6 +534,8 @@ export function ImmersiveVideoCall({
     endVapiCall,
     startRingtone,
     stopRingtone,
+    startHeyGenSession,
+    stopHeyGenSession,
   ]);
 
   // Call duration timer - start as soon as the call is connected
@@ -497,6 +548,17 @@ export function ImmersiveVideoCall({
     }
     return () => clearInterval(interval);
   }, [isVapiConnected, isEmbedReady]);
+  
+  // Attach HeyGen media stream to video element when it changes
+  useEffect(() => {
+    if (heygenMediaStream && heygenVideoRef.current) {
+      console.log("[ImmersiveVideoCall] Attaching HeyGen media stream to video element");
+      heygenVideoRef.current.srcObject = heygenMediaStream;
+      heygenVideoRef.current.play().catch(e => {
+        console.warn("[ImmersiveVideoCall] Video play error:", e);
+      });
+    }
+  }, [heygenMediaStream]);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -518,6 +580,13 @@ export function ImmersiveVideoCall({
     
     // Stop local camera
     stopLocalCamera();
+    
+    // Stop HeyGen SDK session
+    try {
+      stopHeyGenSession();
+    } catch (e) {
+      console.warn("[ImmersiveVideoCall] HeyGen cleanup error:", e);
+    }
     
     // End Vapi call (fire and forget)
     try {
@@ -660,43 +729,29 @@ export function ImmersiveVideoCall({
                   )}
                 </AnimatePresence>
 
-                {/* Main Avatar Video - LiveAvatar Embed (iframe-based) */}
+                {/* Main Avatar Video - HeyGen SDK WebRTC Stream */}
                 {!isFallbackMode && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    {/* LiveAvatar Embed - iframe approach for reliability */}
-                    <LiveAvatarEmbed
-                      embedId={liveAvatarEmbedId}
-                      className="w-full h-full"
-                      onReady={() => {
-                        console.log("[ImmersiveVideoCall] LiveAvatar embed ready");
-                        setIsEmbedReady(true);
-                        setConnectionQuality("excellent");
-                        setLoadingStage("ready");
-                        setCallState("buffering");
-                        
-                        // Mark first frame received for overlay transition
-                        if (!firstFrameReceived.current) {
-                          firstFrameReceived.current = true;
-                          // Show video view only once both embed and Vapi are connected
-                          if (vapiConnectionState === "connected") {
-                            setShowVideoOverlay(true);
-                          }
-                        }
-                      }}
-                      onError={(error) => {
-                        console.error("[ImmersiveVideoCall] LiveAvatar embed error:", error);
-                        setConnectionQuality("poor");
-                        toast({
-                          title: "Avatar connection failed",
-                          description: "Using audio-only mode",
-                          variant: "destructive",
-                        });
-                        setIsFallbackMode(true);
-                      }}
+                  <div className="absolute inset-0 flex items-center justify-center bg-black">
+                    {/* HeyGen Video Element - receives WebRTC stream from SDK */}
+                    <video
+                      ref={heygenVideoRef}
+                      autoPlay
+                      playsInline
+                      muted={false}
+                      className="w-full h-full object-cover"
+                      style={{ backgroundColor: "#000" }}
                     />
                     
+                    {/* Loading overlay while connecting */}
+                    {isHeyGenConnecting && !isHeyGenConnected && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm">
+                        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mb-3" />
+                        <p className="text-sm text-muted-foreground">Connecting to avatar...</p>
+                      </div>
+                    )}
+                    
                     {/* Cinematic overlay on video */}
-                    {isEmbedReady && (
+                    {isHeyGenConnected && (
                       <CinematicFilter
                         intensity="light"
                         warmth={temporalContext.timeOfDay === "evening" ? 45 : temporalContext.timeOfDay === "night" ? 30 : 20}
