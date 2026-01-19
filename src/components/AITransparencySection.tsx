@@ -20,7 +20,7 @@ export function AITransparencySection() {
           </div>
           
           <h2 className="text-3xl md:text-4xl font-display font-bold mb-3">
-            How <span className="text-gradient">Kindred</span> Works
+            How <span className="text-gradient">momo</span> Works
           </h2>
           <p className="text-muted-foreground">
             We believe you deserve to know exactly what powers your companion
