@@ -254,21 +254,37 @@ export function useLiveAvatar(options: UseLiveAvatarOptions): UseLiveAvatarRetur
    * Stop LiveAvatar session
    */
   const stopSession = useCallback(async () => {
-    if (!sessionRef.current) return;
+    console.log("[LiveAvatar] Stopping session...");
+    
+    const session = sessionRef.current;
+    sessionRef.current = null; // Prevent double-stop
+    
+    // Reset state immediately
+    setIsConnected(false);
+    setSessionId(null);
+    setMediaStream(null);
+    setIsSpeaking(false);
+    setIsUserSpeaking(false);
+    setIsVoiceChatActive(false);
+    
+    if (!session) {
+      console.log("[LiveAvatar] No active session to stop");
+      return;
+    }
 
     try {
-      await sessionRef.current.stopAvatar();
-      sessionRef.current = null;
-      setIsConnected(false);
-      setSessionId(null);
-      setMediaStream(null);
-      setIsSpeaking(false);
-      setIsUserSpeaking(false);
-      setIsVoiceChatActive(false);
+      // Try stopAvatar first (correct SDK method)
+      if (typeof session.stopAvatar === 'function') {
+        await session.stopAvatar();
+      } else if (typeof session.stop === 'function') {
+        await session.stop();
+      }
+      console.log("[LiveAvatar] Session stopped successfully");
+      onDisconnected?.();
     } catch (err) {
-      console.error("Failed to stop LiveAvatar session:", err);
+      console.warn("[LiveAvatar] Failed to stop session (may already be closed):", err);
     }
-  }, []);
+  }, [onDisconnected]);
 
   /**
    * Make avatar speak (REPEAT mode - for custom LLM)
@@ -356,8 +372,17 @@ export function useLiveAvatar(options: UseLiveAvatarOptions): UseLiveAvatarRetur
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      console.log("[LiveAvatar] Unmounting - cleaning up...");
       if (sessionRef.current) {
-        sessionRef.current.stop().catch(console.error);
+        const session = sessionRef.current;
+        sessionRef.current = null;
+        
+        // Try both methods for compatibility
+        if (typeof session.stopAvatar === 'function') {
+          session.stopAvatar().catch(console.error);
+        } else if (typeof session.stop === 'function') {
+          session.stop().catch(console.error);
+        }
       }
     };
   }, []);
