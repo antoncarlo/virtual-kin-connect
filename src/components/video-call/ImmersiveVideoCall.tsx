@@ -118,6 +118,9 @@ export function ImmersiveVideoCall({
   const [userTranscript, setUserTranscript] = useState("");
   const [assistantTranscript, setAssistantTranscript] = useState("");
   const [pendingText, setPendingText] = useState<string[]>([]);
+  
+  // Mem0 pre-call memory context for Vapi injection
+  const [preCallMemoryContext, setPreCallMemoryContext] = useState("");
 
   // Temporal context for dynamic backgrounds
   const temporalContext = useTemporalContext();
@@ -285,6 +288,8 @@ export function ImmersiveVideoCall({
     language: language as SupportedLanguage,
     avatarGender: heygenGender,
     avatarName: avatarName,
+    // Mem0 memory context injected into assistant prompt
+    memoryContext: preCallMemoryContext,
     onTranscript: handleVapiTranscript,
     onCallStart: handleVapiCallStart,
     onUserSpeechStart: handleVapiSpeechStart,
@@ -463,6 +468,7 @@ export function ImmersiveVideoCall({
   }, [stopLocalCamera, startLocalCamera]);
 
   // Initialize when modal opens - eager Vapi connection + ringtone
+  // Now with Mem0 pre-call memory fetch
   useEffect(() => {
     if (isOpen && !isInitialized) {
       setIsInitialized(true);
@@ -485,11 +491,31 @@ export function ImmersiveVideoCall({
         setIsSlowConnection(true);
       }, 5000);
 
-      // BACKEND: start Vapi IMMEDIATAMENTE (always, even audio-only)
-      console.log("[ImmersiveVideoCall] Avvio connessione Vapi...");
-      setLoadingStage("connecting");
-      setCallState("connecting");
-      startVapiCall();
+      // STEP 1: Fetch Mem0 memory context BEFORE starting Vapi
+      // This ensures the assistant has user's memory when the call begins
+      const initializeWithMemory = async () => {
+        console.log("[ImmersiveVideoCall] Fetching Mem0 context before call...");
+        
+        let memContext = "";
+        if (isMem0Ready) {
+          try {
+            // Get relevant memories for this avatar/conversation
+            memContext = await getRelevantContext("Inizio chiamata vocale con l'utente", 10);
+            setPreCallMemoryContext(memContext);
+            console.log("[ImmersiveVideoCall] Mem0 context loaded:", memContext.substring(0, 100) + "...");
+          } catch (err) {
+            console.warn("[ImmersiveVideoCall] Failed to fetch Mem0 context:", err);
+          }
+        }
+
+        // STEP 2: Start Vapi call (with memory context now set in state)
+        console.log("[ImmersiveVideoCall] Starting Vapi connection with memory...");
+        setLoadingStage("connecting");
+        setCallState("connecting");
+        startVapiCall();
+      };
+
+      initializeWithMemory();
 
       // Video path: start local camera AND HeyGen SDK session
       if (videoEnabled) {
@@ -508,6 +534,9 @@ export function ImmersiveVideoCall({
 
     if (!isOpen && isInitialized) {
       stopRingtone();
+      
+      // Reset pre-call memory context
+      setPreCallMemoryContext("");
 
       // Clear slow connection timer
       if (slowConnectionTimerRef.current) {
@@ -537,6 +566,8 @@ export function ImmersiveVideoCall({
     isOpen,
     isInitialized,
     videoEnabled,
+    isMem0Ready,
+    getRelevantContext,
     startLocalCamera,
     stopLocalCamera,
     startVapiCall,
