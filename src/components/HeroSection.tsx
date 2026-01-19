@@ -10,6 +10,18 @@ export function HeroSection() {
       {/* Soft warm background */}
       <div className="absolute inset-0 gradient-cosmic" />
       
+      {/* Subtle grid pattern overlay */}
+      <div 
+        className="absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage: `
+            linear-gradient(to right, hsl(var(--foreground)) 1px, transparent 1px),
+            linear-gradient(to bottom, hsl(var(--foreground)) 1px, transparent 1px)
+          `,
+          backgroundSize: '60px 60px'
+        }}
+      />
+      
       {/* Gentle animated shapes - very slow for sensory comfort */}
       <motion.div className="absolute inset-0 overflow-hidden">
         <motion.div 
