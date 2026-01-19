@@ -319,11 +319,10 @@ export default function Chat() {
           variant: "destructive",
         });
       } else if (resp.status === 402) {
-        toast({
-          title: "Servizio non disponibile",
-          description: "Riprova più tardi.",
-          variant: "destructive",
-        });
+        // Add a fallback message to the chat so the user knows Marco is temporarily unavailable
+        addMessage("assistant", "Mi dispiace, sono un po' sovraccarico in questo momento. Riprova tra qualche minuto e sarò tutto per te! 💙");
+        setIsTyping(false);
+        return; // Don't throw error, handle gracefully
       }
       throw new Error(errorData.error || "Failed to get response");
     }
