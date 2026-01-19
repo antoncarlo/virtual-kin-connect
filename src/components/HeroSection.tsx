@@ -7,8 +7,8 @@ import { MomoLogo } from "./MomoLogo";
 export function HeroSection() {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-24 pb-16">
-      {/* Soft warm background */}
-      <div className="absolute inset-0 gradient-cosmic" />
+      {/* Soft warm background - transparent to show grid underneath */}
+      <div className="absolute inset-0 bg-gradient-to-b from-background via-background/95 to-background" />
       
       {/* Gentle animated shapes - very slow for sensory comfort */}
       <motion.div className="absolute inset-0 overflow-hidden">
