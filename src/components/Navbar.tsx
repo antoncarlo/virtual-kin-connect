@@ -3,7 +3,6 @@ import { motion } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { ThemeToggle } from "./ThemeToggle";
 import { MomoLogo } from "./MomoLogo";
 
 export function Navbar() {
@@ -39,33 +38,32 @@ export function Navbar() {
             href="#avatars"
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-300"
           >
-            Compagni
+            Companions
           </a>
           <a
             href="#features"
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-300"
           >
-            Come funziona
+            How it works
           </a>
           <a
             href="#pricing"
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-300"
           >
-            Piani
+            Pricing
           </a>
         </nav>
 
         {/* CTA Buttons */}
         <div className="hidden md:flex items-center gap-4">
-          <ThemeToggle />
           <Button variant="ghost" className="font-medium text-muted-foreground" asChild>
-            <Link to="/login">Accedi</Link>
+            <Link to="/login">Log in</Link>
           </Button>
           <Button 
             className="gradient-primary glow-primary font-semibold px-8 py-6 rounded-3xl" 
             asChild
           >
-            <Link to="/signup">Inizia ora</Link>
+            <Link to="/signup">Get Started</Link>
           </Button>
         </div>
 
@@ -96,32 +94,28 @@ export function Navbar() {
             className="block text-base font-medium text-muted-foreground hover:text-foreground py-3"
             onClick={() => setIsMobileMenuOpen(false)}
           >
-            Compagni
+            Companions
           </a>
           <a
             href="#features"
             className="block text-base font-medium text-muted-foreground hover:text-foreground py-3"
             onClick={() => setIsMobileMenuOpen(false)}
           >
-            Come funziona
+            How it works
           </a>
           <a
             href="#pricing"
             className="block text-base font-medium text-muted-foreground hover:text-foreground py-3"
             onClick={() => setIsMobileMenuOpen(false)}
           >
-            Piani
+            Pricing
           </a>
           <div className="flex flex-col gap-4 pt-6 border-t border-border">
-            <div className="flex items-center justify-between py-3">
-              <span className="text-sm font-medium text-muted-foreground">Tema</span>
-              <ThemeToggle />
-            </div>
             <Button variant="ghost" className="w-full rounded-2xl" asChild>
-              <Link to="/login">Accedi</Link>
+              <Link to="/login">Log in</Link>
             </Button>
             <Button className="w-full gradient-primary glow-primary rounded-2xl py-6" asChild>
-              <Link to="/signup">Inizia ora</Link>
+              <Link to="/signup">Get Started</Link>
             </Button>
           </div>
         </motion.div>
