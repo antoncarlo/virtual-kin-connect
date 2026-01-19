@@ -225,6 +225,20 @@ Analizza secondo questi 4 criteri:
 
     const response = await makeRequest();
 
+    // Handle 402 Payment Required (quota exhausted) gracefully - don't fail, just skip analysis
+    if (response.status === 402) {
+      console.log("AI gateway quota exhausted (402), skipping session analysis");
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          skipped: true,
+          reason: "AI analysis temporarily unavailable",
+          message: "Session saved without AI analysis" 
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error("AI analysis error:", response.status, errorText);
