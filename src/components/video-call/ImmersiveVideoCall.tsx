@@ -41,7 +41,7 @@ import { VisionUpload } from "./VisionUpload";
 import { CinematicFilter } from "./CinematicFilter";
 import { LoadingTransition } from "./LoadingTransition";
 import { ResponsiveVideoContainer } from "./ResponsiveVideoContainer";
-import { WebRTCDebugPanel, useWebRTCDebugLogs } from "./WebRTCDebugPanel";
+// WebRTCDebugPanel removed - not needed for iframe embed approach
 import { LiveAvatarEmbed, DEFAULT_LIVEAVATAR_EMBED_ID } from "./LiveAvatarEmbed";
 // New imports for WhatsApp-style UX
 import { CallOverlay, type CallState } from "./CallOverlay";
@@ -152,8 +152,7 @@ export function ImmersiveVideoCall({
     },
   });
 
-  // WebRTC Debug logs
-  const { logs: debugLogs, connectionState, iceConnectionState, iceGatheringState, addLog, clearLogs, updateConnectionStates } = useWebRTCDebugLogs();
+  // WebRTC Debug logs removed - not applicable for iframe embed approach
 
   // Audio-Video sync for Vapi-HeyGen bridge
   const { 
@@ -730,14 +729,7 @@ export function ImmersiveVideoCall({
               )}
             </AnimatePresence>
 
-            {/* WebRTC Debug Panel */}
-            <WebRTCDebugPanel
-              logs={debugLogs}
-              isVisible={true}
-              connectionState={connectionState}
-              iceConnectionState={iceConnectionState}
-              iceGatheringState={iceGatheringState}
-            />
+            {/* WebRTC Debug Panel - Removed for production */}
 
             {/* Top Status Bar - Glassmorphism */}
             <motion.div

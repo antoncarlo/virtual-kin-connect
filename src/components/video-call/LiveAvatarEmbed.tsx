@@ -97,16 +97,17 @@ export function LiveAvatarEmbed({
         </motion.div>
       )}
 
-      {/* LiveAvatar iframe */}
+      {/* LiveAvatar iframe - fills parent container */}
       <iframe
         ref={iframeRef}
         src={embedUrl}
-        allow="microphone; camera"
+        allow="microphone; camera; autoplay"
         title="LiveAvatar"
-        className="w-full h-full border-0 rounded-3xl"
+        className="absolute inset-0 w-full h-full border-0"
         style={{ 
-          aspectRatio: "16/9",
-          backgroundColor: "transparent",
+          backgroundColor: "#000",
+          minHeight: "100%",
+          minWidth: "100%",
         }}
         onLoad={handleLoad}
         onError={handleError}
