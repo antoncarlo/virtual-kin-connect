@@ -613,9 +613,9 @@ export function ImmersiveVideoCall({
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* WhatsApp-style Call Overlay - shows until first frame */}
+          {/* WhatsApp-style Call Overlay - shows only during connection */}
           <CallOverlay
-            isOpen={!showVideoOverlay}
+            isOpen={callState === "initiating" || callState === "connecting" || callState === "reconnecting"}
             callState={callState}
             avatarName={avatarName}
             avatarImage={avatarImage}
@@ -635,12 +635,12 @@ export function ImmersiveVideoCall({
             showVideoToggle={videoEnabled}
           />
 
-          {/* Main Video View - shows after first frame */}
+          {/* Main Video View - always visible when call is open */}
           <motion.div
             initial={{ opacity: 0 }}
-            animate={{ opacity: showVideoOverlay ? 1 : 0 }}
+            animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className={`fixed inset-0 z-[100] bg-black ${!showVideoOverlay ? 'pointer-events-none' : ''}`}
+            className="fixed inset-0 z-[100] bg-black"
           >
             {/* Dynamic Background with temporal lighting */}
             <DynamicBackground temporalContext={temporalContext}>
