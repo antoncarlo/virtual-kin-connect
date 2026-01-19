@@ -7,7 +7,7 @@ import { Footer } from "@/components/Footer";
 
 export default function Privacy() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background grid-pattern">
       <Navbar />
       
       <div className="container mx-auto px-4 pt-24 pb-12">

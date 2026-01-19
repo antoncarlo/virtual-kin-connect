@@ -574,7 +574,7 @@ export default function Chat() {
 
   if (!avatar) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center grid-pattern">
         <p className="text-muted-foreground">Avatar not found</p>
       </div>
     );
@@ -582,7 +582,7 @@ export default function Chat() {
 
   if (isHistoryLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center grid-pattern">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
@@ -640,7 +640,7 @@ export default function Chat() {
         avatarImage={avatar.imageUrl}
       />
       
-      <div className="min-h-screen bg-gradient-subtle flex flex-col">
+      <div className="min-h-screen bg-gradient-subtle flex flex-col grid-pattern">
         {/* Header */}
         <header className="glass-chat-input border-b border-border/50 sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">

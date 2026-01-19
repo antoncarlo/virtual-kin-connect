@@ -153,7 +153,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background flex grid-pattern">
       {/* Mobile Menu Button */}
       <Button
         variant="ghost"

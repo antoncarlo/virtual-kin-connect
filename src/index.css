@@ -346,6 +346,29 @@
     box-shadow: 0 4px 12px hsla(30, 20%, 30%, 0.05),
                 0 16px 48px hsla(30, 20%, 30%, 0.08);
   }
+
+  /* Grid pattern background overlay */
+  .grid-pattern {
+    position: relative;
+  }
+
+  .grid-pattern::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.03;
+    z-index: 0;
+    background-image: 
+      linear-gradient(to right, hsl(var(--foreground)) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--foreground)) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  .grid-pattern > * {
+    position: relative;
+    z-index: 1;
+  }
 }
 
 /* Custom scrollbar - warm and subtle */
