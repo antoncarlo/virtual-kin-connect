@@ -8,35 +8,16 @@
  * - Instant visual feedback on call initiation
  * - Profile photo with pulsing animation
  * - Connection status text
- * - Mute/Unmute microphone
- * - Audio output device selector
- * - End call button
+ * - Glassmorphism header with audio/video controls
+ * - End call button at bottom
  * - Smooth transition to video when ready
  */
 
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  Mic,
-  MicOff,
-  Phone,
-  Volume2,
-  VolumeX,
-  Bluetooth,
-  Speaker,
-  Headphones,
-  X,
-  Wifi,
-  Video,
-  VideoOff,
-} from "lucide-react";
+import { Phone, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { CallHeader, type AudioDevice } from "./CallHeader";
 
 // ============================================================================
 // TYPES
@@ -49,12 +30,6 @@ export type CallState =
   | "connected"       // Video playing
   | "reconnecting"    // Lost connection, trying to reconnect
   | "ended";          // Call ended
-
-export interface AudioDevice {
-  deviceId: string;
-  label: string;
-  kind: "audiooutput" | "audioinput";
-}
 
 export interface CallOverlayProps {
   /** Whether the overlay is visible */
@@ -91,43 +66,31 @@ export interface CallOverlayProps {
   audioDevices?: AudioDevice[];
   /** Currently selected audio output device */
   selectedAudioDevice?: string;
+  /** Whether to show video toggle */
+  showVideoToggle?: boolean;
 }
 
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
-const formatDuration = (seconds: number): string => {
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-};
-
 const getStatusText = (state: CallState): string => {
   switch (state) {
     case "initiating":
-      return "Squillando...";
+      return "Ringing...";
     case "connecting":
-      return "Stabilendo connessione...";
+      return "Establishing connection...";
     case "buffering":
-      return "Preparazione video...";
+      return "Preparing video...";
     case "connected":
-      return "Connesso";
+      return "Connected";
     case "reconnecting":
-      return "Riconnessione...";
+      return "Reconnecting...";
     case "ended":
-      return "Chiamata terminata";
+      return "Call ended";
     default:
       return "";
   }
-};
-
-const getDeviceIcon = (label: string) => {
-  const lowerLabel = label.toLowerCase();
-  if (lowerLabel.includes("bluetooth")) return Bluetooth;
-  if (lowerLabel.includes("headphone") || lowerLabel.includes("cuffi")) return Headphones;
-  if (lowerLabel.includes("speaker") || lowerLabel.includes("altoparlant")) return Speaker;
-  return Volume2;
 };
 
 // ============================================================================
@@ -152,6 +115,7 @@ export function CallOverlay({
   onEndCall,
   audioDevices = [],
   selectedAudioDevice,
+  showVideoToggle = true,
 }: CallOverlayProps) {
   const [showVideo, setShowVideo] = useState(false);
 
@@ -209,32 +173,25 @@ export function CallOverlay({
             />
           </div>
 
-          {/* Main content */}
-          <div className="relative z-10 flex flex-col items-center justify-between h-full py-safe">
-            {/* Top section - Status */}
-            <motion.div
-              initial={{ y: -20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.1 }}
-              className="pt-12 text-center"
-            >
-              {/* Connection quality indicator */}
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <Wifi
-                  className={`w-4 h-4 ${
-                    connectionQuality === "excellent"
-                      ? "text-green-400"
-                      : connectionQuality === "good"
-                      ? "text-yellow-400"
-                      : "text-red-400"
-                  }`}
-                />
-                <span className="text-xs text-white/60 uppercase tracking-wider">
-                  {isConnecting ? "Chiamata in corso" : "Videochiamata"}
-                </span>
-              </div>
-            </motion.div>
+          {/* Glassmorphism Header with controls */}
+          <CallHeader
+            avatarName={avatarName}
+            avatarImage={avatarImage}
+            callDuration={callDuration}
+            isMuted={isMuted}
+            isCameraOn={isCameraOn}
+            connectionQuality={connectionQuality}
+            statusText={isConnecting ? getStatusText(callState) : undefined}
+            onMuteToggle={onMuteToggle}
+            onVideoToggle={onVideoToggle}
+            onAudioOutputChange={onAudioOutputChange}
+            audioDevices={audioDevices}
+            selectedAudioDevice={selectedAudioDevice}
+            showVideoToggle={showVideoToggle}
+          />
 
+          {/* Main content */}
+          <div className="relative z-10 flex flex-col items-center justify-center h-full pt-20 pb-32">
             {/* Center section - Avatar */}
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
@@ -331,39 +288,30 @@ export function CallOverlay({
                 )}
               </AnimatePresence>
 
-              {/* Avatar name */}
+              {/* Status text below avatar */}
               {!showVideo && (
                 <motion.div
                   initial={{ y: 20, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.2 }}
-                  className="mt-6 text-center"
+                  className="mt-8 text-center"
                 >
-                  <h2 className="text-2xl md:text-3xl font-semibold text-white">
-                    {avatarName}
-                  </h2>
-                  <p className="mt-2 text-white/60">
-                    {callState === "connected"
-                      ? formatDuration(callDuration)
-                      : getStatusText(callState)}
-                  </p>
-
                   {/* Connecting dots animation */}
                   {isConnecting && (
-                    <div className="flex justify-center gap-1 mt-3">
+                    <div className="flex justify-center gap-1.5 mb-4">
                       {[0, 1, 2].map((i) => (
                         <motion.div
                           key={i}
                           animate={{
                             opacity: [0.3, 1, 0.3],
-                            y: [0, -4, 0],
+                            scale: [0.8, 1.2, 0.8],
                           }}
                           transition={{
-                            duration: 1,
+                            duration: 1.2,
                             repeat: Infinity,
                             delay: i * 0.2,
                           }}
-                          className="w-2 h-2 bg-white/60 rounded-full"
+                          className="w-2.5 h-2.5 bg-primary rounded-full"
                         />
                       ))}
                     </div>
@@ -371,152 +319,51 @@ export function CallOverlay({
                 </motion.div>
               )}
             </motion.div>
-
-            {/* Bottom section - Controls */}
-            <motion.div
-              initial={{ y: 40, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.25 }}
-              className="pb-12 w-full"
-            >
-              {/* User speaking indicator */}
-              <AnimatePresence>
-                {isUserSpeaking && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
-                    className="flex justify-center mb-6"
-                  >
-                    <div className="flex items-center gap-2 px-4 py-2 bg-green-500/20 backdrop-blur-lg rounded-full border border-green-500/30">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                      <span className="text-sm text-green-400">
-                        Ti sto ascoltando...
-                      </span>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Control buttons */}
-              <div className="flex flex-col items-center justify-center gap-8">
-                {/* Top row */}
-                <div className="flex items-start justify-center gap-6">
-                  {/* Mute button */}
-                  <motion.div whileTap={{ scale: 0.9 }}>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={onMuteToggle}
-                      className={`w-16 h-16 rounded-full transition-all ${
-                        isMuted
-                          ? "bg-red-500/80 hover:bg-red-500 text-white"
-                          : "bg-white/10 hover:bg-white/20 text-white"
-                      }`}
-                    >
-                      {isMuted ? (
-                        <MicOff className="w-7 h-7" />
-                      ) : (
-                        <Mic className="w-7 h-7" />
-                      )}
-                    </Button>
-                    <p className="text-xs text-white/60 text-center mt-2">
-                      {isMuted ? "Attiva" : "Muto"}
-                    </p>
-                  </motion.div>
-
-                  {/* Video button */}
-                  <motion.div whileTap={{ scale: 0.9 }}>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={onVideoToggle}
-                      className={`w-16 h-16 rounded-full transition-all ${
-                        !isCameraOn
-                          ? "bg-red-500/80 hover:bg-red-500 text-white"
-                          : "bg-white/10 hover:bg-white/20 text-white"
-                      }`}
-                    >
-                      {isCameraOn ? (
-                        <Video className="w-7 h-7" />
-                      ) : (
-                        <VideoOff className="w-7 h-7" />
-                      )}
-                    </Button>
-                    <p className="text-xs text-white/60 text-center mt-2">
-                      Video
-                    </p>
-                  </motion.div>
-
-                  {/* Audio output selector */}
-                  <motion.div whileTap={{ scale: 0.9 }}>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-16 h-16 rounded-full bg-white/10 hover:bg-white/20 text-white"
-                        >
-                          <Volume2 className="w-7 h-7" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        align="center"
-                        className="w-64 bg-slate-800/95 backdrop-blur-xl border-white/10"
-                      >
-                        <div className="px-3 py-2 text-xs text-white/50 uppercase tracking-wider">
-                          Uscita Audio
-                        </div>
-                        {audioDevices.length > 0 ? (
-                          audioDevices.map((device) => {
-                            const DeviceIcon = getDeviceIcon(device.label);
-                            const isSelected = device.deviceId === selectedAudioDevice;
-                            return (
-                              <DropdownMenuItem
-                                key={device.deviceId}
-                                onClick={() => onAudioOutputChange?.(device.deviceId)}
-                                className={`flex items-center gap-3 px-3 py-3 cursor-pointer ${
-                                  isSelected
-                                    ? "bg-primary/20 text-white"
-                                    : "text-white/80 hover:text-white"
-                                }`}
-                              >
-                                <DeviceIcon className="w-5 h-5" />
-                                <span className="flex-1 truncate">
-                                  {device.label || "Dispositivo sconosciuto"}
-                                </span>
-                                {isSelected && (
-                                  <div className="w-2 h-2 bg-primary rounded-full" />
-                                )}
-                              </DropdownMenuItem>
-                            );
-                          })
-                        ) : (
-                          <div className="px-3 py-4 text-center text-white/50 text-sm">
-                            Nessun dispositivo rilevato
-                          </div>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    <p className="text-xs text-white/60 text-center mt-2">Audio</p>
-                  </motion.div>
-                </div>
-
-                {/* Bottom row - End call */}
-                <motion.div whileTap={{ scale: 0.9 }}>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={onEndCall}
-                    className="w-20 h-20 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30"
-                  >
-                    <Phone className="w-8 h-8 rotate-[135deg]" />
-                  </Button>
-                  <p className="text-xs text-white/60 text-center mt-2">Riaggancia</p>
-                </motion.div>
-              </div>
-            </motion.div>
           </div>
+
+          {/* Bottom section - End call button */}
+          <motion.div
+            initial={{ y: 40, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.25 }}
+            className="absolute bottom-0 left-0 right-0 pb-12 pt-6"
+          >
+            {/* User speaking indicator */}
+            <AnimatePresence>
+              {isUserSpeaking && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  className="flex justify-center mb-6"
+                >
+                  <div className="flex items-center gap-2 px-4 py-2 bg-green-500/20 backdrop-blur-lg rounded-full border border-green-500/30">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                    <span className="text-sm text-green-400">
+                      Listening to you...
+                    </span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* End call button */}
+            <div className="flex justify-center">
+              <motion.div whileTap={{ scale: 0.9 }}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onEndCall}
+                  className="w-16 h-16 md:w-18 md:h-18 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30"
+                >
+                  <Phone className="w-7 h-7 rotate-[135deg]" />
+                </Button>
+                <p className="text-xs text-white/60 text-center mt-2">
+                  End call
+                </p>
+              </motion.div>
+            </div>
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>

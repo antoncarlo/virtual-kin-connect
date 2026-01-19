@@ -60,6 +60,10 @@ interface ImmersiveVideoCallProps {
   vapiAssistantId?: string;
   /** If false, start in audio-only mode (no local camera, no avatar video) */
   videoEnabled?: boolean;
+  /** Pre-warmed token from useHeyGenPrewarm hook */
+  prewarmToken?: string | null;
+  /** Whether pre-warming is complete */
+  isPrewarmed?: boolean;
 }
 
 export function ImmersiveVideoCall({
@@ -74,6 +78,8 @@ export function ImmersiveVideoCall({
   heygenGender = 'male',
   vapiAssistantId,
   videoEnabled = true,
+  prewarmToken = null,
+  isPrewarmed = false,
 }: ImmersiveVideoCallProps) {
   const heygenVideoRef = useRef<HTMLVideoElement>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -167,8 +173,8 @@ export function ImmersiveVideoCall({
     setIsFallbackMode((prev) => {
       if (prev) return prev;
       toast({
-        title: "Connessione limitata",
-        description: "Passaggio a modalità solo audio per garantire la qualità",
+        title: "Limited connection",
+        description: "Switching to audio-only mode for better quality",
       });
       return true;
     });
@@ -225,8 +231,8 @@ export function ImmersiveVideoCall({
 
   const handleVapiCallStart = useCallback(() => {
     toast({
-      title: "Connesso!",
-      description: `Stai parlando con ${avatarName}`,
+      title: "Connected!",
+      description: `You're now talking with ${avatarName}`,
     });
   }, [toast, avatarName]);
 
@@ -838,9 +844,9 @@ export function ImmersiveVideoCall({
                       className="flex flex-col items-center justify-center h-full bg-black/80 text-white p-8"
                     >
                       <div className="text-red-500 mb-4 text-4xl">⚠️</div>
-                      <h3 className="text-xl font-semibold mb-2">Errore Connessione Video</h3>
+                      <h3 className="text-xl font-semibold mb-2">Video Connection Error</h3>
                       <p className="text-white/70 text-center mb-4 max-w-md">{connectionError}</p>
-                      <p className="text-sm text-white/50">Controlla la console per i dettagli debug</p>
+                      <p className="text-sm text-white/50">Check the console for debug details</p>
                     </motion.div>
                   ) : (
                     <motion.div
@@ -955,20 +961,20 @@ export function ImmersiveVideoCall({
                     </h3>
                     <p className="text-xs text-white/60">
                       {vapiConnectionState === "checking-permissions" 
-                        ? "Verifica permessi..." 
+                        ? "Checking permissions..." 
                         : vapiConnectionState === "reconnecting"
-                        ? "Riconnessione..."
+                        ? "Reconnecting..."
                         : microphoneStatus === "denied"
-                        ? "Microfono bloccato"
+                        ? "Microphone blocked"
                         : isSpeaking 
-                        ? "Sta parlando..." 
+                        ? "Speaking..." 
                         : isUserCurrentlySpeaking
-                        ? "Ti sto ascoltando..."
+                        ? "Listening to you..."
                         : isConnected && hasReceivedFirstResponse
                         ? formatDuration(callDuration) 
                         : isConnected
-                        ? "In attesa..."
-                        : "Connessione..."}
+                        ? "Waiting..."
+                        : "Connecting..."}
                     </p>
                   </div>
                 </div>
