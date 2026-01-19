@@ -678,12 +678,12 @@ function TokensTab({
         <div className="glass border-gradient rounded-xl p-4 text-center">
           <Target className="w-6 h-6 mx-auto mb-2 text-primary" />
           <p className="text-2xl font-bold">{gamification.challenges.filter(c => c.completedAt).length}</p>
-          <p className="text-xs text-muted-foreground">Sfide completate</p>
+          <p className="text-xs text-muted-foreground">Challenges completed</p>
         </div>
-        <div className="glass border-gradient rounded-xl p-4 text-center">
-          <Sparkles className="w-6 h-6 mx-auto mb-2 text-purple-500" />
+        <div className="glass border-gradient rounded-3xl p-4 text-center">
+          <Zap className="w-6 h-6 mx-auto mb-2 text-primary" />
           <p className="text-2xl font-bold">{gamification.totalXP.toLocaleString()}</p>
-          <p className="text-xs text-muted-foreground">XP totali</p>
+          <p className="text-xs text-muted-foreground">Total XP</p>
         </div>
       </div>
     </motion.div>
