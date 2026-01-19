@@ -16,6 +16,7 @@ interface ChatRequest {
   avatarDescription: string;
   avatarId: string;
   userTimezone?: string; // Client timezone
+  mem0Context?: string; // Optional Mem0 memory context from frontend
 }
 
 interface KnowledgeResult {
@@ -1350,6 +1351,7 @@ serve(async (req) => {
       avatarDescription,
       avatarId,
       userTimezone,
+      mem0Context,
     } = (await req.json()) as ChatRequest;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -1410,9 +1412,16 @@ serve(async (req) => {
       ? relevantKnowledge.map((k) => `[${k.category.toUpperCase()}] ${k.content}`).join("\n\n")
       : "Usa la tua saggezza naturale per guidare questa conversazione.";
 
-    const userContextText = userContextItems.length > 0
+    // Combine user context with Mem0 context if provided
+    let userContextText = userContextItems.length > 0
       ? userContextItems.map((c) => `- ${c.key}: ${c.value}`).join("\n")
       : "Sto ancora imparando a conoscerti.";
+    
+    // Inject Mem0 context if provided from frontend
+    if (mem0Context && mem0Context.trim()) {
+      userContextText = `${userContextText}\n\n### Ricordi da Mem0:\n${mem0Context}`;
+      console.log(`[Chat] Injected Mem0 context (${mem0Context.length} chars)`);
+    }
 
     // Format memory modules
     const socialGraphText = formatSocialGraph(socialGraph);

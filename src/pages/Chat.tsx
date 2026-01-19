@@ -269,7 +269,8 @@ export default function Chat() {
   const streamChat = useCallback(async (
     chatMessages: { role: "user" | "assistant"; content: string }[],
     onDelta: (delta: string) => void,
-    onDone: (fullContent: string) => void
+    onDone: (fullContent: string) => void,
+    additionalContext?: string
   ) => {
     if (!avatar) return;
 
@@ -300,6 +301,8 @@ export default function Chat() {
         avatarDescription: avatar.description,
         avatarId: avatar.id,
         userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        // Pass Mem0 memory context for injection into system prompt
+        mem0Context: additionalContext || memoryContext,
       }),
     });
 
@@ -382,7 +385,7 @@ export default function Chat() {
     }
 
     onDone(fullContent);
-  }, [avatar, toast]);
+  }, [avatar, toast, memoryContext, navigate]);
 
   // Detect call request patterns in text
   const detectCallRequest = (text: string): boolean => {
@@ -451,11 +454,25 @@ export default function Chat() {
     const chatHistory = getMessagesForAPI();
 
     try {
+      // STEP A: Fetch relevant memories from Mem0 for this message
+      let relevantMemoryContext = "";
+      if (isMem0Ready) {
+        try {
+          relevantMemoryContext = await getRelevantContext(userContent, 5);
+          console.log("[Chat] Retrieved memory context:", relevantMemoryContext.substring(0, 100) + "...");
+        } catch (err) {
+          console.warn("[Chat] Failed to get memory context:", err);
+        }
+      }
+
       let isFirstChunk = true;
+      let finalResponse = "";
       
+      // STEP B: Stream chat with memory context injected in the backend
       await streamChat(
         [...chatHistory, { role: "user", content: userContent }],
         (fullContent) => {
+          finalResponse = fullContent;
           if (isFirstChunk) {
             addMessage("assistant", fullContent);
             isFirstChunk = false;
@@ -468,7 +485,9 @@ export default function Chat() {
           setIsLoading(false);
           if (finalContent && isFirstChunk) {
             await addMessage("assistant", finalContent);
+            finalResponse = finalContent;
           }
+          
           // Increment affinity message count
           await incrementMessages();
           await initiateCallIfRequested(userContent);
@@ -477,6 +496,31 @@ export default function Chat() {
           if (finalContent) {
             detectFromMessage(finalContent);
           }
+
+          // STEP C: Save this exchange to Mem0 for future context
+          if (isMem0Ready && finalResponse) {
+            try {
+              await addMemories(
+                [
+                  { role: "user", content: userContent },
+                  { role: "assistant", content: finalResponse },
+                ],
+                {
+                  avatar_id: avatar.id,
+                  avatar_name: avatar.name,
+                  mood: currentMood,
+                  mood_intensity: moodIntensity,
+                }
+              );
+              console.log("[Chat] Saved exchange to Mem0");
+            } catch (err) {
+              console.warn("[Chat] Failed to save to Mem0:", err);
+            }
+          }
+          
+          // Analyze emotions for this exchange
+          addMessageAndAnalyze({ role: "user", content: userContent });
+          addMessageAndAnalyze({ role: "assistant", content: finalResponse });
         }
       );
     } catch (error) {
