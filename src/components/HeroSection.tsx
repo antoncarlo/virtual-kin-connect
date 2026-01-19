@@ -53,9 +53,9 @@ export function HeroSection() {
             transition={{ duration: 1, delay: 0.2, ease: "easeOut" }}
             className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-display font-semibold leading-tight mb-8 tracking-tight"
           >
-            <span className="text-foreground">Hello, I'm here</span>
+            <span className="text-foreground">Your AI companion</span>
             <br />
-            <span className="text-gradient">for you</span>
+            <span className="text-gradient">that truly listens</span>
           </motion.h1>
 
           {/* Subtitle - calming message */}
@@ -65,8 +65,8 @@ export function HeroSection() {
             transition={{ duration: 1, delay: 0.4, ease: "easeOut" }}
             className="text-base md:text-lg text-muted-foreground mb-16 max-w-lg mx-auto leading-relaxed"
           >
-            A gentle companion who truly listens, 
-            without rush and without judgment.
+            Chat, call, and video call your personalized AI companions.
+            Always available, always understanding. Never alone again.
           </motion.p>
 
           {/* Single prominent CTA */}
