@@ -29,6 +29,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { getAvatarGreeting, getVoiceIdForAvatar } from "@/data/avatars";
 import { useAvatarIdentity } from "@/hooks/useAvatarIdentity";
 import { useSessionInsights } from "@/hooks/useSessionInsights";
+import { useMem0 } from "@/hooks/useMem0";
 import { recordActivity } from "@/lib/gamification";
 import { recordLearningEvent } from "@/lib/adaptive-learning";
 import type { SupportedLanguage } from "@/lib/multilingual";
@@ -312,6 +313,14 @@ export function ImmersiveVideoCall({
   // Avatar identity and session tracking for video calls
   const { identity: avatarIdentity, affinity: userAffinity, incrementMessages } = useAvatarIdentity(avatarId);
   const { startSession: startInsightSession, endSession: endInsightSession } = useSessionInsights(avatarId);
+  
+  // Mem0 memory system for video calls
+  const {
+    memoryContext,
+    addMemories,
+    getRelevantContext,
+    isInitialized: isMem0Ready,
+  } = useMem0({ avatarId });
 
   // Send welcome greeting when embed is ready - Start session tracking
   useEffect(() => {
@@ -600,7 +609,7 @@ export function ImmersiveVideoCall({
       document.exitFullscreen?.().catch(() => {});
     }
     
-    // Track activity in background (non-blocking)
+    // Track activity and save memories in background (non-blocking)
     (async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -619,6 +628,27 @@ export function ImmersiveVideoCall({
           
           const messages = assistantTranscript ? [{ role: 'assistant' as const, content: assistantTranscript }] : [];
           await endInsightSession(messages, avatarId);
+          
+          // Save call transcript to Mem0 for future context
+          if (isMem0Ready && assistantTranscript && userTranscript) {
+            try {
+              await addMemories(
+                [
+                  { role: "user", content: userTranscript },
+                  { role: "assistant", content: assistantTranscript },
+                ],
+                {
+                  avatar_id: avatarId,
+                  avatar_name: avatarName,
+                  call_type: videoEnabled ? "video" : "audio",
+                  call_duration: callDuration,
+                }
+              );
+              console.log("[ImmersiveVideoCall] Saved call transcript to Mem0");
+            } catch (err) {
+              console.warn("[ImmersiveVideoCall] Failed to save to Mem0:", err);
+            }
+          }
         }
       } catch (error) {
         console.error('[ImmersiveVideoCall] Failed to record activity:', error);
@@ -633,9 +663,14 @@ export function ImmersiveVideoCall({
     endVapiCall,
     callDuration,
     avatarId,
+    avatarName,
+    videoEnabled,
+    userTranscript,
     assistantTranscript,
     incrementMessages,
     endInsightSession,
+    isMem0Ready,
+    addMemories,
     onClose,
   ]);
 

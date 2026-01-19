@@ -58,18 +58,13 @@ export interface Mem0Response<T> {
  * with Mem0 cloud API and falls back to local Supabase storage.
  */
 export class Mem0Client {
-  private apiKey: string | null = null;
   private userId: string;
   private agentId?: string;
-  private useCloudApi: boolean = false;
+  private useCloudApi: boolean = true; // Always use cloud via edge function proxy
 
   constructor(config: Partial<Mem0Config> = {}) {
     this.userId = config.userId || "";
     this.agentId = config.agentId;
-
-    // Check for Mem0 API key (can be stored in environment or fetched)
-    this.apiKey = import.meta.env?.VITE_MEM0_API_KEY || null;
-    this.useCloudApi = !!this.apiKey;
   }
 
   /**
@@ -78,21 +73,9 @@ export class Mem0Client {
   async initialize(userId: string, agentId?: string): Promise<void> {
     this.userId = userId;
     this.agentId = agentId;
-
-    // Try to fetch API key from Supabase secrets if not in env
-    if (!this.apiKey) {
-      try {
-        const { data } = await supabase.functions.invoke("get-secret", {
-          body: { key: "MEM0_API_KEY" },
-        });
-        if (data?.value) {
-          this.apiKey = data.value;
-          this.useCloudApi = true;
-        }
-      } catch {
-        console.log("Mem0 API key not found, using local storage fallback");
-      }
-    }
+    // Cloud API is always available via edge function proxy
+    this.useCloudApi = true;
+    console.log(`[Mem0] Initialized for user ${userId}, agent ${agentId}`);
   }
 
   /**
@@ -104,7 +87,7 @@ export class Mem0Client {
     metadata?: Record<string, any>
   ): Promise<Mem0Response<Memory[]>> {
     try {
-      if (this.useCloudApi && this.apiKey) {
+      if (this.useCloudApi) {
         return await this.addMemoriesCloud(messages, metadata);
       }
       return await this.addMemoriesLocal(messages, metadata);
@@ -125,7 +108,7 @@ export class Mem0Client {
     options: { limit?: number; threshold?: number } = {}
   ): Promise<Mem0Response<Memory[]>> {
     try {
-      if (this.useCloudApi && this.apiKey) {
+      if (this.useCloudApi) {
         return await this.searchMemoriesCloud(query, options);
       }
       return await this.searchMemoriesLocal(query, options);
@@ -145,7 +128,7 @@ export class Mem0Client {
     options: { limit?: number; offset?: number } = {}
   ): Promise<Mem0Response<Memory[]>> {
     try {
-      if (this.useCloudApi && this.apiKey) {
+      if (this.useCloudApi) {
         return await this.getMemoriesCloud(options);
       }
       return await this.getMemoriesLocal(options);
@@ -163,7 +146,7 @@ export class Mem0Client {
    */
   async deleteMemory(memoryId: string): Promise<Mem0Response<void>> {
     try {
-      if (this.useCloudApi && this.apiKey) {
+      if (this.useCloudApi) {
         return await this.deleteMemoryCloud(memoryId);
       }
       return await this.deleteMemoryLocal(memoryId);
@@ -177,139 +160,110 @@ export class Mem0Client {
   }
 
   /**
-   * Get memory history (changes over time)
+   * Get memory history (changes over time) - cloud only
    */
-  async getMemoryHistory(memoryId: string): Promise<Mem0Response<Memory[]>> {
-    try {
-      if (this.useCloudApi && this.apiKey) {
-        return await this.getMemoryHistoryCloud(memoryId);
-      }
-      // Local storage doesn't support history, return empty
-      return { success: true, data: [] };
-    } catch (error) {
-      console.error("Mem0 getMemoryHistory error:", error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to get history",
-      };
-    }
+  async getMemoryHistory(_memoryId: string): Promise<Mem0Response<Memory[]>> {
+    // History not supported via proxy, return empty
+    return { success: true, data: [] };
   }
 
-  // ========== Cloud API Methods ==========
+  // ========== Cloud API Methods (via Edge Function Proxy) ==========
 
   private async addMemoriesCloud(
     messages: Array<{ role: "user" | "assistant"; content: string }>,
     metadata?: Record<string, any>
   ): Promise<Mem0Response<Memory[]>> {
-    const response = await fetch(`${MEM0_API_URL}/memories/`, {
-      method: "POST",
-      headers: {
-        Authorization: `Token ${this.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    const { data, error } = await supabase.functions.invoke("mem0-proxy", {
+      body: {
+        action: "add",
         messages,
-        user_id: this.userId,
-        agent_id: this.agentId,
-        metadata: {
-          ...metadata,
-          source: "kindred_ai",
-          timestamp: new Date().toISOString(),
-        },
-      }),
+        userId: this.userId,
+        agentId: this.agentId,
+        metadata,
+      },
     });
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Mem0 API error: ${response.status} - ${error}`);
+    if (error) {
+      throw new Error(`Mem0 proxy error: ${error.message}`);
     }
 
-    const data = await response.json();
+    if (!data?.success) {
+      throw new Error(data?.error || "Failed to add memories");
+    }
 
     // Also sync to local storage for redundancy
-    await this.syncToLocal(data.results || []);
+    if (data.data?.length) {
+      await this.syncToLocal(data.data);
+    }
 
-    return { success: true, data: data.results || [] };
+    return { success: true, data: data.data || [] };
   }
 
   private async searchMemoriesCloud(
     query: string,
     options: { limit?: number; threshold?: number }
   ): Promise<Mem0Response<Memory[]>> {
-    const params = new URLSearchParams({
-      query,
-      user_id: this.userId,
-      ...(this.agentId && { agent_id: this.agentId }),
-      ...(options.limit && { limit: options.limit.toString() }),
-    });
-
-    const response = await fetch(`${MEM0_API_URL}/memories/search/?${params}`, {
-      method: "GET",
-      headers: {
-        Authorization: `Token ${this.apiKey}`,
+    const { data, error } = await supabase.functions.invoke("mem0-proxy", {
+      body: {
+        action: "search",
+        query,
+        userId: this.userId,
+        agentId: this.agentId,
+        limit: options.limit || 10,
       },
     });
 
-    if (!response.ok) {
-      throw new Error(`Mem0 search error: ${response.status}`);
+    if (error) {
+      throw new Error(`Mem0 search error: ${error.message}`);
     }
 
-    const data = await response.json();
-    return { success: true, data: data.results || [] };
+    if (!data?.success) {
+      throw new Error(data?.error || "Failed to search memories");
+    }
+
+    return { success: true, data: data.data || [] };
   }
 
   private async getMemoriesCloud(
     options: { limit?: number; offset?: number }
   ): Promise<Mem0Response<Memory[]>> {
-    const params = new URLSearchParams({
-      user_id: this.userId,
-      ...(this.agentId && { agent_id: this.agentId }),
-      ...(options.limit && { limit: options.limit.toString() }),
-      ...(options.offset && { offset: options.offset.toString() }),
-    });
-
-    const response = await fetch(`${MEM0_API_URL}/memories/?${params}`, {
-      headers: {
-        Authorization: `Token ${this.apiKey}`,
+    const { data, error } = await supabase.functions.invoke("mem0-proxy", {
+      body: {
+        action: "get",
+        userId: this.userId,
+        agentId: this.agentId,
+        limit: options.limit || 50,
       },
     });
 
-    if (!response.ok) {
-      throw new Error(`Mem0 get error: ${response.status}`);
+    if (error) {
+      throw new Error(`Mem0 get error: ${error.message}`);
     }
 
-    const data = await response.json();
-    return { success: true, data: data.results || [] };
+    if (!data?.success) {
+      throw new Error(data?.error || "Failed to get memories");
+    }
+
+    return { success: true, data: data.data || [] };
   }
 
   private async deleteMemoryCloud(memoryId: string): Promise<Mem0Response<void>> {
-    const response = await fetch(`${MEM0_API_URL}/memories/${memoryId}/`, {
-      method: "DELETE",
-      headers: {
-        Authorization: `Token ${this.apiKey}`,
+    const { data, error } = await supabase.functions.invoke("mem0-proxy", {
+      body: {
+        action: "delete",
+        memoryId,
       },
     });
 
-    if (!response.ok) {
-      throw new Error(`Mem0 delete error: ${response.status}`);
+    if (error) {
+      throw new Error(`Mem0 delete error: ${error.message}`);
+    }
+
+    if (!data?.success) {
+      throw new Error(data?.error || "Failed to delete memory");
     }
 
     return { success: true };
-  }
-
-  private async getMemoryHistoryCloud(memoryId: string): Promise<Mem0Response<Memory[]>> {
-    const response = await fetch(`${MEM0_API_URL}/memories/${memoryId}/history/`, {
-      headers: {
-        Authorization: `Token ${this.apiKey}`,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Mem0 history error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return { success: true, data: data.results || [] };
   }
 
   // ========== Local Storage Fallback Methods ==========
