@@ -126,17 +126,10 @@ export default function Chat() {
     addMessageAndAnalyze,
   } = useConvEmotion();
 
-  // Pre-warm HeyGen session when entering chat (BEFORE pressing call)
-  // This significantly reduces perceived latency when starting a video call
-  const {
-    isReady: isPrewarmReady,
-    cachedToken: prewarmToken,
-    prewarm: triggerPrewarm,
-  } = useHeyGenPrewarm({
-    avatarId: avatar?.heygenAvatarId,
-    autoPrewarm: true,
-    precreateSession: false, // Don't pre-create session to save API credits
-  });
+  // HeyGen prewarming disabled - now using iframe embed approach
+  // which doesn't require API token generation
+  const isPrewarmReady = true; // Always ready with embed
+  const prewarmToken = null; // Not needed for embed
 
   // Hybrid call hook for in-call chat messages
   const {
