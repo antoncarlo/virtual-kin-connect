@@ -1,8 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, validateAuth } from "../_shared/auth.ts";
 
+// HeyGen LiveAvatars API (Interactive Avatars)
 const HEYGEN_API_URL = "https://api.heygen.com";
-const LIVEAVATAR_API_URL = "https://api.liveavatar.com";
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -15,21 +15,24 @@ serve(async (req) => {
     return authError;
   }
 
-  console.log(`[HeyGen] Authenticated user ${auth!.userId}`);
+  console.log(`[LiveAvatars] Authenticated user ${auth!.userId}`);
 
   try {
-    const apiKey = Deno.env.get('HEYGEN_API_KEY');
+    // Use LiveAvatars-specific API key (different from general HeyGen API)
+    const apiKey = Deno.env.get('HEYGEN_LIVEAVATAR_API_KEY') || Deno.env.get('HEYGEN_API_KEY');
     if (!apiKey) {
-      throw new Error('HEYGEN_API_KEY not configured');
+      throw new Error('HEYGEN_LIVEAVATAR_API_KEY not configured. Please add your LiveAvatars API key.');
     }
 
     const body = await req.json();
-    const { action, sessionId, text, avatarId, voiceId, emotion, gesture, sdp, candidate } = body;
+    const { action, sessionId, text, avatarId, voiceId, quality, emotion, gesture, sdp, candidate } = body;
 
     const headers = {
       'Content-Type': 'application/json',
       'X-Api-Key': apiKey,
     };
+
+    console.log(`[LiveAvatars] Action: ${action}, Avatar: ${avatarId || 'default'}`);
 
     let response: Response;
     let data: unknown;
