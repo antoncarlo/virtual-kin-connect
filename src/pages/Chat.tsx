@@ -610,7 +610,6 @@ export default function Chat() {
         heygenAvatarId={avatar.heygenAvatarId}
         heygenVoiceId={avatar.defaultVoiceId}
         heygenGender={avatar.heygenGender}
-        vapiAssistantId={avatar.vapiAssistantId}
         videoEnabled={callVideoEnabled}
         prewarmToken={prewarmToken}
         isPrewarmed={isPrewarmReady}

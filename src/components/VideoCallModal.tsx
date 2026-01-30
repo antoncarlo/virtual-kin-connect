@@ -13,9 +13,10 @@ import {
   Volume2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useVapiCall } from "@/hooks/useVapiCall";
+import { useLiveKitCall } from "@/hooks/useLiveKitCall";
 import { Avatar3DViewer } from "./Avatar3DViewer";
 import { useToast } from "@/hooks/use-toast";
+import { Track } from "livekit-client";
 
 interface VideoCallModalProps {
   isOpen: boolean;
@@ -23,7 +24,7 @@ interface VideoCallModalProps {
   avatarName: string;
   avatarImage: string;
   avatarModelUrl?: string;
-  vapiAssistantId?: string;
+  avatarId?: string;
 }
 
 export function VideoCallModal({
@@ -32,10 +33,11 @@ export function VideoCallModal({
   avatarName,
   avatarImage,
   avatarModelUrl,
-  vapiAssistantId,
+  avatarId,
 }: VideoCallModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement>(null);
   const { toast } = useToast();
   
   const [isCameraOn, setIsCameraOn] = useState(true);
@@ -46,44 +48,44 @@ export function VideoCallModal({
   const [hasLocalVideo, setHasLocalVideo] = useState(false);
   const [transcript, setTranscript] = useState<string>("");
 
-  // Vapi voice call integration
+  // LiveKit voice call integration
   const {
-    isConnecting: isVapiConnecting,
-    isConnected: isVapiConnected,
-    isSpeaking: isAvatarSpeaking,
-    startCall: startVapiCall,
-    endCall: endVapiCall,
-    toggleMute: toggleVapiMute,
-  } = useVapiCall({
-    assistantId: vapiAssistantId,
-    onTranscript: (text, isFinal) => {
-      if (text) {
-        setTranscript(text);
-        if (isFinal) {
-          // Clear transcript after a delay when final
-          setTimeout(() => setTranscript(""), 3000);
-        }
-      }
-    },
-    onCallStart: () => {
+    isConnecting: isLiveKitConnecting,
+    isConnected: isLiveKitConnected,
+    isAgentSpeaking: isAvatarSpeaking,
+    startCall: startLiveKitCall,
+    endCall: endLiveKitCall,
+    toggleMute: toggleLiveKitMute,
+  } = useLiveKitCall({
+    avatarId,
+    avatarName,
+    onConnected: () => {
       toast({
         title: "Connesso!",
         description: `Stai parlando con ${avatarName}. Puoi parlare liberamente.`,
       });
     },
-    onCallEnd: () => {
+    onDisconnected: () => {
       toast({
         title: "Chiamata terminata",
         description: `La chiamata con ${avatarName} è terminata.`,
       });
     },
     onError: (error) => {
-      console.error("Vapi error:", error);
+      console.error("LiveKit error:", error);
       toast({
         title: "Errore chiamata",
         description: error.message || "Impossibile connettersi. Riprova.",
         variant: "destructive",
       });
+    },
+    onTrackSubscribed: (track) => {
+      if (track.kind === Track.Kind.Audio && remoteAudioRef.current) {
+        track.attach(remoteAudioRef.current);
+      }
+    },
+    onTrackUnsubscribed: (track) => {
+      track.detach();
     },
   });
 
@@ -94,7 +96,7 @@ export function VideoCallModal({
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
-        audio: false, // Audio is handled by Vapi
+        audio: false, // Audio is handled by LiveKit
       });
       
       streamRef.current = stream;
@@ -104,7 +106,6 @@ export function VideoCallModal({
     } catch (error) {
       console.error("Camera access error:", error);
       setHasLocalVideo(false);
-      // Don't show error - camera is optional
     }
   }, []);
 
@@ -125,35 +126,34 @@ export function VideoCallModal({
     if (isOpen) {
       startLocalCamera();
       
-      // Auto-start Vapi call if assistant is configured
-      if (vapiAssistantId && !isVapiConnected && !isVapiConnecting) {
-        // Small delay to let camera initialize first
+      // Auto-start LiveKit call
+      if (!isLiveKitConnected && !isLiveKitConnecting) {
         const timer = setTimeout(() => {
-          startVapiCall();
+          startLiveKitCall(true);
         }, 500);
         return () => clearTimeout(timer);
       }
     } else {
       // Cleanup when modal closes
       stopLocalCamera();
-      if (isVapiConnected) {
-        endVapiCall();
+      if (isLiveKitConnected) {
+        endLiveKitCall();
       }
       setCallDuration(0);
       setTranscript("");
     }
-  }, [isOpen, vapiAssistantId, isVapiConnected, isVapiConnecting, startVapiCall, endVapiCall, startLocalCamera, stopLocalCamera]);
+  }, [isOpen, isLiveKitConnected, isLiveKitConnecting, startLiveKitCall, endLiveKitCall, startLocalCamera, stopLocalCamera]);
 
   // Timer for call duration
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isVapiConnected) {
+    if (isLiveKitConnected) {
       interval = setInterval(() => {
         setCallDuration(prev => prev + 1);
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [isVapiConnected]);
+  }, [isLiveKitConnected]);
 
   // Format duration as MM:SS
   const formatDuration = (seconds: number) => {
@@ -165,8 +165,8 @@ export function VideoCallModal({
   // Handle closing
   const handleClose = async () => {
     stopLocalCamera();
-    if (isVapiConnected) {
-      endVapiCall();
+    if (isLiveKitConnected) {
+      endLiveKitCall();
     }
     onClose();
   };
@@ -179,7 +179,6 @@ export function VideoCallModal({
         setIsCameraOn(!isCameraOn);
       }
     } else if (!isCameraOn) {
-      // Try to start camera again
       startLocalCamera();
       setIsCameraOn(true);
     }
@@ -188,8 +187,7 @@ export function VideoCallModal({
   const handleToggleMic = () => {
     const newMicState = !isMicOn;
     setIsMicOn(newMicState);
-    // Toggle Vapi mute (inverted - muted when mic is off)
-    toggleVapiMute(!newMicState);
+    toggleLiveKitMute(!newMicState);
   };
 
   const handleToggleFullscreen = () => {
@@ -203,17 +201,17 @@ export function VideoCallModal({
   };
 
   const getStatusText = () => {
-    if (isVapiConnecting) return "Connessione in corso...";
-    if (isVapiConnected && isAvatarSpeaking) return "Sta parlando...";
-    if (isVapiConnected) return "In ascolto...";
-    if (!vapiAssistantId) return "Assistente non configurato";
+    if (isLiveKitConnecting) return "Connessione in corso...";
+    if (isLiveKitConnected && isAvatarSpeaking) return "Sta parlando...";
+    if (isLiveKitConnected) return "In ascolto...";
+    if (!avatarId) return "Assistente non configurato";
     return "In attesa";
   };
 
   const getStatusColor = () => {
-    if (isVapiConnecting) return "text-yellow-400";
-    if (isVapiConnected && isAvatarSpeaking) return "text-green-400";
-    if (isVapiConnected) return "text-blue-400";
+    if (isLiveKitConnecting) return "text-yellow-400";
+    if (isLiveKitConnected && isAvatarSpeaking) return "text-green-400";
+    if (isLiveKitConnected) return "text-blue-400";
     return "text-muted-foreground";
   };
 
@@ -226,6 +224,9 @@ export function VideoCallModal({
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/95"
         >
+          {/* Hidden audio element for remote audio */}
+          <audio ref={remoteAudioRef} autoPlay style={{ display: "none" }} />
+          
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -241,7 +242,7 @@ export function VideoCallModal({
                     alt={avatarName}
                     className="w-12 h-12 rounded-full border-2 border-primary object-cover"
                   />
-                  {isVapiConnected && (
+                  {isLiveKitConnected && (
                     <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-black" />
                   )}
                 </div>
@@ -251,7 +252,7 @@ export function VideoCallModal({
                     <p className={`text-sm ${getStatusColor()}`}>
                       {getStatusText()}
                     </p>
-                    {isVapiConnected && (
+                    {isLiveKitConnected && (
                       <span className="text-sm text-white/60">• {formatDuration(callDuration)}</span>
                     )}
                   </div>
@@ -370,7 +371,7 @@ export function VideoCallModal({
               )}
 
               {/* Connection status overlay */}
-              {isVapiConnecting && (
+              {isLiveKitConnecting && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm">
                   <div className="text-center">
                     <Loader2 className="w-16 h-16 animate-spin text-primary mx-auto mb-4" />
@@ -381,7 +382,7 @@ export function VideoCallModal({
               )}
 
               {/* No assistant warning */}
-              {!vapiAssistantId && !isVapiConnecting && (
+              {!avatarId && !isLiveKitConnecting && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/40">
                   <div className="text-center bg-black/60 rounded-xl p-6 max-w-sm mx-4">
                     <Volume2 className="w-12 h-12 text-yellow-500 mx-auto mb-3" />
@@ -415,7 +416,7 @@ export function VideoCallModal({
                 size="icon"
                 className="rounded-full w-12 h-12"
                 onClick={handleToggleMic}
-                disabled={!isVapiConnected}
+                disabled={!isLiveKitConnected}
                 title={isMicOn ? "Disattiva microfono" : "Attiva microfono"}
               >
                 {isMicOn ? (
