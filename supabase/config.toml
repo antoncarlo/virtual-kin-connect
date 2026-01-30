@@ -3,10 +3,7 @@ project_id = "vrnjccybvrdzakrrfard"
 [functions.chat]
 verify_jwt = false
 
-[functions.vapi-call]
-verify_jwt = false
-
-[functions.vapi-public-key]
+[functions.livekit-token]
 verify_jwt = false
 
 [functions.daily-room]

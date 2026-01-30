@@ -14,8 +14,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useHeyGenStreaming, PUBLIC_AVATARS } from "@/hooks/useHeyGenStreaming";
-import { useVapiCall } from "@/hooks/useVapiCall";
+import { useLiveKitCall } from "@/hooks/useLiveKitCall";
 import { useToast } from "@/hooks/use-toast";
+import { Track } from "livekit-client";
 
 interface HeyGenVideoCallProps {
   isOpen: boolean;
@@ -24,7 +25,7 @@ interface HeyGenVideoCallProps {
   avatarImage: string;
   heygenAvatarId?: string;
   heygenVoiceId?: string;
-  vapiAssistantId?: string;
+  avatarId?: string;
 }
 
 export function HeyGenVideoCall({
@@ -34,11 +35,12 @@ export function HeyGenVideoCall({
   avatarImage,
   heygenAvatarId,
   heygenVoiceId,
-  vapiAssistantId,
+  avatarId,
 }: HeyGenVideoCallProps) {
   const heygenVideoRef = useRef<HTMLVideoElement>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement>(null);
   const { toast } = useToast();
 
   const [isCameraOn, setIsCameraOn] = useState(true);
@@ -68,28 +70,6 @@ export function HeyGenVideoCall({
     });
   }, [toast]);
 
-  const handleVapiTranscript = useCallback((text: string, isFinal: boolean) => {
-    setTranscript(text);
-    if (isFinal) {
-      setTimeout(() => setTranscript(""), 3000);
-    }
-  }, []);
-
-  const handleVapiCallStart = useCallback(() => {
-    toast({
-      title: "Connesso!",
-      description: `Stai parlando con ${avatarName}`,
-    });
-  }, [toast, avatarName]);
-
-  const handleUserSpeechStart = useCallback(() => {
-    // Enable listening animations when user speaks
-  }, []);
-
-  const handleUserSpeechEnd = useCallback(() => {
-    // Disable listening animations when user stops
-  }, []);
-
   // HeyGen streaming with PUBLIC avatar
   const {
     isConnecting: isHeyGenConnecting,
@@ -103,7 +83,6 @@ export function HeyGenVideoCall({
     setListeningMode,
     stopSession: stopHeyGenSession,
   } = useHeyGenStreaming({
-    // Use PUBLIC avatar ID
     avatarId: heygenAvatarId || PUBLIC_AVATARS.BRYAN_IT_SITTING,
     voiceId: heygenVoiceId,
     quality: "high",
@@ -111,36 +90,32 @@ export function HeyGenVideoCall({
     onError: handleHeyGenError,
   });
 
-  // Vapi for voice conversation
+  // LiveKit for voice conversation
   const {
-    isConnecting: isVapiConnecting,
-    isConnected: isVapiConnected,
-    isSpeaking: isVapiSpeaking,
-    isUserSpeaking,
-    startCall: startVapiCall,
-    endCall: endVapiCall,
-    toggleMute: toggleVapiMute,
-  } = useVapiCall({
-    assistantId: vapiAssistantId,
-    onTranscript: handleVapiTranscript,
-    onCallStart: handleVapiCallStart,
-    onUserSpeechStart: handleUserSpeechStart,
-    onUserSpeechEnd: handleUserSpeechEnd,
+    isConnecting: isLiveKitConnecting,
+    isConnected: isLiveKitConnected,
+    isAgentSpeaking,
+    startCall: startLiveKitCall,
+    endCall: endLiveKitCall,
+    toggleMute: toggleLiveKitMute,
+  } = useLiveKitCall({
+    avatarId,
+    avatarName,
+    onConnected: () => {
+      toast({
+        title: "Connesso!",
+        description: `Stai parlando con ${avatarName}`,
+      });
+    },
+    onTrackSubscribed: (track) => {
+      if (track.kind === Track.Kind.Audio && remoteAudioRef.current) {
+        track.attach(remoteAudioRef.current);
+      }
+    },
+    onTrackUnsubscribed: (track) => {
+      track.detach();
+    },
   });
-
-  // Sync VAPI transcript to HeyGen for lip-sync
-  useEffect(() => {
-    if (transcript && isHeyGenConnected) {
-      sendHeyGenText(transcript);
-    }
-  }, [transcript, isHeyGenConnected, sendHeyGenText]);
-
-  // Enable listening mode when user is speaking
-  useEffect(() => {
-    if (isHeyGenConnected) {
-      setListeningMode(isUserSpeaking);
-    }
-  }, [isUserSpeaking, isHeyGenConnected, setListeningMode]);
 
   // Attach HeyGen stream to video element
   useEffect(() => {
@@ -193,40 +168,38 @@ export function HeyGenVideoCall({
         }
       }, 500);
 
-      // Start Vapi call
-      const vapiTimer = setTimeout(() => {
-        if (vapiAssistantId) {
-          startVapiCall();
-        }
+      // Start LiveKit call
+      const liveKitTimer = setTimeout(() => {
+        startLiveKitCall(true);
       }, 1500);
 
       return () => {
         clearTimeout(heygenTimer);
-        clearTimeout(vapiTimer);
+        clearTimeout(liveKitTimer);
       };
     }
     
     if (!isOpen && isInitialized) {
       stopLocalCamera();
       stopHeyGenSession();
-      endVapiCall();
+      endLiveKitCall();
       setCallDuration(0);
       setTranscript("");
       setIsInitialized(false);
       setShowConnectingText(true);
     }
-  }, [isOpen, isInitialized, vapiAssistantId, startLocalCamera, startHeyGenSession, startVapiCall, stopLocalCamera, stopHeyGenSession, endVapiCall]);
+  }, [isOpen, isInitialized, startLocalCamera, startHeyGenSession, startLiveKitCall, stopLocalCamera, stopHeyGenSession, endLiveKitCall]);
 
   // Call duration timer
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isVapiConnected || isHeyGenConnected) {
+    if (isLiveKitConnected || isHeyGenConnected) {
       interval = setInterval(() => {
         setCallDuration((prev) => prev + 1);
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [isVapiConnected, isHeyGenConnected]);
+  }, [isLiveKitConnected, isHeyGenConnected]);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -237,7 +210,7 @@ export function HeyGenVideoCall({
   const handleClose = async () => {
     stopLocalCamera();
     stopHeyGenSession();
-    endVapiCall();
+    endLiveKitCall();
     onClose();
   };
 
@@ -254,7 +227,7 @@ export function HeyGenVideoCall({
   const handleToggleMic = () => {
     const newMicState = !isMicOn;
     setIsMicOn(newMicState);
-    toggleVapiMute(!newMicState);
+    toggleLiveKitMute(!newMicState);
   };
 
   const handleToggleFullscreen = () => {
@@ -267,14 +240,13 @@ export function HeyGenVideoCall({
     }
   };
 
-  const isConnecting = isHeyGenConnecting || isVapiConnecting;
-  const isConnected = isHeyGenConnected || isVapiConnected;
-  const isSpeaking = isHeyGenSpeaking || isVapiSpeaking;
+  const isConnecting = isHeyGenConnecting || isLiveKitConnecting;
+  const isConnected = isHeyGenConnected || isLiveKitConnected;
+  const isSpeaking = isHeyGenSpeaking || isAgentSpeaking;
 
   const getStatusText = () => {
     if (isConnecting) return "Connessione in corso...";
     if (isConnected && isSpeaking) return "Sta parlando...";
-    if (isConnected && isUserSpeaking) return "Ti sta ascoltando...";
     if (isConnected) return "In ascolto...";
     return "In attesa";
   };
@@ -288,6 +260,9 @@ export function HeyGenVideoCall({
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900"
         >
+          {/* Hidden audio element for remote audio */}
+          <audio ref={remoteAudioRef} autoPlay style={{ display: "none" }} />
+          
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -334,13 +309,10 @@ export function HeyGenVideoCall({
 
             {/* Centered Circular Avatar Video */}
             <div className="relative flex flex-col items-center justify-center">
-              {/* Circular video container */}
               <div 
                 className={`relative rounded-full overflow-hidden border-4 transition-all duration-300 ${
                   isSpeaking 
                     ? "border-primary shadow-[0_0_60px_rgba(139,92,246,0.5)]" 
-                    : isUserSpeaking
-                    ? "border-green-400 shadow-[0_0_40px_rgba(74,222,128,0.4)]"
                     : "border-white/20"
                 }`}
                 style={{ width: "320px", height: "320px" }}
@@ -367,7 +339,6 @@ export function HeyGenVideoCall({
                   </motion.div>
                 )}
 
-                {/* Pulsing ring when speaking */}
                 {isSpeaking && (
                   <motion.div
                     className="absolute inset-0 rounded-full border-4 border-primary"
@@ -377,7 +348,6 @@ export function HeyGenVideoCall({
                 )}
               </div>
 
-              {/* Connection status text */}
               <AnimatePresence>
                 {showConnectingText && !isHeyGenConnected && (
                   <motion.div
@@ -395,8 +365,7 @@ export function HeyGenVideoCall({
                 )}
               </AnimatePresence>
 
-              {/* Connected status */}
-              {isHeyGenConnected && !isSpeaking && !isUserSpeaking && (
+              {isHeyGenConnected && !isSpeaking && (
                 <motion.p
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -407,7 +376,7 @@ export function HeyGenVideoCall({
               )}
             </div>
 
-            {/* Local video (picture-in-picture) */}
+            {/* Local video */}
             {hasLocalVideo && (
               <div className="absolute bottom-28 right-6 w-32 h-24 rounded-xl overflow-hidden border-2 border-white/20 shadow-2xl bg-black">
                 <video
@@ -457,7 +426,7 @@ export function HeyGenVideoCall({
                 size="icon"
                 className="rounded-full w-12 h-12"
                 onClick={handleToggleMic}
-                disabled={!isVapiConnected}
+                disabled={!isLiveKitConnected}
               >
                 {isMicOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
               </Button>
