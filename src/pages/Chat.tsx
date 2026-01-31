@@ -27,7 +27,7 @@ import { useHybridCall } from "@/hooks/useHybridCall";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useMem0 } from "@/hooks/useMem0";
 import { useConvEmotion } from "@/hooks/useConvEmotion";
-import { useHeyGenPrewarm } from "@/hooks/useHeyGenPrewarm";
+
 import { IncomingCallModal } from "@/components/IncomingCallModal";
 import { ImmersiveVideoCall } from "@/components/video-call";
 import { ChatBubble } from "@/components/chat/ChatBubble";
@@ -126,10 +126,6 @@ export default function Chat() {
     addMessageAndAnalyze,
   } = useConvEmotion();
 
-  // HeyGen prewarming disabled - now using iframe embed approach
-  // which doesn't require API token generation
-  const isPrewarmReady = true; // Always ready with embed
-  const prewarmToken = null; // Not needed for embed
 
   // Hybrid call hook for in-call chat messages
   const {
@@ -607,12 +603,7 @@ export default function Chat() {
         avatarImage={avatar.imageUrl}
         avatarId={avatar.id}
         avatarPersonality={avatar.personality}
-        heygenAvatarId={avatar.heygenAvatarId}
-        heygenVoiceId={avatar.defaultVoiceId}
-        heygenGender={avatar.heygenGender}
         videoEnabled={callVideoEnabled}
-        prewarmToken={prewarmToken}
-        isPrewarmed={isPrewarmReady}
       />
 
       {/* Shared Memories Gallery */}
