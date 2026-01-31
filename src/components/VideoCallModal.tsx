@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Video,
@@ -11,12 +11,14 @@ import {
   User,
   Loader2,
   Volume2,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLiveKitCall } from "@/hooks/useLiveKitCall";
 import { Avatar3DViewer } from "./Avatar3DViewer";
 import { useToast } from "@/hooks/use-toast";
 import { Track } from "livekit-client";
+import { LocalVideoTrack } from "./video-call/LocalVideoTrack";
 
 interface VideoCallModalProps {
   isOpen: boolean;
@@ -35,27 +37,28 @@ export function VideoCallModal({
   avatarModelUrl,
   avatarId,
 }: VideoCallModalProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
   const { toast } = useToast();
   
-  const [isCameraOn, setIsCameraOn] = useState(true);
-  const [isMicOn, setIsMicOn] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showAvatar3D, setShowAvatar3D] = useState(true);
   const [callDuration, setCallDuration] = useState(0);
-  const [hasLocalVideo, setHasLocalVideo] = useState(false);
   const [transcript, setTranscript] = useState<string>("");
 
-  // LiveKit voice call integration
+  // LiveKit voice call integration with full A/V management
   const {
     isConnecting: isLiveKitConnecting,
     isConnected: isLiveKitConnected,
     isAgentSpeaking: isAvatarSpeaking,
+    isCameraOn,
+    isMuted,
+    localVideoTrack,
     startCall: startLiveKitCall,
     endCall: endLiveKitCall,
     toggleMute: toggleLiveKitMute,
+    toggleCamera: toggleLiveKitCamera,
+    switchCamera,
+    remoteAudioTrack,
   } = useLiveKitCall({
     avatarId,
     avatarName,
@@ -80,6 +83,7 @@ export function VideoCallModal({
       });
     },
     onTrackSubscribed: (track) => {
+      // Audio tracks are auto-attached via remoteAudioTrack state
       if (track.kind === Track.Kind.Audio && remoteAudioRef.current) {
         track.attach(remoteAudioRef.current);
       }
@@ -89,44 +93,10 @@ export function VideoCallModal({
     },
   });
 
-  // Start local camera when modal opens
-  const startLocalCamera = useCallback(async () => {
-    if (!videoRef.current || streamRef.current) return;
-    
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: false, // Audio is handled by LiveKit
-      });
-      
-      streamRef.current = stream;
-      videoRef.current.srcObject = stream;
-      await videoRef.current.play();
-      setHasLocalVideo(true);
-    } catch (error) {
-      console.error("Camera access error:", error);
-      setHasLocalVideo(false);
-    }
-  }, []);
-
-  // Stop local camera
-  const stopLocalCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    setHasLocalVideo(false);
-  }, []);
-
-  // Start everything when modal opens
+  // Start LiveKit call when modal opens
   useEffect(() => {
     if (isOpen) {
-      startLocalCamera();
-      
-      // Auto-start LiveKit call
+      // Auto-start LiveKit call with video enabled
       if (!isLiveKitConnected && !isLiveKitConnecting) {
         const timer = setTimeout(() => {
           startLiveKitCall(true);
@@ -135,14 +105,13 @@ export function VideoCallModal({
       }
     } else {
       // Cleanup when modal closes
-      stopLocalCamera();
       if (isLiveKitConnected) {
         endLiveKitCall();
       }
       setCallDuration(0);
       setTranscript("");
     }
-  }, [isOpen, isLiveKitConnected, isLiveKitConnecting, startLiveKitCall, endLiveKitCall, startLocalCamera, stopLocalCamera]);
+  }, [isOpen, isLiveKitConnected, isLiveKitConnecting, startLiveKitCall, endLiveKitCall]);
 
   // Timer for call duration
   useEffect(() => {
@@ -155,6 +124,16 @@ export function VideoCallModal({
     return () => clearInterval(interval);
   }, [isLiveKitConnected]);
 
+  // Attach remote audio track
+  useEffect(() => {
+    if (remoteAudioTrack && remoteAudioRef.current) {
+      remoteAudioTrack.attach(remoteAudioRef.current);
+      return () => {
+        remoteAudioTrack.detach();
+      };
+    }
+  }, [remoteAudioTrack]);
+
   // Format duration as MM:SS
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -164,7 +143,6 @@ export function VideoCallModal({
 
   // Handle closing
   const handleClose = async () => {
-    stopLocalCamera();
     if (isLiveKitConnected) {
       endLiveKitCall();
     }
@@ -172,22 +150,11 @@ export function VideoCallModal({
   };
 
   const handleToggleCamera = () => {
-    if (streamRef.current) {
-      const videoTrack = streamRef.current.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !isCameraOn;
-        setIsCameraOn(!isCameraOn);
-      }
-    } else if (!isCameraOn) {
-      startLocalCamera();
-      setIsCameraOn(true);
-    }
+    toggleLiveKitCamera();
   };
 
   const handleToggleMic = () => {
-    const newMicState = !isMicOn;
-    setIsMicOn(newMicState);
-    toggleLiveKitMute(!newMicState);
+    toggleLiveKitMute();
   };
 
   const handleToggleFullscreen = () => {
@@ -287,7 +254,7 @@ export function VideoCallModal({
             {/* Main Video Area */}
             <div className="flex-1 relative bg-gradient-to-br from-slate-900 to-slate-800 rounded-b-xl overflow-hidden">
               {/* Avatar section (main) */}
-              <div className={`absolute inset-0 ${hasLocalVideo && showAvatar3D ? 'right-1/4' : ''} flex items-center justify-center`}>
+              <div className={`absolute inset-0 ${localVideoTrack && showAvatar3D ? 'right-1/4' : ''} flex items-center justify-center`}>
                 {showAvatar3D ? (
                   <Avatar3DViewer
                     avatarUrl={avatarModelUrl}
@@ -337,24 +304,15 @@ export function VideoCallModal({
                 )}
               </div>
 
-              {/* Local video (picture-in-picture) */}
-              {hasLocalVideo && (
-                <div className="absolute bottom-4 right-4 w-48 h-36 rounded-lg overflow-hidden border-2 border-white/20 shadow-2xl bg-black">
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className={`w-full h-full object-cover ${!isCameraOn ? 'hidden' : ''}`}
-                  />
-                  {!isCameraOn && (
-                    <div className="flex flex-col items-center justify-center h-full text-white/60 bg-slate-800">
-                      <VideoOff className="w-8 h-8 mb-1" />
-                      <p className="text-xs">Camera off</p>
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Local video (picture-in-picture) - Now using LiveKit track */}
+              <div className="absolute bottom-4 right-4 w-48 h-36 rounded-lg overflow-hidden border-2 border-white/20 shadow-2xl bg-black">
+                <LocalVideoTrack
+                  track={localVideoTrack}
+                  isCameraOn={isCameraOn}
+                  className="w-full h-full"
+                  mirrored={true}
+                />
+              </div>
 
               {/* Transcript overlay */}
               {transcript && (
@@ -411,15 +369,27 @@ export function VideoCallModal({
                 )}
               </Button>
 
+              {/* Switch camera button (mobile) */}
               <Button
-                variant={isMicOn ? "secondary" : "destructive"}
+                variant="secondary"
+                size="icon"
+                className="rounded-full w-12 h-12 md:hidden"
+                onClick={switchCamera}
+                disabled={!isCameraOn}
+                title="Cambia camera"
+              >
+                <RefreshCw className="w-5 h-5" />
+              </Button>
+
+              <Button
+                variant={!isMuted ? "secondary" : "destructive"}
                 size="icon"
                 className="rounded-full w-12 h-12"
                 onClick={handleToggleMic}
                 disabled={!isLiveKitConnected}
-                title={isMicOn ? "Disattiva microfono" : "Attiva microfono"}
+                title={!isMuted ? "Disattiva microfono" : "Attiva microfono"}
               >
-                {isMicOn ? (
+                {!isMuted ? (
                   <Mic className="w-5 h-5" />
                 ) : (
                   <MicOff className="w-5 h-5" />

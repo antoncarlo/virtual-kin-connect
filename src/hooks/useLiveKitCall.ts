@@ -4,13 +4,18 @@ import { supabase } from "@/lib/supabase-client";
 import {
   Room,
   RoomEvent,
-  ConnectionState,
   Track,
   Participant,
   RemoteTrack,
   RemoteTrackPublication,
   LocalParticipant,
   RemoteParticipant,
+  LocalTrack,
+  LocalVideoTrack,
+  LocalAudioTrack,
+  createLocalVideoTrack,
+  createLocalAudioTrack,
+  VideoPresets,
 } from "livekit-client";
 
 export type LiveKitConnectionState =
@@ -66,17 +71,23 @@ export function useLiveKitCall({
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [isCameraOn, setIsCameraOn] = useState(true);
+  const [isCameraOn, setIsCameraOn] = useState(false);
   const [microphoneStatus, setMicrophoneStatus] = useState<MicrophoneStatus>("unknown");
   const [callStartTime, setCallStartTime] = useState<number | null>(null);
   const [activeSpeakers, setActiveSpeakers] = useState<Participant[]>([]);
   const [remoteParticipants, setRemoteParticipants] = useState<RemoteParticipant[]>([]);
-  const [audioTrack, setAudioTrack] = useState<RemoteTrack | null>(null);
-  const [videoTrack, setVideoTrack] = useState<RemoteTrack | null>(null);
+  
+  // Tracks
+  const [remoteAudioTrack, setRemoteAudioTrack] = useState<RemoteTrack | null>(null);
+  const [remoteVideoTrack, setRemoteVideoTrack] = useState<RemoteTrack | null>(null);
+  const [localVideoTrack, setLocalVideoTrack] = useState<LocalVideoTrack | null>(null);
+  const [localAudioTrack, setLocalAudioTrack] = useState<LocalAudioTrack | null>(null);
 
   // Refs
   const roomRef = useRef<Room | null>(null);
   const isStartingRef = useRef(false);
+  const localVideoTrackRef = useRef<LocalVideoTrack | null>(null);
+  const localAudioTrackRef = useRef<LocalAudioTrack | null>(null);
 
   // Update connection state with callback
   const updateConnectionState = useCallback((state: LiveKitConnectionState) => {
@@ -110,8 +121,8 @@ export function useLiveKitCall({
     }
   }, []);
 
-  // Request microphone access
-  const requestMicrophoneAccess = useCallback(async (): Promise<boolean> => {
+  // Request media permissions without acquiring stream (LiveKit will handle that)
+  const requestMediaPermissions = useCallback(async (enableVideo: boolean): Promise<boolean> => {
     updateConnectionState("checking-permissions");
 
     try {
@@ -127,22 +138,32 @@ export function useLiveKitCall({
         return false;
       }
 
-      // Try to get microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({
+      // Just verify we can get permissions - don't keep the stream
+      const constraints: MediaStreamConstraints = {
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
         },
-      });
+      };
+      
+      if (enableVideo) {
+        constraints.video = {
+          facingMode: "user",
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+        };
+      }
 
-      // Release the stream immediately - LiveKit will handle audio
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      // Release immediately - LiveKit will create its own tracks
       stream.getTracks().forEach(track => track.stop());
+      
       setMicrophoneStatus("granted");
       return true;
 
     } catch (error) {
-      console.error('Microphone access error:', error);
+      console.error('Media permission error:', error);
       const err = error as Error;
 
       if (err.name === 'NotAllowedError') {
@@ -161,8 +182,8 @@ export function useLiveKitCall({
         });
       } else {
         toast({
-          title: "Errore microfono",
-          description: "Impossibile accedere al microfono. Verifica i permessi.",
+          title: "Errore dispositivo",
+          description: "Impossibile accedere ai dispositivi media. Verifica i permessi.",
           variant: "destructive",
         });
       }
@@ -201,9 +222,67 @@ export function useLiveKitCall({
     }
   }, [avatarId, avatarName, customRoomName]);
 
+  // Create and publish local tracks
+  const publishLocalTracks = useCallback(async (room: Room, enableVideo: boolean) => {
+    console.log('[LiveKit] Creating and publishing local tracks...');
+    
+    try {
+      // Create audio track
+      const audioTrack = await createLocalAudioTrack({
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      });
+      
+      localAudioTrackRef.current = audioTrack;
+      setLocalAudioTrack(audioTrack);
+      
+      // Publish audio track
+      await room.localParticipant.publishTrack(audioTrack);
+      console.log('[LiveKit] Audio track published');
+
+      // Create and publish video track if enabled
+      if (enableVideo) {
+        const videoTrack = await createLocalVideoTrack({
+          facingMode: "user",
+          resolution: VideoPresets.h540.resolution,
+        });
+        
+        localVideoTrackRef.current = videoTrack;
+        setLocalVideoTrack(videoTrack);
+        setIsCameraOn(true);
+        
+        await room.localParticipant.publishTrack(videoTrack);
+        console.log('[LiveKit] Video track published');
+      }
+      
+    } catch (error) {
+      console.error('[LiveKit] Failed to publish local tracks:', error);
+      throw error;
+    }
+  }, []);
+
+  // Clean up local tracks
+  const cleanupLocalTracks = useCallback(() => {
+    if (localVideoTrackRef.current) {
+      localVideoTrackRef.current.stop();
+      localVideoTrackRef.current = null;
+      setLocalVideoTrack(null);
+    }
+    if (localAudioTrackRef.current) {
+      localAudioTrackRef.current.stop();
+      localAudioTrackRef.current = null;
+      setLocalAudioTrack(null);
+    }
+    setIsCameraOn(false);
+    setIsMuted(false);
+  }, []);
+
   // Clean up room
   const cleanupRoom = useCallback(async () => {
     console.log('[LiveKit] Cleaning up room...');
+    
+    cleanupLocalTracks();
     
     if (roomRef.current) {
       try {
@@ -215,12 +294,12 @@ export function useLiveKitCall({
     }
 
     isStartingRef.current = false;
-    setAudioTrack(null);
-    setVideoTrack(null);
+    setRemoteAudioTrack(null);
+    setRemoteVideoTrack(null);
     setRemoteParticipants([]);
     setActiveSpeakers([]);
     setCallStartTime(null);
-  }, []);
+  }, [cleanupLocalTracks]);
 
   // Start the call
   const startCall = useCallback(async (enableVideo = true) => {
@@ -232,8 +311,8 @@ export function useLiveKitCall({
     try {
       isStartingRef.current = true;
 
-      // Check microphone permissions first
-      const hasPermission = await requestMicrophoneAccess();
+      // Check media permissions first
+      const hasPermission = await requestMediaPermissions(enableVideo);
       if (!hasPermission) {
         isStartingRef.current = false;
         return;
@@ -254,7 +333,7 @@ export function useLiveKitCall({
         adaptiveStream: true,
         dynacast: true,
         videoCaptureDefaults: {
-          resolution: { width: 640, height: 480 },
+          resolution: VideoPresets.h540.resolution,
         },
         audioCaptureDefaults: {
           echoCancellation: true,
@@ -319,9 +398,9 @@ export function useLiveKitCall({
         console.log('[LiveKit] Track subscribed:', track.kind, 'from', participant.identity);
         
         if (track.kind === Track.Kind.Audio) {
-          setAudioTrack(track);
+          setRemoteAudioTrack(track);
         } else if (track.kind === Track.Kind.Video) {
-          setVideoTrack(track);
+          setRemoteVideoTrack(track);
         }
         
         onTrackSubscribed?.(track, publication, participant);
@@ -331,9 +410,9 @@ export function useLiveKitCall({
         console.log('[LiveKit] Track unsubscribed:', track.kind);
         
         if (track.kind === Track.Kind.Audio) {
-          setAudioTrack(null);
+          setRemoteAudioTrack(null);
         } else if (track.kind === Track.Kind.Video) {
-          setVideoTrack(null);
+          setRemoteVideoTrack(null);
         }
         
         onTrackUnsubscribed?.(track, publication, participant);
@@ -353,17 +432,13 @@ export function useLiveKitCall({
         });
       });
 
-      // Connect to the room
-      await room.connect(tokenData.serverUrl, tokenData.token);
+      // Connect to the room (without auto-publishing)
+      await room.connect(tokenData.serverUrl, tokenData.token, {
+        autoSubscribe: true,
+      });
 
-      // Enable local tracks after connection
-      await room.localParticipant.enableCameraAndMicrophone();
-
-      // If video not enabled, disable camera
-      if (!enableVideo) {
-        await room.localParticipant.setCameraEnabled(false);
-        setIsCameraOn(false);
-      }
+      // Manually publish local tracks after connection
+      await publishLocalTracks(room, enableVideo);
 
     } catch (error) {
       console.error('[LiveKit] Failed to start call:', error);
@@ -384,9 +459,10 @@ export function useLiveKitCall({
   }, [
     connectionState,
     avatarName,
-    requestMicrophoneAccess,
+    requestMediaPermissions,
     fetchToken,
     updateConnectionState,
+    publishLocalTracks,
     cleanupRoom,
     toast,
     onConnected,
@@ -413,33 +489,89 @@ export function useLiveKitCall({
 
   // Toggle mute
   const toggleMute = useCallback(async (muted?: boolean) => {
-    if (!roomRef.current) return;
-    
     const newMuteState = muted !== undefined ? muted : !isMuted;
     
-    try {
-      await roomRef.current.localParticipant.setMicrophoneEnabled(!newMuteState);
+    if (localAudioTrackRef.current) {
+      if (newMuteState) {
+        localAudioTrackRef.current.mute();
+      } else {
+        localAudioTrackRef.current.unmute();
+      }
       setIsMuted(newMuteState);
       console.log('[LiveKit] Microphone:', newMuteState ? 'muted' : 'unmuted');
-    } catch (error) {
-      console.error('[LiveKit] Failed to toggle microphone:', error);
+    } else if (roomRef.current) {
+      // Fallback to room API
+      await roomRef.current.localParticipant.setMicrophoneEnabled(!newMuteState);
+      setIsMuted(newMuteState);
     }
   }, [isMuted]);
 
   // Toggle camera
   const toggleCamera = useCallback(async (enabled?: boolean) => {
-    if (!roomRef.current) return;
+    const room = roomRef.current;
+    if (!room) return;
     
     const newCameraState = enabled !== undefined ? enabled : !isCameraOn;
     
     try {
-      await roomRef.current.localParticipant.setCameraEnabled(newCameraState);
+      if (newCameraState) {
+        // Enable camera - create and publish new video track if needed
+        if (!localVideoTrackRef.current) {
+          const videoTrack = await createLocalVideoTrack({
+            facingMode: "user",
+            resolution: VideoPresets.h540.resolution,
+          });
+          localVideoTrackRef.current = videoTrack;
+          setLocalVideoTrack(videoTrack);
+          await room.localParticipant.publishTrack(videoTrack);
+          console.log('[LiveKit] Camera enabled and published');
+        } else {
+          // Just unmute existing track
+          await room.localParticipant.setCameraEnabled(true);
+        }
+      } else {
+        // Disable camera
+        if (localVideoTrackRef.current) {
+          await room.localParticipant.unpublishTrack(localVideoTrackRef.current);
+          localVideoTrackRef.current.stop();
+          localVideoTrackRef.current = null;
+          setLocalVideoTrack(null);
+          console.log('[LiveKit] Camera disabled and unpublished');
+        }
+      }
       setIsCameraOn(newCameraState);
-      console.log('[LiveKit] Camera:', newCameraState ? 'on' : 'off');
     } catch (error) {
       console.error('[LiveKit] Failed to toggle camera:', error);
     }
   }, [isCameraOn]);
+
+  // Switch camera (front/back for mobile)
+  const switchCamera = useCallback(async () => {
+    if (!localVideoTrackRef.current || !roomRef.current) return;
+    
+    try {
+      const currentSettings = localVideoTrackRef.current.mediaStreamTrack.getSettings();
+      const newFacingMode = currentSettings.facingMode === "user" ? "environment" : "user";
+      
+      // Stop and unpublish current track
+      await roomRef.current.localParticipant.unpublishTrack(localVideoTrackRef.current);
+      localVideoTrackRef.current.stop();
+      
+      // Create new track with different facing mode
+      const newVideoTrack = await createLocalVideoTrack({
+        facingMode: newFacingMode,
+        resolution: VideoPresets.h540.resolution,
+      });
+      
+      localVideoTrackRef.current = newVideoTrack;
+      setLocalVideoTrack(newVideoTrack);
+      
+      await roomRef.current.localParticipant.publishTrack(newVideoTrack);
+      console.log('[LiveKit] Camera switched to:', newFacingMode);
+    } catch (error) {
+      console.error('[LiveKit] Failed to switch camera:', error);
+    }
+  }, []);
 
   // Send data message
   const sendData = useCallback(async (data: string | Uint8Array, reliable = true) => {
@@ -488,16 +620,27 @@ export function useLiveKitCall({
     callStartTime,
     activeSpeakers,
     remoteParticipants,
-    audioTrack,
-    videoTrack,
     isAgentSpeaking,
     room: roomRef.current,
+
+    // Local tracks (for rendering)
+    localVideoTrack,
+    localAudioTrack,
+    
+    // Remote tracks
+    remoteAudioTrack,
+    remoteVideoTrack,
+    
+    // Renamed for clarity
+    audioTrack: remoteAudioTrack,
+    videoTrack: remoteVideoTrack,
 
     // Actions
     startCall,
     endCall,
     toggleMute,
     toggleCamera,
+    switchCamera,
     sendData,
     getCallDuration,
     getLocalParticipant,
