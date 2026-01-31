@@ -38,7 +38,7 @@ import { CinematicFilter } from "./CinematicFilter";
 import { LoadingTransition } from "./LoadingTransition";
 import { ResponsiveVideoContainer } from "./ResponsiveVideoContainer";
 import { LocalVideoTrack } from "./LocalVideoTrack";
-import { useHeyGenStreaming, PUBLIC_AVATARS } from "@/hooks/useHeyGenStreaming";
+import { RemoteVideoTrack } from "./RemoteVideoTrack";
 import { CallOverlay, type CallState } from "./CallOverlay";
 import { useRingtone } from "@/hooks/useRingtone";
 import { useAudioOutput } from "@/hooks/useAudioOutput";
@@ -51,15 +51,8 @@ interface ImmersiveVideoCallProps {
   avatarImage: string;
   avatarId: string;
   avatarPersonality?: string[];
-  heygenAvatarId?: string;
-  heygenVoiceId?: string;
-  heygenGender?: 'male' | 'female';
   /** If false, start in audio-only mode (no local camera, no avatar video) */
   videoEnabled?: boolean;
-  /** Pre-warmed token from useHeyGenPrewarm hook */
-  prewarmToken?: string | null;
-  /** Whether pre-warming is complete */
-  isPrewarmed?: boolean;
 }
 
 export function ImmersiveVideoCall({
@@ -69,14 +62,8 @@ export function ImmersiveVideoCall({
   avatarImage,
   avatarId,
   avatarPersonality = [],
-  heygenAvatarId,
-  heygenVoiceId,
-  heygenGender = 'male',
   videoEnabled = true,
-  prewarmToken = null,
-  isPrewarmed = false,
 }: ImmersiveVideoCallProps) {
-  const heygenVideoRef = useRef<HTMLVideoElement>(null);
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const { toast } = useToast();
@@ -97,8 +84,7 @@ export function ImmersiveVideoCall({
   const [callState, setCallState] = useState<CallState>("initiating");
   const [showVideoOverlay, setShowVideoOverlay] = useState(false);
   const [isSlowConnection, setIsSlowConnection] = useState(false);
-  const firstFrameReceived = useRef(false);
-  const overlayShownAt = useRef<number>(0);
+  const hasAgentVideo = useRef(false);
   const slowConnectionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Transcripts for overlay
@@ -128,45 +114,6 @@ export function ImmersiveVideoCall({
     selectDevice: selectAudioDevice,
   } = useAudioOutput({
     autoRequestPermission: true,
-  });
-
-  // HeyGen Streaming SDK hook for avatar video (optional, for video mode)
-  const {
-    isConnecting: isHeyGenConnecting,
-    isConnected: isHeyGenConnected,
-    isSpeaking: isAvatarSpeaking,
-    mediaStream: heygenMediaStream,
-    startSession: startHeyGenSession,
-    stopSession: stopHeyGenSession,
-  } = useHeyGenStreaming({
-    avatarId: heygenAvatarId || PUBLIC_AVATARS.BRYAN_IT_SITTING,
-    voiceId: heygenVoiceId,
-    quality: "high",
-    onConnected: () => {
-      console.log("[ImmersiveVideoCall] HeyGen SDK connected");
-      setConnectionQuality("excellent");
-      setLoadingStage("ready");
-      
-      if (!firstFrameReceived.current) {
-        firstFrameReceived.current = true;
-        if (liveKitConnectionState === "connected") {
-          setShowVideoOverlay(true);
-        }
-      }
-    },
-    onDisconnected: () => {
-      console.log("[ImmersiveVideoCall] HeyGen SDK disconnected");
-    },
-    onError: (error) => {
-      console.error("[ImmersiveVideoCall] HeyGen SDK error:", error);
-      setConnectionQuality("poor");
-      toast({
-        title: "Avatar connection failed",
-        description: "Using audio-only mode",
-        variant: "destructive",
-      });
-      setIsFallbackMode(true);
-    },
   });
 
   // Bandwidth monitoring with automatic fallback
@@ -221,15 +168,13 @@ export function ImmersiveVideoCall({
     avatarName,
     onConnected: () => {
       console.log("[ImmersiveVideoCall] LiveKit connected");
+      setConnectionQuality("excellent");
+      setLoadingStage("ready");
       
       toast({
-        title: "Connected!",
-        description: `You're now talking with ${avatarName}`,
+        title: "Connesso!",
+        description: `Stai parlando con ${avatarName}`,
       });
-      
-      if (firstFrameReceived.current) {
-        setShowVideoOverlay(true);
-      }
     },
     onDisconnected: () => {
       console.log("[ImmersiveVideoCall] LiveKit disconnected");
@@ -252,15 +197,22 @@ export function ImmersiveVideoCall({
       setIsUserSpeaking(isUserActive);
     },
     onTrackSubscribed: (track, publication, participant) => {
+      console.log('[ImmersiveVideoCall] Track subscribed:', track.kind, 'from', participant.identity);
+      
       // Attach remote audio/video tracks
       if (track.kind === Track.Kind.Audio && remoteAudioRef.current) {
         track.attach(remoteAudioRef.current);
       } else if (track.kind === Track.Kind.Video && remoteVideoRef.current) {
         track.attach(remoteVideoRef.current);
+        hasAgentVideo.current = true;
+        setShowVideoOverlay(true);
       }
     },
     onTrackUnsubscribed: (track) => {
       track.detach();
+      if (track.kind === Track.Kind.Video) {
+        hasAgentVideo.current = false;
+      }
     },
   });
 
@@ -286,15 +238,6 @@ export function ImmersiveVideoCall({
     }
   }, [isLiveKitConnected, showWelcome, startInsightSession]);
 
-  // Show video overlay when both HeyGen and LiveKit are ready
-  useEffect(() => {
-    if (isHeyGenConnected && liveKitConnectionState === "connected" && !firstFrameReceived.current) {
-      firstFrameReceived.current = true;
-      console.log("[ImmersiveVideoCall] HeyGen and LiveKit ready - showing video");
-      setShowVideoOverlay(true);
-    }
-  }, [isHeyGenConnected, liveKitConnectionState]);
-
   // LiveKit state machine
   useEffect(() => {
     if (!isOpen || !isInitialized) return;
@@ -319,8 +262,10 @@ export function ImmersiveVideoCall({
 
       setCallState("connected");
 
-      if (firstFrameReceived.current) {
-        setShowVideoOverlay(true);
+      // Clear slow connection timer
+      if (slowConnectionTimerRef.current) {
+        clearTimeout(slowConnectionTimerRef.current);
+        slowConnectionTimerRef.current = null;
       }
 
       return;
@@ -343,8 +288,7 @@ export function ImmersiveVideoCall({
       setShowWelcome(true);
       setLoadingStage("initializing");
 
-      firstFrameReceived.current = false;
-      overlayShownAt.current = Date.now();
+      hasAgentVideo.current = false;
 
       setCallState("initiating");
       setShowVideoOverlay(false);
@@ -361,13 +305,6 @@ export function ImmersiveVideoCall({
       setLoadingStage("connecting");
       setCallState("connecting");
       startLiveKitCall(videoEnabled);
-
-      // Video path: start HeyGen SDK session for avatar video
-      if (videoEnabled) {
-        setLoadingStage("stabilizing");
-        console.log("[ImmersiveVideoCall] Starting HeyGen SDK session...");
-        startHeyGenSession(heygenVideoRef.current || undefined);
-      }
     }
 
     if (!isOpen && isInitialized) {
@@ -378,7 +315,6 @@ export function ImmersiveVideoCall({
         slowConnectionTimerRef.current = null;
       }
 
-      stopHeyGenSession();
       endLiveKitCall();
 
       setCallDuration(0);
@@ -386,7 +322,7 @@ export function ImmersiveVideoCall({
       setShowWelcome(true);
       setCallState("ended");
       setIsSlowConnection(false);
-      firstFrameReceived.current = false;
+      hasAgentVideo.current = false;
       setShowVideoOverlay(false);
 
       if (document.fullscreenElement) {
@@ -401,31 +337,18 @@ export function ImmersiveVideoCall({
     endLiveKitCall,
     startRingtone,
     stopRingtone,
-    startHeyGenSession,
-    stopHeyGenSession,
   ]);
 
   // Call duration timer
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isLiveKitConnected || isHeyGenConnected) {
+    if (isLiveKitConnected) {
       interval = setInterval(() => {
         setCallDuration((prev) => prev + 1);
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [isLiveKitConnected, isHeyGenConnected]);
-
-  // Attach HeyGen media stream to video element
-  useEffect(() => {
-    if (heygenMediaStream && heygenVideoRef.current) {
-      console.log("[ImmersiveVideoCall] Attaching HeyGen media stream to video element");
-      heygenVideoRef.current.srcObject = heygenMediaStream;
-      heygenVideoRef.current.play().catch((e) => {
-        console.warn("[ImmersiveVideoCall] Video play error:", e);
-      });
-    }
-  }, [heygenMediaStream]);
+  }, [isLiveKitConnected]);
 
   // Attach remote audio track
   useEffect(() => {
@@ -436,6 +359,18 @@ export function ImmersiveVideoCall({
       };
     }
   }, [remoteAudioTrack]);
+
+  // Attach remote video track
+  useEffect(() => {
+    if (remoteVideoTrack && remoteVideoRef.current) {
+      remoteVideoTrack.attach(remoteVideoRef.current);
+      hasAgentVideo.current = true;
+      setShowVideoOverlay(true);
+      return () => {
+        remoteVideoTrack.detach();
+      };
+    }
+  }, [remoteVideoTrack]);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -451,12 +386,6 @@ export function ImmersiveVideoCall({
     if (slowConnectionTimerRef.current) {
       clearTimeout(slowConnectionTimerRef.current);
       slowConnectionTimerRef.current = null;
-    }
-
-    try {
-      stopHeyGenSession();
-    } catch (e) {
-      console.warn("[ImmersiveVideoCall] HeyGen cleanup error:", e);
     }
 
     try {
@@ -520,7 +449,6 @@ export function ImmersiveVideoCall({
   }, [
     stopRingtone,
     endLiveKitCall,
-    stopHeyGenSession,
     callDuration,
     avatarId,
     avatarName,
@@ -566,8 +494,8 @@ export function ImmersiveVideoCall({
   }, []);
 
   const isConnecting = isLiveKitConnecting || liveKitConnectionState === "checking-permissions";
-  const isConnected = isHeyGenConnected || isLiveKitConnected;
-  const isSpeaking = isAgentSpeaking || isAvatarSpeaking;
+  const isConnected = isLiveKitConnected;
+  const isSpeaking = isAgentSpeaking;
   const isUserCurrentlySpeaking = isUserSpeaking;
 
   // Format audio devices for CallOverlay
@@ -616,7 +544,7 @@ export function ImmersiveVideoCall({
             <DynamicBackground temporalContext={temporalContext}>
               <ResponsiveVideoContainer
                 isConnecting={isConnecting}
-                isConnected={isHeyGenConnected}
+                isConnected={isLiveKitConnected}
                 temporalWarmth={
                   temporalContext.timeOfDay === "evening" || temporalContext.timeOfDay === "night" ? 50 : 25
                 }
@@ -628,21 +556,11 @@ export function ImmersiveVideoCall({
                   )}
                 </AnimatePresence>
 
-                {/* Main Avatar Video - HeyGen SDK or Remote Video from LiveKit Agent */}
+                {/* Main Video - Remote Agent Video from LiveKit */}
                 {!isFallbackMode && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black">
-                    {/* HeyGen Video Element */}
-                    <video
-                      ref={heygenVideoRef}
-                      autoPlay
-                      playsInline
-                      muted={false}
-                      className="w-full h-full object-cover"
-                      style={{ backgroundColor: "#000" }}
-                    />
-
-                    {/* Remote video from LiveKit Agent (if no HeyGen) */}
-                    {!isHeyGenConnected && remoteVideoTrack && (
+                    {/* Remote video from LiveKit Agent */}
+                    {remoteVideoTrack ? (
                       <video
                         ref={remoteVideoRef}
                         autoPlay
@@ -650,18 +568,27 @@ export function ImmersiveVideoCall({
                         className="w-full h-full object-cover"
                         style={{ backgroundColor: "#000" }}
                       />
-                    )}
-
-                    {/* Loading overlay */}
-                    {isHeyGenConnecting && !isHeyGenConnected && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm">
-                        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mb-3" />
-                        <p className="text-sm text-muted-foreground">Connecting to avatar...</p>
+                    ) : (
+                      // Show avatar image as fallback when no video
+                      <div className="flex flex-col items-center justify-center h-full bg-gradient-to-br from-slate-800 to-slate-900">
+                        <img
+                          src={avatarImage}
+                          alt={avatarName}
+                          className="w-32 h-32 md:w-48 md:h-48 rounded-full object-cover border-4 border-white/20 shadow-2xl"
+                        />
+                        <p className="mt-4 text-white/80 font-medium text-lg">{avatarName}</p>
+                        {isConnecting && (
+                          <div className="mt-4 flex items-center gap-2">
+                            <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                            <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                            <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                          </div>
+                        )}
                       </div>
                     )}
 
-                    {/* Cinematic overlay */}
-                    {isHeyGenConnected && (
+                    {/* Cinematic overlay when connected */}
+                    {isLiveKitConnected && remoteVideoTrack && (
                       <CinematicFilter
                         intensity="light"
                         warmth={
@@ -724,18 +651,18 @@ export function ImmersiveVideoCall({
                         </h3>
                         <p className="text-xs text-white/60">
                           {liveKitConnectionState === "checking-permissions"
-                            ? "Checking permissions..."
+                            ? "Verifica permessi..."
                             : liveKitConnectionState === "reconnecting"
-                            ? "Reconnecting..."
+                            ? "Riconnessione..."
                             : microphoneStatus === "denied"
-                            ? "Microphone blocked"
+                            ? "Microfono bloccato"
                             : isSpeaking
-                            ? "Speaking..."
+                            ? "Sta parlando..."
                             : isUserCurrentlySpeaking
-                            ? "Listening to you..."
+                            ? "Ti sta ascoltando..."
                             : isConnected
                             ? formatDuration(callDuration)
-                            : "Connecting..."}
+                            : "Connessione..."}
                         </p>
                       </div>
                     </div>
