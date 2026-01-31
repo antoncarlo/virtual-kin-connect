@@ -125,6 +125,36 @@ export type Database = {
         }
         Relationships: []
       }
+      avatars: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          source_video_url: string
+          system_prompt: string | null
+          updated_at: string
+          voice_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          source_video_url: string
+          system_prompt?: string | null
+          updated_at?: string
+          voice_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          source_video_url?: string
+          system_prompt?: string | null
+          updated_at?: string
+          voice_id?: string
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           avatar_id: string
