@@ -1,4 +1,6 @@
 export { ImmersiveVideoCall } from "./ImmersiveVideoCall";
+export { LocalVideoTrack } from "./LocalVideoTrack";
+export { RemoteVideoTrack } from "./RemoteVideoTrack";
 export { QuickChatOverlay } from "./QuickChatOverlay";
 export { ConnectionStatus } from "./ConnectionStatus";
 export { WelcomeAnimation } from "./WelcomeAnimation";

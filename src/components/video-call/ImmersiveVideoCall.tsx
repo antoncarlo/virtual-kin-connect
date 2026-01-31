@@ -37,11 +37,12 @@ import { VisionUpload } from "./VisionUpload";
 import { CinematicFilter } from "./CinematicFilter";
 import { LoadingTransition } from "./LoadingTransition";
 import { ResponsiveVideoContainer } from "./ResponsiveVideoContainer";
+import { LocalVideoTrack } from "./LocalVideoTrack";
 import { useHeyGenStreaming, PUBLIC_AVATARS } from "@/hooks/useHeyGenStreaming";
 import { CallOverlay, type CallState } from "./CallOverlay";
 import { useRingtone } from "@/hooks/useRingtone";
 import { useAudioOutput } from "@/hooks/useAudioOutput";
-import { Track, RemoteTrack, RemoteTrackPublication, RemoteParticipant, Participant } from "livekit-client";
+import { Track } from "livekit-client";
 
 interface ImmersiveVideoCallProps {
   isOpen: boolean;
@@ -76,17 +77,12 @@ export function ImmersiveVideoCall({
   isPrewarmed = false,
 }: ImmersiveVideoCallProps) {
   const heygenVideoRef = useRef<HTMLVideoElement>(null);
-  const localVideoRef = useRef<HTMLVideoElement>(null);
-  const localStreamRef = useRef<MediaStream | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const { toast } = useToast();
 
   // UI State
-  const [isCameraOn, setIsCameraOn] = useState(videoEnabled);
-  const [isMicOn, setIsMicOn] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [hasLocalVideo, setHasLocalVideo] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
   const [isInitialized, setIsInitialized] = useState(false);
   const [showQuickChat, setShowQuickChat] = useState(false);
@@ -202,7 +198,7 @@ export function ImmersiveVideoCall({
 
   const { bandwidthInfo, isLowBandwidth } = useBandwidthMonitor(bandwidthMonitorOptions);
 
-  // LiveKit call hook - replaces Vapi
+  // LiveKit call hook - manages all audio/video
   const {
     connectionState: liveKitConnectionState,
     isConnecting: isLiveKitConnecting,
@@ -210,13 +206,15 @@ export function ImmersiveVideoCall({
     isMuted: isLiveKitMuted,
     isCameraOn: isLiveKitCameraOn,
     activeSpeakers,
-    audioTrack,
-    videoTrack,
+    localVideoTrack,
+    remoteAudioTrack,
+    remoteVideoTrack,
     isAgentSpeaking,
     startCall: startLiveKitCall,
     endCall: endLiveKitCall,
     toggleMute: toggleLiveKitMute,
     toggleCamera: toggleLiveKitCamera,
+    switchCamera: switchLiveKitCamera,
     microphoneStatus,
   } = useLiveKitCall({
     avatarId,
@@ -338,65 +336,6 @@ export function ImmersiveVideoCall({
     }
   }, [isOpen, isInitialized, liveKitConnectionState, isRingtonePlaying, stopRingtone]);
 
-  const startLocalCamera = useCallback(async () => {
-    if (!localVideoRef.current || localStreamRef.current) return;
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "user",
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-        },
-        audio: false,
-      });
-      localStreamRef.current = stream;
-      localVideoRef.current.srcObject = stream;
-      await localVideoRef.current.play();
-      setHasLocalVideo(true);
-    } catch (error) {
-      console.error("Camera error:", error);
-      setHasLocalVideo(false);
-    }
-  }, []);
-
-  const stopLocalCamera = useCallback(() => {
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((track) => track.stop());
-      localStreamRef.current = null;
-    }
-    if (localVideoRef.current) {
-      localVideoRef.current.srcObject = null;
-    }
-    setHasLocalVideo(false);
-  }, []);
-
-  // Switch camera (mobile)
-  const switchCamera = useCallback(async () => {
-    if (!localStreamRef.current) return;
-
-    const currentTrack = localStreamRef.current.getVideoTracks()[0];
-    const currentFacing = currentTrack?.getSettings().facingMode || "user";
-    const newFacing = currentFacing === "user" ? "environment" : "user";
-
-    stopLocalCamera();
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: newFacing },
-        audio: false,
-      });
-      localStreamRef.current = stream;
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-        await localVideoRef.current.play();
-      }
-      setHasLocalVideo(true);
-    } catch (error) {
-      console.error("Switch camera error:", error);
-      startLocalCamera();
-    }
-  }, [stopLocalCamera, startLocalCamera]);
-
   // Initialize when modal opens
   useEffect(() => {
     if (isOpen && !isInitialized) {
@@ -417,22 +356,17 @@ export function ImmersiveVideoCall({
         setIsSlowConnection(true);
       }, 5000);
 
-      // Start LiveKit call
+      // Start LiveKit call - it handles all audio/video now
       console.log("[ImmersiveVideoCall] Starting LiveKit connection...");
       setLoadingStage("connecting");
       setCallState("connecting");
       startLiveKitCall(videoEnabled);
 
-      // Video path: start local camera AND HeyGen SDK session
+      // Video path: start HeyGen SDK session for avatar video
       if (videoEnabled) {
-        startLocalCamera();
         setLoadingStage("stabilizing");
-
         console.log("[ImmersiveVideoCall] Starting HeyGen SDK session...");
         startHeyGenSession(heygenVideoRef.current || undefined);
-      } else {
-        setIsCameraOn(false);
-        stopLocalCamera();
       }
     }
 
@@ -444,7 +378,6 @@ export function ImmersiveVideoCall({
         slowConnectionTimerRef.current = null;
       }
 
-      stopLocalCamera();
       stopHeyGenSession();
       endLiveKitCall();
 
@@ -464,8 +397,6 @@ export function ImmersiveVideoCall({
     isOpen,
     isInitialized,
     videoEnabled,
-    startLocalCamera,
-    stopLocalCamera,
     startLiveKitCall,
     endLiveKitCall,
     startRingtone,
@@ -496,6 +427,16 @@ export function ImmersiveVideoCall({
     }
   }, [heygenMediaStream]);
 
+  // Attach remote audio track
+  useEffect(() => {
+    if (remoteAudioTrack && remoteAudioRef.current) {
+      remoteAudioTrack.attach(remoteAudioRef.current);
+      return () => {
+        remoteAudioTrack.detach();
+      };
+    }
+  }, [remoteAudioTrack]);
+
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -511,8 +452,6 @@ export function ImmersiveVideoCall({
       clearTimeout(slowConnectionTimerRef.current);
       slowConnectionTimerRef.current = null;
     }
-
-    stopLocalCamera();
 
     try {
       stopHeyGenSession();
@@ -580,7 +519,6 @@ export function ImmersiveVideoCall({
     onClose();
   }, [
     stopRingtone,
-    stopLocalCamera,
     endLiveKitCall,
     stopHeyGenSession,
     callDuration,
@@ -596,23 +534,17 @@ export function ImmersiveVideoCall({
     onClose,
   ]);
 
-  const handleToggleCamera = () => {
-    if (localStreamRef.current) {
-      const videoTrack = localStreamRef.current.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !isCameraOn;
-        setIsCameraOn(!isCameraOn);
-      }
-    }
-    // Also toggle LiveKit camera
-    toggleLiveKitCamera(!isCameraOn);
-  };
+  const handleToggleCamera = useCallback(() => {
+    toggleLiveKitCamera();
+  }, [toggleLiveKitCamera]);
 
-  const handleToggleMic = () => {
-    const newMicState = !isMicOn;
-    setIsMicOn(newMicState);
-    toggleLiveKitMute(!newMicState);
-  };
+  const handleToggleMic = useCallback(() => {
+    toggleLiveKitMute();
+  }, [toggleLiveKitMute]);
+
+  const handleSwitchCamera = useCallback(() => {
+    switchLiveKitCamera();
+  }, [switchLiveKitCamera]);
 
   const handleToggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -659,8 +591,8 @@ export function ImmersiveVideoCall({
             avatarName={avatarName}
             avatarImage={avatarImage}
             callDuration={callDuration}
-            isMuted={!isMicOn}
-            isCameraOn={isCameraOn}
+            isMuted={isLiveKitMuted}
+            isCameraOn={isLiveKitCameraOn}
             isSpeaking={isSpeaking}
             isUserSpeaking={isUserCurrentlySpeaking}
             connectionQuality={connectionQuality}
@@ -710,7 +642,7 @@ export function ImmersiveVideoCall({
                     />
 
                     {/* Remote video from LiveKit Agent (if no HeyGen) */}
-                    {!isHeyGenConnected && videoTrack && (
+                    {!isHeyGenConnected && remoteVideoTrack && (
                       <video
                         ref={remoteVideoRef}
                         autoPlay
@@ -836,9 +768,9 @@ export function ImmersiveVideoCall({
                   </div>
                 </motion.div>
 
-                {/* Picture-in-Picture - Local Video */}
+                {/* Picture-in-Picture - Local Video (now using LiveKit track) */}
                 <AnimatePresence>
-                  {hasLocalVideo && (
+                  {videoEnabled && (
                     <motion.div
                       initial={{ scale: 0, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
@@ -848,19 +780,12 @@ export function ImmersiveVideoCall({
                       dragElastic={0.1}
                       className="absolute top-20 right-4 md:bottom-32 md:top-auto w-24 h-32 md:w-36 md:h-48 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl z-30"
                     >
-                      <video
-                        ref={localVideoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        className={`w-full h-full object-cover ${!isCameraOn ? "hidden" : ""}`}
+                      <LocalVideoTrack
+                        track={localVideoTrack}
+                        isCameraOn={isLiveKitCameraOn}
+                        className="w-full h-full"
+                        mirrored={true}
                       />
-                      {!isCameraOn && (
-                        <div className="flex flex-col items-center justify-center h-full bg-slate-800 text-white/60">
-                          <VideoOff className="w-6 h-6 mb-1" />
-                          <p className="text-xs">Off</p>
-                        </div>
-                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -929,20 +854,21 @@ export function ImmersiveVideoCall({
                       variant="ghost"
                       size="icon"
                       className={`rounded-full w-11 h-11 md:w-12 md:h-12 transition-all ${
-                        isCameraOn
+                        isLiveKitCameraOn
                           ? "bg-white/10 hover:bg-white/20 text-white"
                           : "bg-red-500/80 hover:bg-red-500 text-white"
                       }`}
                       onClick={handleToggleCamera}
                     >
-                      {isCameraOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
+                      {isLiveKitCameraOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
                     </Button>
 
                     <Button
                       variant="ghost"
                       size="icon"
                       className="rounded-full w-11 h-11 md:hidden bg-white/10 hover:bg-white/20 text-white"
-                      onClick={switchCamera}
+                      onClick={handleSwitchCamera}
+                      disabled={!isLiveKitCameraOn}
                     >
                       <RefreshCw className="w-4 h-4" />
                     </Button>
@@ -951,14 +877,14 @@ export function ImmersiveVideoCall({
                       variant="ghost"
                       size="icon"
                       className={`rounded-full w-11 h-11 md:w-12 md:h-12 transition-all ${
-                        isMicOn
+                        !isLiveKitMuted
                           ? "bg-white/10 hover:bg-white/20 text-white"
                           : "bg-red-500/80 hover:bg-red-500 text-white"
                       }`}
                       onClick={handleToggleMic}
                       disabled={!isLiveKitConnected}
                     >
-                      {isMicOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+                      {!isLiveKitMuted ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
                     </Button>
 
                     <Button
