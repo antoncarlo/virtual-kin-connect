@@ -1,3 +1,4 @@
+// LiveKit Voice/Video Call Hook - Pure WebRTC implementation
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase-client";
