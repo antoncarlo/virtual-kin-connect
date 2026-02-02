@@ -1,0 +1,14 @@
+# LiveKit Agent Framework
+livekit>=1.0.0
+livekit-agents>=1.3.0
+
+# LiveKit Plugins
+livekit-plugins-deepgram>=1.0.0
+livekit-plugins-cartesia>=1.0.0
+livekit-plugins-silero>=1.0.0
+
+# LLM
+anthropic>=0.40.0
+
+# Utilities
+python-dotenv>=1.0.0
