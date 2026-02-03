@@ -616,20 +616,20 @@ export function ImmersiveVideoCall({
                 {/* Main Video - Remote Agent Video from LiveKit */}
                 {!isFallbackMode && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black">
-                    {/* Remote video from LiveKit Agent */}
-                    {remoteVideoTrack ? (
-                      <video
-                        ref={remoteVideoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        preload="auto"
-                        className="w-full h-full object-cover"
-                        style={{ backgroundColor: "#000" }}
-                      />
-                    ) : (
-                      // Show avatar image as fallback when no video
-                      <div className="flex flex-col items-center justify-center h-full bg-gradient-to-br from-slate-800 to-slate-900">
+                    {/* Remote video from LiveKit Agent - ALWAYS rendered to ensure ref is available */}
+                    <video
+                      ref={remoteVideoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      preload="auto"
+                      className={`w-full h-full object-cover ${remoteVideoTrack ? 'block' : 'hidden'}`}
+                      style={{ backgroundColor: "#000" }}
+                    />
+                    
+                    {/* Show avatar image as fallback when no video track */}
+                    {!remoteVideoTrack && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
                         <img
                           src={avatarImage}
                           alt={avatarName}
