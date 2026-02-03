@@ -384,31 +384,65 @@ export function useLiveKitCall({
       });
 
       room.on(RoomEvent.ParticipantConnected, (participant: RemoteParticipant) => {
-        console.log('[LiveKit] Participant connected:', participant.identity);
+        console.log('[LiveKit] 👤 Participant connected:', participant.identity);
+        console.log('[LiveKit] 📋 Participant tracks:', Array.from(participant.trackPublications.values()).map(p => ({
+          trackSid: p.trackSid,
+          kind: p.kind,
+          source: p.source,
+          isSubscribed: p.isSubscribed,
+        })));
         setRemoteParticipants(prev => [...prev, participant]);
         onParticipantConnected?.(participant);
       });
 
       room.on(RoomEvent.ParticipantDisconnected, (participant: RemoteParticipant) => {
-        console.log('[LiveKit] Participant disconnected:', participant.identity);
+        console.log('[LiveKit] 👤 Participant disconnected:', participant.identity);
         setRemoteParticipants(prev => prev.filter(p => p.identity !== participant.identity));
         onParticipantDisconnected?.(participant);
       });
 
+      // Track published (before subscription)
+      room.on(RoomEvent.TrackPublished, (publication: RemoteTrackPublication, participant: RemoteParticipant) => {
+        console.log('[LiveKit] 📢 Track PUBLISHED:', {
+          trackSid: publication.trackSid,
+          trackName: publication.trackName,
+          kind: publication.kind,
+          source: publication.source,
+          participant: participant.identity,
+          isSubscribed: publication.isSubscribed,
+        });
+      });
+
       room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
-        console.log('[LiveKit] Track subscribed:', track.kind, 'from', participant.identity);
+        console.log('[LiveKit] ✅ Track SUBSCRIBED:', {
+          kind: track.kind,
+          trackSid: track.sid,
+          source: publication.source,
+          participant: participant.identity,
+          mediaStreamTrack: track.mediaStreamTrack?.id,
+        });
         
         if (track.kind === Track.Kind.Audio) {
+          console.log('[LiveKit] 🔊 Setting remote AUDIO track');
           setRemoteAudioTrack(track);
         } else if (track.kind === Track.Kind.Video) {
+          console.log('[LiveKit] 📹 Setting remote VIDEO track');
           setRemoteVideoTrack(track);
         }
         
         onTrackSubscribed?.(track, publication, participant);
       });
 
+      room.on(RoomEvent.TrackSubscriptionFailed, (trackSid: string, participant: RemoteParticipant, reason?: unknown) => {
+        console.error('[LiveKit] ❌ Track subscription FAILED:', {
+          trackSid,
+          participant: participant.identity,
+          reason: String(reason),
+        });
+      });
+
       room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
-        console.log('[LiveKit] Track unsubscribed:', track.kind);
+        console.log('[LiveKit] 🚫 Track unsubscribed:', track.kind, 'from', participant.identity);
         
         if (track.kind === Track.Kind.Audio) {
           setRemoteAudioTrack(null);
@@ -422,6 +456,14 @@ export function useLiveKitCall({
       room.on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) => {
         setActiveSpeakers(speakers);
         onActiveSpeakerChange?.(speakers);
+      });
+
+      room.on(RoomEvent.TrackMuted, (publication, participant) => {
+        console.log('[LiveKit] 🔇 Track muted:', publication.kind, 'from', participant.identity);
+      });
+
+      room.on(RoomEvent.TrackUnmuted, (publication, participant) => {
+        console.log('[LiveKit] 🔈 Track unmuted:', publication.kind, 'from', participant.identity);
       });
 
       room.on(RoomEvent.MediaDevicesError, (error: Error) => {
