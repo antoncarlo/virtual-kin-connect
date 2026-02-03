@@ -25,15 +25,61 @@ export function LocalVideoTrack({
   useEffect(() => {
     if (!videoRef.current || !track) return;
 
+    const el = videoRef.current;
+
     // Attach the track to the video element
-    track.attach(videoRef.current);
-    console.log("[LocalVideoTrack] Track attached");
+    track.attach(el);
+    console.log("[LocalVideoTrack] Track attached", {
+      trackSid: track.sid,
+      muted: track.isMuted,
+      mediaStreamTrackEnabled: track.mediaStreamTrack?.enabled,
+    });
+
+    // Some browsers require an explicit play() even with autoPlay.
+    const tryPlay = (reason: string) => {
+      const p = el.play();
+      if (p && typeof (p as Promise<void>).catch === "function") {
+        (p as Promise<void>).catch((err) => {
+          console.warn("[LocalVideoTrack] video.play() blocked", { reason, err: String(err) });
+        });
+      }
+    };
+
+    const onLoadedMetadata = () => {
+      console.log("[LocalVideoTrack] loadedmetadata", {
+        readyState: el.readyState,
+        videoWidth: el.videoWidth,
+        videoHeight: el.videoHeight,
+      });
+      tryPlay("loadedmetadata");
+    };
+
+    const onPlaying = () => {
+      console.log("[LocalVideoTrack] playing", {
+        readyState: el.readyState,
+        currentTime: el.currentTime,
+      });
+    };
+
+    const onError = () => {
+      console.error("[LocalVideoTrack] video element error", el.error);
+    };
+
+    el.addEventListener("loadedmetadata", onLoadedMetadata);
+    el.addEventListener("canplay", onLoadedMetadata);
+    el.addEventListener("playing", onPlaying);
+    el.addEventListener("error", onError);
+
+    // Kick an initial play attempt (keeps gesture context if any)
+    requestAnimationFrame(() => tryPlay("raf"));
 
     return () => {
-      if (videoRef.current) {
-        track.detach(videoRef.current);
-        console.log("[LocalVideoTrack] Track detached");
-      }
+      el.removeEventListener("loadedmetadata", onLoadedMetadata);
+      el.removeEventListener("canplay", onLoadedMetadata);
+      el.removeEventListener("playing", onPlaying);
+      el.removeEventListener("error", onError);
+      track.detach(el);
+      console.log("[LocalVideoTrack] Track detached", { trackSid: track.sid });
     };
   }, [track]);
 
@@ -47,6 +93,7 @@ export function LocalVideoTrack({
             autoPlay
             playsInline
             muted
+            preload="auto"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

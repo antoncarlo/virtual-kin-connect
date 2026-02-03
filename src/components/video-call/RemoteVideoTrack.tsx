@@ -25,15 +25,62 @@ export function RemoteVideoTrack({
   useEffect(() => {
     if (!videoRef.current || !track) return;
 
+    const el = videoRef.current;
+
     // Attach the track to the video element
-    track.attach(videoRef.current);
-    console.log("[RemoteVideoTrack] Track attached");
+    track.attach(el);
+    console.log("[RemoteVideoTrack] Track attached", {
+      kind: track.kind,
+      trackSid: track.sid,
+      muted: track.isMuted,
+      mediaStreamTrackId: track.mediaStreamTrack?.id,
+      mediaStreamTrackReadyState: track.mediaStreamTrack?.readyState,
+    });
+
+    // Some browsers require an explicit play() even with autoPlay.
+    const tryPlay = (reason: string) => {
+      const p = el.play();
+      if (p && typeof (p as Promise<void>).catch === "function") {
+        (p as Promise<void>).catch((err) => {
+          console.warn("[RemoteVideoTrack] video.play() blocked", { reason, err: String(err) });
+        });
+      }
+    };
+
+    const onLoadedMetadata = () => {
+      console.log("[RemoteVideoTrack] loadedmetadata", {
+        readyState: el.readyState,
+        videoWidth: el.videoWidth,
+        videoHeight: el.videoHeight,
+      });
+      tryPlay("loadedmetadata");
+    };
+
+    const onPlaying = () => {
+      console.log("[RemoteVideoTrack] playing", {
+        readyState: el.readyState,
+        currentTime: el.currentTime,
+      });
+    };
+
+    const onError = () => {
+      console.error("[RemoteVideoTrack] video element error", el.error);
+    };
+
+    el.addEventListener("loadedmetadata", onLoadedMetadata);
+    el.addEventListener("canplay", onLoadedMetadata);
+    el.addEventListener("playing", onPlaying);
+    el.addEventListener("error", onError);
+
+    requestAnimationFrame(() => tryPlay("raf"));
 
     return () => {
-      if (videoRef.current) {
-        track.detach(videoRef.current);
-        console.log("[RemoteVideoTrack] Track detached");
-      }
+      el.removeEventListener("loadedmetadata", onLoadedMetadata);
+      el.removeEventListener("canplay", onLoadedMetadata);
+      el.removeEventListener("playing", onPlaying);
+      el.removeEventListener("error", onError);
+      track.detach(el);
+      console.log("[RemoteVideoTrack] Track detached", { trackSid: track.sid });
     };
   }, [track]);
 
@@ -46,6 +93,8 @@ export function RemoteVideoTrack({
             ref={videoRef}
             autoPlay
             playsInline
+            muted
+            preload="auto"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
