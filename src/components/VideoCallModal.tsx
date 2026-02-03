@@ -17,8 +17,9 @@ import { Button } from "@/components/ui/button";
 import { useLiveKitCall } from "@/hooks/useLiveKitCall";
 import { Avatar3DViewer } from "./Avatar3DViewer";
 import { useToast } from "@/hooks/use-toast";
-import { Track } from "livekit-client";
+import { Track, RemoteTrack } from "livekit-client";
 import { LocalVideoTrack } from "./video-call/LocalVideoTrack";
+import { RemoteVideoTrack } from "./video-call/RemoteVideoTrack";
 
 interface VideoCallModalProps {
   isOpen: boolean;
@@ -49,10 +50,11 @@ export function VideoCallModal({
   const {
     isConnecting: isLiveKitConnecting,
     isConnected: isLiveKitConnected,
-    isAgentSpeaking: isAvatarSpeaking,
+    activeSpeakers,
     isCameraOn,
     isMuted,
     localVideoTrack,
+    remoteVideoTrack,
     startCall: startLiveKitCall,
     endCall: endLiveKitCall,
     toggleMute: toggleLiveKitMute,
@@ -82,16 +84,23 @@ export function VideoCallModal({
         variant: "destructive",
       });
     },
-    onTrackSubscribed: (track) => {
+    onTrackSubscribed: (track, publication, participant) => {
+      console.log('[VideoCallModal] Remote track subscribed:', track.kind, 'from', participant.identity);
       // Audio tracks are auto-attached via remoteAudioTrack state
       if (track.kind === Track.Kind.Audio && remoteAudioRef.current) {
         track.attach(remoteAudioRef.current);
       }
     },
     onTrackUnsubscribed: (track) => {
+      console.log('[VideoCallModal] Remote track unsubscribed:', track.kind);
       track.detach();
     },
   });
+
+  // Determine if agent is speaking based on active speakers
+  const isAvatarSpeaking = activeSpeakers.some(
+    (speaker) => speaker.identity !== "User" && speaker.identity !== "user"
+  );
 
   // Start LiveKit call when modal opens
   useEffect(() => {
@@ -253,9 +262,18 @@ export function VideoCallModal({
 
             {/* Main Video Area */}
             <div className="flex-1 relative bg-gradient-to-br from-slate-900 to-slate-800 rounded-b-xl overflow-hidden">
-              {/* Avatar section (main) */}
-              <div className={`absolute inset-0 ${localVideoTrack && showAvatar3D ? 'right-1/4' : ''} flex items-center justify-center`}>
-                {showAvatar3D ? (
+              {/* Agent video section (main) - Shows remote video if available, otherwise fallback */}
+              <div className={`absolute inset-0 ${localVideoTrack ? 'right-1/4' : ''} flex items-center justify-center`}>
+                {remoteVideoTrack ? (
+                  // Remote agent video stream
+                  <RemoteVideoTrack
+                    track={remoteVideoTrack as RemoteTrack}
+                    className="w-full h-full"
+                    fallbackImage={avatarImage}
+                    fallbackName={avatarName}
+                  />
+                ) : showAvatar3D ? (
+                  // 3D Avatar fallback when no remote video
                   <Avatar3DViewer
                     avatarUrl={avatarModelUrl}
                     avatarImage={avatarImage}
@@ -263,6 +281,7 @@ export function VideoCallModal({
                     isSpeaking={isAvatarSpeaking}
                   />
                 ) : (
+                  // Static avatar fallback
                   <div className="flex flex-col items-center justify-center">
                     <motion.div
                       animate={isAvatarSpeaking ? {
