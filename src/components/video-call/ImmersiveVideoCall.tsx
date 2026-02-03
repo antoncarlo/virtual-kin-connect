@@ -362,14 +362,71 @@ export function ImmersiveVideoCall({
 
   // Attach remote video track
   useEffect(() => {
-    if (remoteVideoTrack && remoteVideoRef.current) {
-      remoteVideoTrack.attach(remoteVideoRef.current);
-      hasAgentVideo.current = true;
-      setShowVideoOverlay(true);
-      return () => {
-        remoteVideoTrack.detach();
-      };
+    const el = remoteVideoRef.current;
+    if (!remoteVideoTrack || !el) {
+      console.log("[ImmersiveVideoCall] Remote video track or ref not ready", {
+        hasTrack: !!remoteVideoTrack,
+        hasRef: !!el,
+      });
+      return;
     }
+
+    console.log("[ImmersiveVideoCall] Attaching remote video track", {
+      trackSid: remoteVideoTrack.sid,
+      kind: remoteVideoTrack.kind,
+      mediaStreamTrackId: remoteVideoTrack.mediaStreamTrack?.id,
+      readyState: remoteVideoTrack.mediaStreamTrack?.readyState,
+    });
+
+    remoteVideoTrack.attach(el);
+    hasAgentVideo.current = true;
+    setShowVideoOverlay(true);
+
+    // Force play to avoid autoplay blocking
+    const tryPlay = (reason: string) => {
+      const p = el.play();
+      if (p && typeof (p as Promise<void>).catch === "function") {
+        (p as Promise<void>).catch((err) => {
+          console.warn("[ImmersiveVideoCall] Remote video play() blocked", { reason, err: String(err) });
+        });
+      }
+    };
+
+    const onLoadedMetadata = () => {
+      console.log("[ImmersiveVideoCall] Remote video loadedmetadata", {
+        videoWidth: el.videoWidth,
+        videoHeight: el.videoHeight,
+        readyState: el.readyState,
+      });
+      tryPlay("loadedmetadata");
+    };
+
+    const onPlaying = () => {
+      console.log("[ImmersiveVideoCall] Remote video PLAYING ✅", {
+        currentTime: el.currentTime,
+      });
+    };
+
+    const onError = () => {
+      console.error("[ImmersiveVideoCall] Remote video element error", el.error);
+    };
+
+    el.addEventListener("loadedmetadata", onLoadedMetadata);
+    el.addEventListener("canplay", onLoadedMetadata);
+    el.addEventListener("playing", onPlaying);
+    el.addEventListener("error", onError);
+
+    // Kick initial play in next frame
+    requestAnimationFrame(() => tryPlay("raf"));
+
+    return () => {
+      el.removeEventListener("loadedmetadata", onLoadedMetadata);
+      el.removeEventListener("canplay", onLoadedMetadata);
+      el.removeEventListener("playing", onPlaying);
+      el.removeEventListener("error", onError);
+      remoteVideoTrack.detach();
+      console.log("[ImmersiveVideoCall] Remote video track detached");
+    };
   }, [remoteVideoTrack]);
 
   const formatDuration = (seconds: number) => {
@@ -565,6 +622,8 @@ export function ImmersiveVideoCall({
                         ref={remoteVideoRef}
                         autoPlay
                         playsInline
+                        muted
+                        preload="auto"
                         className="w-full h-full object-cover"
                         style={{ backgroundColor: "#000" }}
                       />
