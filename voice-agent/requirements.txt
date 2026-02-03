@@ -1,0 +1,18 @@
+# LiveKit Agent Framework
+livekit>=1.0.0
+livekit-agents>=1.3.0
+
+# LiveKit Plugins
+livekit-plugins-cartesia>=1.0.0
+livekit-plugins-silero>=1.0.0
+
+# STT - Whisper locale su GPU
+faster-whisper>=1.0.0
+ctranslate2>=4.0.0
+numpy
+
+# LLM
+anthropic>=0.40.0
+
+# Utilities
+python-dotenv>=1.0.0
