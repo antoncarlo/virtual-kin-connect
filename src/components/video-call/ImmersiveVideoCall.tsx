@@ -38,7 +38,6 @@ import { CinematicFilter } from "./CinematicFilter";
 import { LoadingTransition } from "./LoadingTransition";
 import { ResponsiveVideoContainer } from "./ResponsiveVideoContainer";
 import { LocalVideoTrack } from "./LocalVideoTrack";
-import { RemoteVideoTrack } from "./RemoteVideoTrack";
 import { CallOverlay, type CallState } from "./CallOverlay";
 import { useRingtone } from "@/hooks/useRingtone";
 import { useAudioOutput } from "@/hooks/useAudioOutput";
@@ -198,15 +197,8 @@ export function ImmersiveVideoCall({
     },
     onTrackSubscribed: (track, publication, participant) => {
       console.log('[ImmersiveVideoCall] Track subscribed:', track.kind, 'from', participant.identity);
-      
-      // Attach remote audio/video tracks
-      if (track.kind === Track.Kind.Audio && remoteAudioRef.current) {
-        track.attach(remoteAudioRef.current);
-      } else if (track.kind === Track.Kind.Video && remoteVideoRef.current) {
-        track.attach(remoteVideoRef.current);
-        hasAgentVideo.current = true;
-        setShowVideoOverlay(true);
-      }
+      // NOTE: we intentionally DO NOT attach tracks here.
+      // Attaching is handled by dedicated effects below to avoid double-attach bugs.
     },
     onTrackUnsubscribed: (track) => {
       track.detach();
@@ -393,18 +385,59 @@ export function ImmersiveVideoCall({
     };
 
     const onLoadedMetadata = () => {
+      const rect = el.getBoundingClientRect();
       console.log("[ImmersiveVideoCall] Remote video loadedmetadata", {
         videoWidth: el.videoWidth,
         videoHeight: el.videoHeight,
+        clientWidth: el.clientWidth,
+        clientHeight: el.clientHeight,
+        rectWidth: rect.width,
+        rectHeight: rect.height,
         readyState: el.readyState,
       });
       tryPlay("loadedmetadata");
     };
 
     const onPlaying = () => {
+      const rect = el.getBoundingClientRect();
+      const cs = window.getComputedStyle(el);
       console.log("[ImmersiveVideoCall] Remote video PLAYING ✅", {
         currentTime: el.currentTime,
+        videoWidth: el.videoWidth,
+        videoHeight: el.videoHeight,
+        clientWidth: el.clientWidth,
+        clientHeight: el.clientHeight,
+        rectWidth: rect.width,
+        rectHeight: rect.height,
+        display: cs.display,
+        visibility: cs.visibility,
+        opacity: cs.opacity,
+        // Chrome-only counters (best-effort)
+        webkitDecodedFrameCount: (el as any).webkitDecodedFrameCount,
+        webkitDroppedFrameCount: (el as any).webkitDroppedFrameCount,
       });
+
+      // If supported, log the first few presented frames to confirm real video frames are arriving.
+      const rvfc = (el as any).requestVideoFrameCallback as undefined | ((cb: (now: number, meta: any) => void) => number);
+      if (rvfc) {
+        let n = 0;
+        const cb = (now: number, meta: any) => {
+          if (n < 3) {
+            console.log("[ImmersiveVideoCall] Remote video frame", {
+              n,
+              now,
+              mediaTime: meta?.mediaTime,
+              presentedFrames: meta?.presentedFrames,
+              expectedDisplayTime: meta?.expectedDisplayTime,
+              width: meta?.width,
+              height: meta?.height,
+            });
+            n += 1;
+            rvfc(cb);
+          }
+        };
+        rvfc(cb);
+      }
     };
 
     const onError = () => {
